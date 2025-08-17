@@ -4,6 +4,7 @@ use crate::math::Matrix;
 pub enum Op {
     MatMul,
     Add,
+    Softmax,
 }
 
 #[derive(Clone)]
@@ -77,6 +78,17 @@ impl Tensor {
         Tensor::from_matrix(t.data.transpose(), t.requires_grad)
     }
 
+    pub fn softmax(t: &Tensor) -> Tensor {
+        let data = t.data.softmax();
+        let requires_grad = t.requires_grad;
+        let node = if requires_grad {
+            Some(Node { op: Op::Softmax, parents: vec![t.clone()] })
+        } else {
+            None
+        };
+        Tensor { data, grad: None, requires_grad, node }
+    }
+
     pub fn backward(&mut self) {
         if self.grad.is_none() {
             self.grad = Some(Matrix::from_vec(
@@ -124,6 +136,32 @@ impl Tensor {
                                 }
                             }
                             stack.push(b.clone());
+                        }
+                    }
+                    Op::Softmax => {
+                        let a = &node.parents[0];
+                        if a.requires_grad {
+                            let grad_out = t.grad.as_ref().unwrap();
+                            let s = t.data.clone();
+                            let mut g_in = Matrix::zeros(s.rows, s.cols);
+                            for r in 0..s.rows {
+                                let row_start = r * s.cols;
+                                let s_row = &s.data[row_start..row_start + s.cols];
+                                let g_row = &grad_out.data[row_start..row_start + s.cols];
+                                let mut dot = 0.0;
+                                for j in 0..s.cols {
+                                    dot += g_row[j] * s_row[j];
+                                }
+                                for i in 0..s.cols {
+                                    g_in.data[row_start + i] = s_row[i] * (g_row[i] - dot);
+                                }
+                            }
+                            if let Some(ref mut ag) = a.clone().grad.clone() {
+                                for i in 0..ag.data.len() {
+                                    ag.data[i] += g_in.data[i];
+                                }
+                            }
+                            stack.push(a.clone());
                         }
                     }
                 }
