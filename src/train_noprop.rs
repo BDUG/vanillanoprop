@@ -1,6 +1,5 @@
 use crate::data::{load_pairs, to_matrix, Vocab};
 use crate::encoder_t::EncoderT;
-use crate::autograd::Tensor;
 use crate::weights::save_model;
 use indicatif::ProgressBar;
 
@@ -19,21 +18,26 @@ pub fn run() {
             let x = to_matrix(src, vocab_size);
             let enc_out = encoder.forward(&x);
 
-            let mut true_target = to_matrix(tgt, vocab_size);
-            for v in &mut true_target.data {
+            // encode target sentence with the same encoder to obtain a
+            // comparable representation and add a bit of noise
+            let mut noisy = encoder.forward(&to_matrix(tgt, vocab_size));
+            for v in &mut noisy.data.data {
                 *v += (rand::random::<f32>() - 0.5) * 0.1;
             }
-            let noisy = Tensor::from_matrix(true_target.clone());
 
             let mut loss = 0.0;
             for layer in encoder.layers.iter_mut() {
                 let out = layer.forward(&enc_out);
-                for i in 0..out.data.data.len() {
+
+                // ensure we only iterate over the common length to avoid
+                // indexing past the end when dimensions mismatch
+                let len = out.data.data.len().min(noisy.data.data.len());
+                for i in 0..len {
                     let d = out.data.data[i] - noisy.data.data[i];
                     loss += d * d;
 
-                    let len = layer.attn.wq.w.data.data.len();
-                    let idx = i % len;
+                    let w_len = layer.attn.wq.w.data.data.len();
+                    let idx = i % w_len;
                     layer.attn.wq.w.data.data[idx] -= lr * d;
                 }
             }
