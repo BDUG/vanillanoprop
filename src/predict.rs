@@ -30,6 +30,10 @@ pub fn run(input: &str) {
         }
         filtered.push(id);
     }
-    let translation = vocab.decode(&filtered);
+    let translation = if filtered.is_empty() {
+        "[no translation]".to_string()
+    } else {
+        vocab.decode(&filtered)
+    };
     println!("{{\"input\":\"{}\", \"translation\":\"{}\"}}", input, translation);
 }
