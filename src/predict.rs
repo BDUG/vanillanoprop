@@ -46,6 +46,16 @@ pub fn run(input: &str) {
         beams = new_beams.into_iter().take(5).collect();
     }
     let out_ids = &beams[0].0;
-    let translation = vocab.decode(out_ids);
+    let mut filtered = Vec::new();
+    for &id in out_ids.iter() {
+        if id == start_id {
+            continue;
+        }
+        if id == end_id {
+            break;
+        }
+        filtered.push(id);
+    }
+    let translation = vocab.decode(&filtered);
     println!("{{\"input\":\"{}\", \"translation\":\"{}\"}}", input, translation);
 }
