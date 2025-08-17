@@ -1,6 +1,6 @@
 use crate::autograd::Tensor;
 use crate::data::to_matrix;
-use crate::decoder_t::DecoderT;
+use crate::transformer_t::DecoderT;
 
 pub fn greedy_decode(
     decoder: &DecoderT,

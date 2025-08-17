@@ -1,17 +1,12 @@
 mod autograd;
 mod data;
-mod linear_t;
-mod feedforward_t;
-mod attention_t;
-mod encoder_t;
-mod decoder_t;
+mod transformer_t;
 mod decoding;
 mod train_backprop;
 mod train_elmo;
 mod train_noprop;
 mod positional;
 mod predict;
-mod embedding_t;
 mod math;         // einfache Matrixops + softmax etc.
 mod weights;
 
