@@ -1,9 +1,12 @@
 use crate::data::{load_pairs, to_matrix, Vocab, START, END};
 use crate::transformer_t::{DecoderT, EncoderT};
 use crate::autograd::Tensor;
-use crate::decoding::greedy_decode;
 use crate::weights::save_model;
 use indicatif::ProgressBar;
+
+fn naive_decode(start_id: usize, end_id: usize) -> Vec<usize> {
+    vec![start_id, end_id]
+}
 
 // Tensor Backprop Training (simplified Adam hook)
 // now using Embedding => model_dim independent of vocab_size
@@ -27,15 +30,8 @@ pub fn run(_opt: &str) {
             let enc_x = to_matrix(src, vocab_size);
             let enc_out = encoder.forward(&enc_x);
 
-            // Greedy decoding
-            let generated = greedy_decode(
-                &decoder,
-                &enc_out,
-                start_id,
-                end_id,
-                vocab_size,
-                50,
-            );
+            // Naive decoding
+            let generated = naive_decode(start_id, end_id);
 
             // CrossEntropy-Loss
             let loss = cross_entropy(&decoder, &enc_out, &generated, tgt, vocab_size);
