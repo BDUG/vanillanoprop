@@ -15,16 +15,12 @@ impl FeedForwardT {
     }
 
     pub fn forward(&self, x: &Tensor) -> Tensor {
-        let h = self.w1.forward(x);
-        // ReLU
-        let mut r = h.clone();
-        if let Some(ref mut g) = r.grad {
-            for v in g.data.iter_mut() {
-                if *v < 0.0 {
-                    *v = 0.0;
-                }
+        let mut h = self.w1.forward(x);
+        for v in h.data.data.iter_mut() {
+            if *v < 0.0 {
+                *v = 0.0;
             }
         }
-        self.w2.forward(&r)
+        self.w2.forward(&h)
     }
 }

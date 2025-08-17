@@ -3,6 +3,7 @@ use crate::encoder_t::EncoderT;
 use crate::decoder_t::DecoderT;
 use crate::autograd::Tensor;
 use crate::weights::save_model;
+use indicatif::ProgressBar;
 
 // Tensor Backprop Training (simplified Adam hook)
 // now using Embedding => model_dim independent of vocab_size
@@ -13,7 +14,7 @@ pub fn run(_opt: &str) {
 
     let model_dim = 64;
     let mut encoder = EncoderT::new(6, vocab_size, model_dim, 1, 256);
-    let mut decoder = DecoderT::new(6, vocab_size, model_dim, 1, 256);
+    let decoder = DecoderT::new(6, vocab_size, model_dim, 1, 256);
 
     let lr = 0.001;
     let beam = 5;
@@ -21,6 +22,7 @@ pub fn run(_opt: &str) {
     let end_id = *vocab.stoi.get(END).unwrap();
 
     for epoch in 0..50 {
+        let pb = ProgressBar::new(pairs.len() as u64);
         for (src, tgt) in &pairs {
             // Encode
             let enc_x = to_matrix(src, vocab_size);
@@ -37,7 +39,7 @@ pub fn run(_opt: &str) {
                     }
                     let tin = to_matrix(&seq, vocab_size);
                     let logits = decoder.forward(
-                        &Tensor::from_matrix(tin, true),
+                        &Tensor::from_matrix(tin),
                         &enc_out,
                     );
                     let last = logits.data.rows - 1;
@@ -61,7 +63,7 @@ pub fn run(_opt: &str) {
                     break;
                 }
                 let t_in = to_matrix(&generated[..i + 1], vocab_size);
-                let logits = decoder.forward(&Tensor::from_matrix(t_in, true), &enc_out);
+                let logits = decoder.forward(&Tensor::from_matrix(t_in), &enc_out);
                 let last = logits.data.rows - 1;
                 let mut sum = 0.0;
                 for t in 0..vocab_size {
@@ -72,7 +74,8 @@ pub fn run(_opt: &str) {
                 cnt += 1.0;
             }
             let loss = ce / cnt;
-            println!("epoch {epoch} loss {loss}");
+            pb.set_message(format!("epoch {epoch} loss {loss:.4}"));
+            pb.inc(1);
 
             // Adam-Update Placeholder
             for layer in &mut encoder.layers {
@@ -81,6 +84,7 @@ pub fn run(_opt: &str) {
                 }
             }
         }
+        pb.finish_with_message(format!("epoch {epoch} done"));
     }
 
     // Save trained weights

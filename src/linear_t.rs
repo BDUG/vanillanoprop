@@ -15,7 +15,7 @@ impl LinearT {
                 .collect(),
         );
         Self {
-            w: Tensor::from_matrix(data, true),
+            w: Tensor::from_matrix(data),
         }
     }
 
