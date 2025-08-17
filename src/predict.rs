@@ -1,6 +1,6 @@
-use crate::data::{to_matrix, Vocab, START, END};
+use crate::data::{to_matrix, Vocab, END, START};
+use crate::decoding::beam_search_decode;
 use crate::transformer_t::{DecoderT, EncoderT};
-use crate::decoding::greedy_decode;
 use crate::weights::load_model;
 
 pub fn run(input: &str) {
@@ -19,7 +19,8 @@ pub fn run(input: &str) {
     let enc_x = to_matrix(&src, vocab_size);
     let enc_out = encoder.forward(&enc_x);
 
-    let out_ids = greedy_decode(&decoder, &enc_out, start_id, end_id, vocab_size, 50);
+    // use beam search for better translations
+    let out_ids = beam_search_decode(&decoder, &enc_out, start_id, end_id, vocab_size, 50, 3);
     let mut filtered = Vec::new();
     for &id in out_ids.iter() {
         if id == start_id {
@@ -35,5 +36,8 @@ pub fn run(input: &str) {
     } else {
         vocab.decode(&filtered)
     };
-    println!("{{\"input\":\"{}\", \"translation\":\"{}\"}}", input, translation);
+    println!(
+        "{{\"input\":\"{}\", \"translation\":\"{}\"}}",
+        input, translation
+    );
 }
