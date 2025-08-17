@@ -1,7 +1,8 @@
 use crate::data::{load_pairs, to_matrix, Vocab, START, END};
-use crate::encoder_t::EncoderT;
 use crate::decoder_t::DecoderT;
+use crate::encoder_t::EncoderT;
 use crate::autograd::Tensor;
+use crate::decoding::greedy_decode;
 use crate::weights::save_model;
 use indicatif::ProgressBar;
 
@@ -17,7 +18,6 @@ pub fn run(_opt: &str) {
     let decoder = DecoderT::new(6, vocab_size, model_dim, 1, 256);
 
     let lr = 0.001;
-    let beam = 5;
     let start_id = *vocab.stoi.get(START).unwrap();
     let end_id = *vocab.stoi.get(END).unwrap();
 
@@ -28,52 +28,18 @@ pub fn run(_opt: &str) {
             let enc_x = to_matrix(src, vocab_size);
             let enc_out = encoder.forward(&enc_x);
 
-            // Beam decoding
-            let mut beams: Vec<(Vec<usize>, f32)> = vec![(vec![start_id], 0.0)];
-            for _ in 0..50 {
-                let mut new_beams = vec![];
-                for (seq, sc) in &beams {
-                    if *seq.last().unwrap() == end_id {
-                        new_beams.push((seq.clone(), *sc));
-                        continue;
-                    }
-                    let tin = to_matrix(&seq, vocab_size);
-                    let logits = decoder.forward(
-                        &Tensor::from_matrix(tin),
-                        &enc_out,
-                    );
-                    let last = logits.data.rows - 1;
-                    for tok in 0..vocab_size {
-                        let p = logits.data.get(last, tok).exp();
-                        let mut s = seq.clone();
-                        s.push(tok);
-                        new_beams.push((s, sc - p.ln()));
-                    }
-                }
-                new_beams.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-                beams = new_beams.into_iter().take(beam).collect();
-            }
-            let generated = &beams[0].0;
+            // Greedy decoding
+            let generated = greedy_decode(
+                &decoder,
+                &enc_out,
+                start_id,
+                end_id,
+                vocab_size,
+                50,
+            );
 
             // CrossEntropy-Loss
-            let mut ce = 0.0;
-            let mut cnt = 0.0;
-            for (i, &tok) in tgt.iter().enumerate() {
-                if i >= generated.len() {
-                    break;
-                }
-                let t_in = to_matrix(&generated[..i + 1], vocab_size);
-                let logits = decoder.forward(&Tensor::from_matrix(t_in), &enc_out);
-                let last = logits.data.rows - 1;
-                let mut sum = 0.0;
-                for t in 0..vocab_size {
-                    sum += logits.data.get(last, t).exp();
-                }
-                let p = logits.data.get(last, tok).exp() / sum;
-                ce += -(p + 1e-9).ln();
-                cnt += 1.0;
-            }
-            let loss = ce / cnt;
+            let loss = cross_entropy(&decoder, &enc_out, &generated, tgt, vocab_size);
             pb.set_message(format!("epoch {epoch} loss {loss:.4}"));
             pb.inc(1);
 
@@ -89,4 +55,31 @@ pub fn run(_opt: &str) {
 
     // Save trained weights
     save_model("model.json", &encoder, Some(&decoder));
+}
+
+fn cross_entropy(
+    decoder: &DecoderT,
+    enc_out: &Tensor,
+    generated: &[usize],
+    target: &[usize],
+    vocab_size: usize,
+) -> f32 {
+    let mut ce = 0.0;
+    let mut cnt = 0.0;
+    for (i, &tok) in target.iter().enumerate() {
+        if i >= generated.len() {
+            break;
+        }
+        let t_in = to_matrix(&generated[..i + 1], vocab_size);
+        let logits = decoder.forward(&Tensor::from_matrix(t_in), enc_out);
+        let last = logits.data.rows - 1;
+        let mut sum = 0.0;
+        for t in 0..vocab_size {
+            sum += logits.data.get(last, t).exp();
+        }
+        let p = logits.data.get(last, tok).exp() / sum;
+        ce += -(p + 1e-9).ln();
+        cnt += 1.0;
+    }
+    ce / cnt
 }
