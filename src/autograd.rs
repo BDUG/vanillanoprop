@@ -73,6 +73,10 @@ impl Tensor {
         }
     }
 
+    pub fn transpose(t: &Tensor) -> Tensor {
+        Tensor::from_matrix(t.data.transpose(), t.requires_grad)
+    }
+
     pub fn backward(&mut self) {
         if self.grad.is_none() {
             self.grad = Some(Matrix::from_vec(

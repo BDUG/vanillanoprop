@@ -30,7 +30,9 @@ impl MultiHeadAttentionT {
 
         // ⚠️ stark vereinfachte Attention: keine Aufteilung in Köpfe,
         // kein Softmax, kein Masking – nur MatMul zur Demo
-        let scores = Tensor::matmul(&q, &Tensor::matmul(&k, &v));
+        let kt = Tensor::transpose(&k);
+        let attn = Tensor::matmul(&q, &kt);
+        let scores = Tensor::matmul(&attn, &v);
         self.wo.forward(&scores)
     }
 }

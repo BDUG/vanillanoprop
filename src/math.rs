@@ -25,17 +25,18 @@ impl Matrix {
 
     pub fn matmul(a: &Matrix, b: &Matrix) -> Matrix {
         assert_eq!(a.cols, b.rows);
-        let mut out = Matrix::zeros(a.rows, b.cols);
+        let mut out = vec![0.0; a.rows * b.cols];
         for i in 0..a.rows {
-            for j in 0..b.cols {
-                let mut sum = 0.0;
-                for k in 0..a.cols {
-                    sum += a.get(i, k) * b.get(k, j);
+            let a_row = &a.data[i * a.cols..(i + 1) * a.cols];
+            for k in 0..a.cols {
+                let a_val = a_row[k];
+                let b_row = &b.data[k * b.cols..(k + 1) * b.cols];
+                for j in 0..b.cols {
+                    out[i * b.cols + j] += a_val * b_row[j];
                 }
-                out.set(i, j, sum);
             }
         }
-        out
+        Matrix::from_vec(a.rows, b.cols, out)
     }
 
     pub fn add(&self, other: &Matrix) -> Matrix {

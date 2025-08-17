@@ -20,7 +20,12 @@ impl DecoderLayerT {
 
     pub fn forward(&self, x: &Tensor, enc_out: &Tensor) -> Tensor {
         let h1 = self.self_attn.forward(x);
-        let h2 = self.enc_dec_attn.forward(&Tensor::add(&h1, enc_out));
+        let ctx = if h1.data.rows == enc_out.data.rows && h1.data.cols == enc_out.data.cols {
+            Tensor::add(&h1, enc_out)
+        } else {
+            h1.clone()
+        };
+        let h2 = self.enc_dec_attn.forward(&ctx);
         self.ff.forward(&h2)
     }
 }
