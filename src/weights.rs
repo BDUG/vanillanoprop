@@ -38,14 +38,14 @@ pub fn load_model(path: &str, encoder: &mut EncoderT, decoder: &mut DecoderT) {
             let e_cols = model.encoder_embedding[0].len();
             let e_flat: Vec<f32> = model.encoder_embedding.into_iter().flatten().collect();
             let mat = Matrix::from_vec(e_rows, e_cols, e_flat);
-            encoder.embedding.table.w = Tensor::from_matrix(mat, true);
+            encoder.embedding.table.w = Tensor::from_matrix(mat);
         }
         if !model.decoder_embedding.is_empty() {
             let d_rows = model.decoder_embedding.len();
             let d_cols = model.decoder_embedding[0].len();
             let d_flat: Vec<f32> = model.decoder_embedding.into_iter().flatten().collect();
             let mat = Matrix::from_vec(d_rows, d_cols, d_flat);
-            decoder.embedding.table.w = Tensor::from_matrix(mat, true);
+            decoder.embedding.table.w = Tensor::from_matrix(mat);
         }
     }
     println!("Loaded weights from {}", path);

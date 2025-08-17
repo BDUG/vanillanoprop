@@ -43,12 +43,12 @@ impl EncoderT {
 
     pub fn forward(&self, x: &Matrix) -> Tensor {
         // x = one-hot (seq_len x vocab_size)
-        let mut h = Tensor::from_matrix(x.clone(), true);
+        let mut h = Tensor::from_matrix(x.clone());
         h = self.embedding.forward(&h); // now (seq_len x model_dim)
 
         // positional encoding & transformer layers
         let pos = positional_encoding(h.data.rows, h.data.cols);
-        let p = Tensor::from_matrix(pos, false);
+        let p = Tensor::from_matrix(pos);
         h = Tensor::add(&h, &p);
         for l in &self.layers {
             h = l.forward(&h);

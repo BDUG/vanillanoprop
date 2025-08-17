@@ -30,7 +30,7 @@ pub fn run(input: &str) {
             }
             let tin = to_matrix(&seq, vocab_size);
             let logits = decoder.forward(
-                &Tensor::from_matrix(tin, true),
+                &Tensor::from_matrix(tin),
                 &enc_out,
             );
             let probs = Tensor::softmax(&logits);

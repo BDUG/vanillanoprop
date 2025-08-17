@@ -1,6 +1,7 @@
 use crate::data::{load_pairs, to_matrix, Vocab};
 use crate::encoder_t::EncoderT;
 use crate::weights::save_model;
+use indicatif::ProgressBar;
 
 pub fn run() {
     let pairs = load_pairs();
@@ -13,6 +14,7 @@ pub fn run() {
     let lr = 0.001;
 
     for epoch in 0..5 {
+        let pb = ProgressBar::new(pairs.len() as u64);
         for (src, tgt) in &pairs {
             let x = to_matrix(src, vocab_size);
             let out = encoder.forward(&x);
@@ -33,7 +35,8 @@ pub fn run() {
                 cnt += 1.0;
             }
             let loss = ce / cnt;
-            println!("epoch {epoch} loss {loss}");
+            pb.set_message(format!("epoch {epoch} loss {loss:.4}"));
+            pb.inc(1);
 
             // dummy weight update
             for layer in &mut encoder.layers {
@@ -42,8 +45,8 @@ pub fn run() {
                 }
             }
         }
+        pb.finish_with_message(format!("epoch {epoch} done"));
     }
 
-    // Save trained encoder weights
     save_model("model.json", &encoder, None);
 }
