@@ -1,6 +1,5 @@
 use crate::data::{load_pairs, to_matrix, Vocab, START, END};
-use crate::decoder_t::DecoderT;
-use crate::encoder_t::EncoderT;
+use crate::transformer_t::{DecoderT, EncoderT};
 use crate::autograd::Tensor;
 use crate::decoding::greedy_decode;
 use crate::weights::save_model;

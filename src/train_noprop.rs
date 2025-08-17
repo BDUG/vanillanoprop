@@ -1,5 +1,5 @@
 use crate::data::{load_pairs, to_matrix, Vocab};
-use crate::encoder_t::EncoderT;
+use crate::transformer_t::EncoderT;
 use crate::weights::save_model;
 use indicatif::ProgressBar;
 

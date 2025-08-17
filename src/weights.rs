@@ -1,5 +1,4 @@
-use crate::encoder_t::EncoderT;
-use crate::decoder_t::DecoderT;
+use crate::transformer_t::{EncoderT, DecoderT};
 use crate::autograd::Tensor;
 use crate::math::Matrix;
 use serde::{Serialize, Deserialize};
