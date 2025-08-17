@@ -1,6 +1,6 @@
 use crate::data::{load_pairs, to_matrix, Vocab};
 use crate::encoder_t::EncoderT;
-use crate::autograd::Tensor;
+use crate::weights::save_model;
 
 pub fn run() {
     let pairs = load_pairs();
@@ -43,4 +43,7 @@ pub fn run() {
             }
         }
     }
+
+    // Save trained encoder weights
+    save_model("model.json", &encoder, None);
 }

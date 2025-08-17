@@ -2,36 +2,7 @@ use crate::data::{to_matrix, Vocab, START, END};
 use crate::encoder_t::EncoderT;
 use crate::decoder_t::DecoderT;
 use crate::autograd::Tensor;
-use crate::math::Matrix;
-use serde::Deserialize;
-use std::fs;
-
-#[derive(Deserialize)]
-pub struct ModelJson {
-    pub encoder_embedding: Vec<Vec<f32>>,
-    pub decoder_embedding: Vec<Vec<f32>>,
-}
-
-pub fn load_model(path: &str, encoder: &mut EncoderT, decoder: &mut DecoderT) {
-    let txt = fs::read_to_string(path).unwrap_or_else(|_| "{}".to_string());
-    if let Ok(model) = serde_json::from_str::<ModelJson>(&txt) {
-        let e_rows = model.encoder_embedding.len();
-        let e_cols = model.encoder_embedding.get(0).map_or(0, |v| v.len());
-        let e_flat: Vec<f32> = model.encoder_embedding.into_iter().flatten().collect();
-        if e_rows > 0 && e_cols > 0 {
-            let mat = Matrix::from_vec(e_rows, e_cols, e_flat);
-            encoder.embedding.table.w = Tensor::from_matrix(mat, true);
-        }
-        let d_rows = model.decoder_embedding.len();
-        let d_cols = model.decoder_embedding.get(0).map_or(0, |v| v.len());
-        let d_flat: Vec<f32> = model.decoder_embedding.into_iter().flatten().collect();
-        if d_rows > 0 && d_cols > 0 {
-            let mat = Matrix::from_vec(d_rows, d_cols, d_flat);
-            decoder.embedding.table.w = Tensor::from_matrix(mat, true);
-        }
-    }
-    println!("Loaded weights from {}", path);
-}
+use crate::weights::load_model;
 
 pub fn run(input: &str) {
     let vocab = Vocab::build();

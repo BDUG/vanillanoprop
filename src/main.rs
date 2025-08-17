@@ -12,6 +12,7 @@ mod positional;
 mod predict;
 mod embedding_t;
 mod math;         // einfache Matrixops + softmax etc.
+mod weights;
 
 use std::env;
 

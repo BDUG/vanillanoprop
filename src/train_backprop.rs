@@ -2,7 +2,7 @@ use crate::data::{load_pairs, to_matrix, Vocab, START, END};
 use crate::encoder_t::EncoderT;
 use crate::decoder_t::DecoderT;
 use crate::autograd::Tensor;
-use serde_json::json;
+use crate::weights::save_model;
 
 // Tensor Backprop Training (simplified Adam hook)
 // now using Embedding => model_dim independent of vocab_size
@@ -83,10 +83,6 @@ pub fn run(_opt: &str) {
         }
     }
 
-    // Save JSON async
-    let model = json!({ "TODO": "export with embedding weights etc." });
-    std::thread::spawn(move || {
-        std::fs::write("model.json", serde_json::to_string(&model).unwrap()).unwrap();
-        println!("model.json saved asynchronously");
-    });
+    // Save trained weights
+    save_model("model.json", &encoder, Some(&decoder));
 }
