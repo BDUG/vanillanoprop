@@ -46,18 +46,19 @@ fn run(opt: &str) {
             let mut batch_f1 = 0.0f32;
             for (src, tgt) in batch {
                 let tgt = *tgt;
-                let enc_x = Matrix::from_vec(
-                    src.len(),
-                    1,
-                    src.iter().map(|&v| v as f32).collect(),
-                );
+                // one-hot encode source sequence for embedding layer
+                let mut enc_x = Matrix::zeros(src.len(), vocab_size);
+                for (i, &tok) in src.iter().enumerate() {
+                    enc_x.set(i, tok as usize, 1.0);
+                }
                 let enc_out = encoder.forward_train(&enc_x);
 
-                let dec_x = Matrix::from_vec(1, 1, vec![tgt as f32]);
+                // one-hot encode target token for decoder input
+                let mut dec_x = Matrix::zeros(1, vocab_size);
+                dec_x.set(0, tgt as usize, 1.0);
                 let logits = decoder.forward_train(&dec_x, &enc_out);
 
-                let (loss, grad, preds) =
-                    math::softmax_cross_entropy(&logits, &[tgt], 0);
+                let (loss, grad, preds) = math::softmax_cross_entropy(&logits, &[tgt], 0);
                 batch_loss += loss;
 
                 let grad_enc = decoder.backward(&grad);

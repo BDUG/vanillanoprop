@@ -38,14 +38,13 @@ fn run() {
             let mut batch_f1 = 0.0f32;
             for (src, tgt) in batch {
                 let tgt = *tgt;
-                let x = Matrix::from_vec(
-                    src.len(),
-                    1,
-                    src.iter().map(|&v| v as f32).collect(),
-                );
+                // one-hot encode the input sequence for the embedding layer
+                let mut x = Matrix::zeros(src.len(), vocab_size);
+                for (i, &tok) in src.iter().enumerate() {
+                    x.set(i, tok as usize, 1.0);
+                }
                 let logits = encoder.forward_train(&x);
-                let (loss, grad, preds) =
-                    math::softmax_cross_entropy(&logits, &[tgt], 0);
+                let (loss, grad, preds) = math::softmax_cross_entropy(&logits, &[tgt], 0);
                 batch_loss += loss;
                 encoder.backward(&grad);
                 let f1 = f1_score(&preds, &[tgt]);
