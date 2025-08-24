@@ -12,8 +12,10 @@ pub fn run() {
     let mut encoder = EncoderT::new(6, vocab_size, model_dim, 1, 256);
     let lr = 0.001;
 
-    for epoch in 0..5 {
-        let pb = ProgressBar::new(pairs.len() as u64);
+    let epochs = 5;
+    let pb = ProgressBar::new(epochs as u64);
+    for epoch in 0..epochs {
+        let mut last_loss = 0.0;
         for (src, tgt) in &pairs {
             let x = to_matrix(src, vocab_size);
             let enc_out = encoder.forward(&x);
@@ -41,11 +43,12 @@ pub fn run() {
                     layer.attn.wq.w.data.data[idx] -= lr * d;
                 }
             }
-            pb.set_message(format!("epoch {epoch} loss {loss:.4}"));
-            pb.inc(1);
+            last_loss = loss;
         }
-        pb.finish_with_message(format!("epoch {epoch} done"));
+        pb.set_message(format!("epoch {epoch} loss {last_loss:.4}"));
+        pb.inc(1);
     }
+    pb.finish_with_message("training done");
 
     save_model("model.json", &encoder, None);
 }

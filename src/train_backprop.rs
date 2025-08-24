@@ -23,8 +23,10 @@ pub fn run(_opt: &str) {
     let start_id = *vocab.stoi.get(START).unwrap();
     let end_id = *vocab.stoi.get(END).unwrap();
 
-    for epoch in 0..50 {
-        let pb = ProgressBar::new(pairs.len() as u64);
+    let epochs = 50;
+    let pb = ProgressBar::new(epochs as u64);
+    for epoch in 0..epochs {
+        let mut last_loss = 0.0;
         for (src, tgt) in &pairs {
             // Encode
             let enc_x = to_matrix(src, vocab_size);
@@ -35,8 +37,7 @@ pub fn run(_opt: &str) {
 
             // CrossEntropy-Loss
             let loss = cross_entropy(&decoder, &enc_out, &generated, tgt, vocab_size);
-            pb.set_message(format!("epoch {epoch} loss {loss:.4}"));
-            pb.inc(1);
+            last_loss = loss;
 
             // Adam-Update Placeholder
             for layer in &mut encoder.layers {
@@ -45,8 +46,10 @@ pub fn run(_opt: &str) {
                 }
             }
         }
-        pb.finish_with_message(format!("epoch {epoch} done"));
+        pb.set_message(format!("epoch {epoch} loss {last_loss:.4}"));
+        pb.inc(1);
     }
+    pb.finish_with_message("training done");
 
     // Save trained weights
     save_model("model.json", &encoder, Some(&decoder));
