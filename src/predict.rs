@@ -1,8 +1,8 @@
 use crate::autograd::Tensor;
 use crate::data::load_pairs;
 use crate::math::{self, Matrix};
-use crate::models::{DecoderT, EncoderT, SimpleCNN};
-use crate::weights::load_model;
+use crate::models::{DecoderT, EncoderT};
+use crate::weights::{load_cnn, load_model};
 use rand::Rng;
 
 fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
@@ -60,7 +60,7 @@ pub fn run(model: Option<&str>) {
         }
         _ => {
             // default CNN
-            let cnn = SimpleCNN::new(10);
+            let cnn = load_cnn("cnn.json", 10);
             let pred = cnn.predict(src);
             println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
         }

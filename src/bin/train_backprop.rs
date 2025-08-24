@@ -7,10 +7,16 @@ use vanillanoprop::metrics::f1_score;
 use vanillanoprop::models::{DecoderT, EncoderT};
 use vanillanoprop::optim::{Adam, SGD};
 use vanillanoprop::weights::save_model;
+use vanillanoprop::train_cnn;
 
 fn main() {
-    let opt = env::args().nth(1).unwrap_or_else(|| "sgd".to_string());
-    run(&opt);
+    let model = env::args().nth(1).unwrap_or_else(|| "transformer".to_string());
+    let opt = env::args().nth(2).unwrap_or_else(|| "sgd".to_string());
+    if model == "cnn" {
+        train_cnn::run(&opt);
+    } else {
+        run(&opt);
+    }
 }
 
 // Tensor Backprop Training (simplified Adam hook)

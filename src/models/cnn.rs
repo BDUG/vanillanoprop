@@ -54,8 +54,8 @@ impl SimpleCNN {
         out
     }
 
-    /// Predict the class for a single image.
-    pub fn predict(&self, img: &[u8]) -> usize {
+    /// Forward pass returning the convolution features and logits.
+    pub fn forward(&self, img: &[u8]) -> (Vec<f32>, Vec<f32>) {
         let feat = self.convolve(img); // 28x28 -> 784 features
         let rows = self.fc.rows;
         let cols = self.fc.cols;
@@ -67,6 +67,12 @@ impl SimpleCNN {
             }
             logits[c] = sum;
         }
+        (feat, logits)
+    }
+
+    /// Predict the class for a single image.
+    pub fn predict(&self, img: &[u8]) -> usize {
+        let (_feat, logits) = self.forward(img);
         // Argmax over logits
         let mut best = 0usize;
         let mut best_val = f32::NEG_INFINITY;
@@ -77,6 +83,16 @@ impl SimpleCNN {
             }
         }
         best
+    }
+
+    /// Access immutable parameters.
+    pub fn parameters(&self) -> (&Matrix, &Vec<f32>) {
+        (&self.fc, &self.bias)
+    }
+
+    /// Access mutable parameters.
+    pub fn parameters_mut(&mut self) -> (&mut Matrix, &mut Vec<f32>) {
+        (&mut self.fc, &mut self.bias)
     }
 }
 

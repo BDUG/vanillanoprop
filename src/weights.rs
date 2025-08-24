@@ -1,6 +1,6 @@
 use crate::autograd::Tensor;
 use crate::math::Matrix;
-use crate::models::{DecoderT, EncoderT};
+use crate::models::{DecoderT, EncoderT, SimpleCNN};
 use serde::{Deserialize, Serialize};
 use std::fs;
 
@@ -8,6 +8,12 @@ use std::fs;
 pub struct ModelJson {
     pub encoder_embedding: Vec<Vec<f32>>,
     pub decoder_embedding: Vec<Vec<f32>>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CnnJson {
+    pub fc: Vec<Vec<f32>>,
+    pub bias: Vec<f32>,
 }
 
 fn tensor_to_vec2(t: &Tensor) -> Vec<Vec<f32>> {
@@ -71,4 +77,49 @@ pub fn load_model(path: &str, encoder: &mut EncoderT, decoder: &mut DecoderT) {
         }
     }
     println!("Loaded weights from {}", path);
+}
+
+fn matrix_to_vec2(m: &Matrix) -> Vec<Vec<f32>> {
+    (0..m.rows)
+        .map(|r| (0..m.cols).map(|c| m.get(r, c)).collect())
+        .collect()
+}
+
+pub fn save_cnn(path: &str, cnn: &SimpleCNN) {
+    let (fc, bias) = cnn.parameters();
+    let model = CnnJson {
+        fc: matrix_to_vec2(fc),
+        bias: bias.clone(),
+    };
+    if let Ok(txt) = serde_json::to_string(&model) {
+        let _ = fs::write(path, txt);
+        println!("Saved CNN weights to {}", path);
+    }
+}
+
+pub fn load_cnn(path: &str, num_classes: usize) -> SimpleCNN {
+    let txt = fs::read_to_string(path).unwrap_or_else(|_| "{}".to_string());
+    if let Ok(model) = serde_json::from_str::<CnnJson>(&txt) {
+        let mut cnn = SimpleCNN::new(num_classes);
+        let (fc, bias) = cnn.parameters_mut();
+        if !model.fc.is_empty() {
+            let rows = model.fc.len();
+            let cols = model.fc[0].len();
+            let mut mat = Matrix::zeros(rows, cols);
+            for r in 0..rows {
+                for c in 0..cols {
+                    mat.set(r, c, model.fc[r][c]);
+                }
+            }
+            *fc = mat;
+        }
+        if !model.bias.is_empty() {
+            *bias = model.bias;
+        }
+        println!("Loaded CNN weights from {}", path);
+        cnn
+    } else {
+        println!("Using random CNN weights; failed to load {}", path);
+        SimpleCNN::new(num_classes)
+    }
 }
