@@ -31,15 +31,18 @@ fn run() {
             for (src, tgt) in batch {
                 let tgt = *tgt;
                 let len = 1usize;
-                let x = Matrix::from_vec(
-                    len,
-                    1,
-                    src[..len].iter().map(|&v| v as f32).collect(),
-                );
+
+                // one-hot encode the source token for the embedding layer
+                let mut x = Matrix::zeros(len, vocab_size);
+                for (i, &tok) in src[..len].iter().enumerate() {
+                    x.set(i, tok as usize, 1.0);
+                }
                 let enc_out = encoder.forward_local(&x);
 
                 // encode target without affecting gradients and add noise
-                let mut noisy = encoder.forward(&Matrix::from_vec(1, 1, vec![tgt as f32]));
+                let mut tgt_mat = Matrix::zeros(1, vocab_size);
+                tgt_mat.set(0, tgt as usize, 1.0);
+                let mut noisy = encoder.forward(&tgt_mat);
                 for v in &mut noisy.data.data {
                     *v += (rand::random::<f32>() - 0.5) * 0.1;
                 }
