@@ -10,8 +10,8 @@ pub fn matrix_ops_count() -> usize {
     MATRIX_OPS.load(Ordering::SeqCst)
 }
 
-pub(crate) fn inc_ops() {
-    MATRIX_OPS.fetch_add(1, Ordering::SeqCst);
+pub(crate) fn inc_ops_by(n: usize) {
+    MATRIX_OPS.fetch_add(n, Ordering::SeqCst);
 }
 
 #[derive(Clone, Debug)]
@@ -48,7 +48,9 @@ impl Matrix {
     }
 
     pub fn matmul(a: &Matrix, b: &Matrix) -> Matrix {
-        inc_ops();
+        // Each output element requires a.cols multiplications and additions
+        let ops = a.rows * a.cols * b.cols * 2;
+        inc_ops_by(ops);
         assert_eq!(a.cols, b.rows);
         let mut out = vec![0.0; a.rows * b.cols];
         for i in 0..a.rows {
@@ -65,7 +67,8 @@ impl Matrix {
     }
 
     pub fn add(&self, other: &Matrix) -> Matrix {
-        inc_ops();
+        // One addition per element
+        inc_ops_by(self.data.len());
         assert_eq!(self.rows, other.rows);
         assert_eq!(self.cols, other.cols);
         let mut v = vec![0.0; self.data.len()];
@@ -76,7 +79,6 @@ impl Matrix {
     }
 
     pub fn transpose(&self) -> Matrix {
-        inc_ops();
         let mut v = vec![0.0; self.rows * self.cols];
         for i in 0..self.rows {
             for j in 0..self.cols {
@@ -87,7 +89,8 @@ impl Matrix {
     }
 
     pub fn softmax(&self) -> Matrix {
-        inc_ops();
+        // One addition per element when accumulating the sum
+        inc_ops_by(self.rows * self.cols);
         let mut v = vec![0.0; self.data.len()];
         for r in 0..self.rows {
             // stabilisiert gegen Overflow:
