@@ -9,6 +9,7 @@ mod positional;
 mod predict;
 mod math;         // einfache Matrixops + softmax etc.
 mod weights;
+mod metrics;
 
 use std::env;
 

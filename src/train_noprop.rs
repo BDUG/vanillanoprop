@@ -1,6 +1,8 @@
 use crate::data::{load_pairs, to_matrix, Vocab};
 use crate::transformer_t::EncoderT;
 use crate::weights::save_model;
+use crate::metrics::f1_score;
+use crate::math;
 use indicatif::ProgressBar;
 
 pub fn run() {
@@ -9,13 +11,16 @@ pub fn run() {
     let vocab_size = vocab.itos.len();
 
     let model_dim = 64;
-    let mut encoder = EncoderT::new(6, vocab_size, model_dim, 1, 256);
+    let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256);
     let lr = 0.001;
 
+    math::reset_matrix_ops();
     let epochs = 5;
     let pb = ProgressBar::new(epochs as u64);
     for epoch in 0..epochs {
         let mut last_loss = 0.0;
+        let mut f1_sum = 0.0;
+        let mut sample_cnt: f32 = 0.0;
         for (src, tgt) in &pairs {
             let x = to_matrix(src, vocab_size);
             let enc_out = encoder.forward(&x);
@@ -44,11 +49,18 @@ pub fn run() {
                 }
             }
             last_loss = loss;
+            let f1 = f1_score(&src[..tgt.len().min(src.len())], tgt);
+            f1_sum += f1;
+            sample_cnt += 1.0;
+            println!("loss {last_loss:.4} f1 {f1:.4}");
         }
-        pb.set_message(format!("epoch {epoch} loss {last_loss:.4}"));
+        let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
+        pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
         pb.inc(1);
     }
     pb.finish_with_message("training done");
+
+    println!("Total matrix ops: {}", math::matrix_ops_count());
 
     save_model("model.json", &encoder, None);
 }

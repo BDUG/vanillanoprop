@@ -72,20 +72,15 @@ pub struct MultiHeadAttentionT {
     pub wk: LinearT,
     pub wv: LinearT,
     pub wo: LinearT,
-    pub num_heads: usize,
-    pub head_dim: usize,
 }
 
 impl MultiHeadAttentionT {
-    pub fn new(model_dim: usize, num_heads: usize) -> Self {
-        let head_dim = model_dim / num_heads;
+    pub fn new(model_dim: usize) -> Self {
         Self {
             wq: LinearT::new(model_dim, model_dim),
             wk: LinearT::new(model_dim, model_dim),
             wv: LinearT::new(model_dim, model_dim),
             wo: LinearT::new(model_dim, model_dim),
-            num_heads,
-            head_dim,
         }
     }
 
@@ -109,9 +104,9 @@ pub struct EncoderLayerT {
 }
 
 impl EncoderLayerT {
-    pub fn new(dim: usize, heads: usize, hidden: usize) -> Self {
+    pub fn new(dim: usize, hidden: usize) -> Self {
         Self {
-            attn: MultiHeadAttentionT::new(dim, heads),
+            attn: MultiHeadAttentionT::new(dim),
             ff: FeedForwardT::new(dim, hidden),
         }
     }
@@ -128,10 +123,10 @@ pub struct EncoderT {
 }
 
 impl EncoderT {
-    pub fn new(n: usize, vocab_size: usize, model_dim: usize, heads: usize, hidden: usize) -> Self {
+    pub fn new(n: usize, vocab_size: usize, model_dim: usize, hidden: usize) -> Self {
         let mut v = Vec::new();
         for _ in 0..n {
-            v.push(EncoderLayerT::new(model_dim, heads, hidden));
+            v.push(EncoderLayerT::new(model_dim, hidden));
         }
         Self {
             layers: v,
@@ -162,10 +157,10 @@ pub struct DecoderLayerT {
 }
 
 impl DecoderLayerT {
-    pub fn new(dim: usize, heads: usize, hidden: usize) -> Self {
+    pub fn new(dim: usize, hidden: usize) -> Self {
         Self {
-            self_attn: MultiHeadAttentionT::new(dim, heads),
-            enc_dec_attn: MultiHeadAttentionT::new(dim, heads),
+            self_attn: MultiHeadAttentionT::new(dim),
+            enc_dec_attn: MultiHeadAttentionT::new(dim),
             ff: FeedForwardT::new(dim, hidden),
         }
     }
@@ -189,10 +184,10 @@ pub struct DecoderT {
 }
 
 impl DecoderT {
-    pub fn new(n: usize, vocab_size: usize, model_dim: usize, heads: usize, hidden: usize) -> Self {
+    pub fn new(n: usize, vocab_size: usize, model_dim: usize, hidden: usize) -> Self {
         let mut v = Vec::new();
         for _ in 0..n {
-            v.push(DecoderLayerT::new(model_dim, heads, hidden));
+            v.push(DecoderLayerT::new(model_dim, hidden));
         }
         Self {
             layers: v,

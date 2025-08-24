@@ -2,6 +2,7 @@ use crate::data::{load_pairs, to_matrix, Vocab, END, START};
 use crate::decoding::beam_search_decode;
 use crate::transformer_t::{DecoderT, EncoderT};
 use crate::weights::load_model;
+use crate::math;
 use rand::Rng;
 
 pub fn run() {
@@ -17,11 +18,12 @@ pub fn run() {
     let end_id = *vocab.stoi.get(END).unwrap();
 
     let model_dim = 64;
-    let mut encoder = EncoderT::new(6, vocab_size, model_dim, 1, 256);
-    let mut decoder = DecoderT::new(6, vocab_size, model_dim, 1, 256);
+    let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256);
+    let mut decoder = DecoderT::new(6, vocab_size, model_dim, 256);
 
     load_model("model.json", &mut encoder, &mut decoder);
 
+    math::reset_matrix_ops();
     let enc_x = to_matrix(src, vocab_size);
     let enc_out = encoder.forward(&enc_x);
 
@@ -41,5 +43,6 @@ pub fn run() {
         "{{\"actual\":\"{}\", \"prediction\":\"{}\"}}",
         actual, prediction
     );
+    println!("Total matrix ops: {}", math::matrix_ops_count());
 }
 
