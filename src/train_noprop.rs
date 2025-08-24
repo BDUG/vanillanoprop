@@ -1,7 +1,7 @@
 use crate::data::{load_batches, to_matrix, Vocab};
 use crate::math::{self, Matrix};
 use crate::metrics::f1_score;
-use crate::transformer_t::EncoderT;
+use crate::models::EncoderT;
 use crate::weights::save_model;
 use indicatif::ProgressBar;
 
