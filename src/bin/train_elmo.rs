@@ -1,12 +1,16 @@
-use crate::data::{load_batches, to_matrix, Vocab};
-use crate::math;
-use crate::metrics::f1_score;
-use crate::optim::Adam;
-use crate::models::EncoderT;
-use crate::weights::save_model;
 use indicatif::ProgressBar;
+use vanillanoprop::data::{load_batches, to_matrix, Vocab};
+use vanillanoprop::math;
+use vanillanoprop::metrics::f1_score;
+use vanillanoprop::models::EncoderT;
+use vanillanoprop::optim::Adam;
+use vanillanoprop::weights::save_model;
 
-pub fn run() {
+fn main() {
+    run();
+}
+
+fn run() {
     let batches = load_batches(4);
     let vocab = Vocab::build();
     let vocab_size = vocab.itos.len();
