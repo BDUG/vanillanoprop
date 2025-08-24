@@ -3,17 +3,19 @@ use rand::random;
 
 use vanillanoprop::data::{download_mnist, load_batches};
 use vanillanoprop::math;
+use vanillanoprop::memory;
 use vanillanoprop::metrics::f1_score;
 use vanillanoprop::models::SimpleCNN;
 
 // Train a SimpleCNN with standard backpropagation using a basic SGD loop.
-fn train_backprop(epochs: usize) -> (f32, usize) {
+fn train_backprop(epochs: usize) -> (f32, usize, usize, u64) {
     let batches = load_batches(4);
     let mut cnn = SimpleCNN::new(10);
 
     let lr = 0.01f32;
 
     math::reset_matrix_ops();
+    let start_mem = memory::peak_memory_bytes();
     let pb = ProgressBar::new(epochs as u64);
     let mut best_f1 = f32::NEG_INFINITY;
 
@@ -90,18 +92,21 @@ fn train_backprop(epochs: usize) -> (f32, usize) {
         }
     }
     pb.finish_with_message("backprop done");
-    let ops = math::matrix_ops_count();
-    (best_f1, ops)
+    let add_ops = math::add_ops_count();
+    let mul_ops = math::mul_ops_count();
+    let mem_used = memory::peak_memory_bytes() - start_mem;
+    (best_f1, add_ops, mul_ops, mem_used)
 }
 
 // Train a SimpleCNN using a NoProp-style local update with noisy targets.
-fn train_noprop(epochs: usize) -> (f32, usize) {
+fn train_noprop(epochs: usize) -> (f32, usize, usize, u64) {
     let batches = load_batches(4);
     let mut cnn = SimpleCNN::new(10);
 
     let lr = 0.01f32;
 
     math::reset_matrix_ops();
+    let start_mem = memory::peak_memory_bytes();
     let pb = ProgressBar::new(epochs as u64);
     let mut best_f1 = f32::NEG_INFINITY;
 
@@ -176,19 +181,27 @@ fn train_noprop(epochs: usize) -> (f32, usize) {
         }
     }
     pb.finish_with_message("noprop done");
-    let ops = math::matrix_ops_count();
-    (best_f1, ops)
+    let add_ops = math::add_ops_count();
+    let mul_ops = math::mul_ops_count();
+    let mem_used = memory::peak_memory_bytes() - start_mem;
+    (best_f1, add_ops, mul_ops, mem_used)
 }
 
 fn main() {
     download_mnist();
     let epochs = 5;
     println!("Running backpropagation for {epochs} epochs...");
-    let (bp_f1, bp_ops) = train_backprop(epochs);
+    let (bp_f1, bp_add, bp_mul, bp_mem) = train_backprop(epochs);
     println!("Running noprop for {epochs} epochs...");
-    let (np_f1, np_ops) = train_noprop(epochs);
+    let (np_f1, np_add, np_mul, np_mem) = train_noprop(epochs);
     println!("\nComparison after {epochs} epochs:");
-    println!("Backprop -> Best F1: {bp_f1:.4}, Matrix Ops: {bp_ops}");
-    println!("Noprop   -> Best F1: {np_f1:.4}, Matrix Ops: {np_ops}");
+    println!(
+        "Backprop -> Best F1: {bp_f1:.4}, Adds: {bp_add}, Muls: {bp_mul}, Peak Mem: {:.2} MB",
+        bp_mem as f64 / (1024.0 * 1024.0)
+    );
+    println!(
+        "Noprop   -> Best F1: {np_f1:.4}, Adds: {np_add}, Muls: {np_mul}, Peak Mem: {:.2} MB",
+        np_mem as f64 / (1024.0 * 1024.0)
+    );
 }
 
