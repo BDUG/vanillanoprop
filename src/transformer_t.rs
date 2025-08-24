@@ -185,6 +185,7 @@ impl DecoderLayerT {
 pub struct DecoderT {
     pub layers: Vec<DecoderLayerT>,
     pub embedding: EmbeddingT,
+    pub proj: LinearT,
 }
 
 impl DecoderT {
@@ -196,6 +197,7 @@ impl DecoderT {
         Self {
             layers: v,
             embedding: EmbeddingT::new(vocab_size, model_dim),
+            proj: LinearT::new(model_dim, vocab_size),
         }
     }
 
@@ -205,7 +207,7 @@ impl DecoderT {
         for l in &self.layers {
             h = l.forward(&h, enc_out);
         }
-        h
+        self.proj.forward(&h)
     }
 }
 

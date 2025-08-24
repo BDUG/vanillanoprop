@@ -54,7 +54,7 @@ pub fn beam_search_decode(
             let logits = decoder.forward(&Tensor::from_matrix(tin), enc_out);
             let probs = Tensor::softmax(&logits);
             let last = probs.data.rows - 1;
-            for tok in 0..vocab_size {
+            for tok in 0..probs.data.cols {
                 let p = probs.data.get(last, tok).max(1e-9).ln();
                 let mut new_seq = seq.clone();
                 new_seq.push(tok);
