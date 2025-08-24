@@ -1,11 +1,11 @@
-use crate::data::{load_mnist_pairs, to_matrix, Vocab};
+use crate::data::{load_pairs, to_matrix, Vocab};
 use crate::transformer_t::EncoderT;
 use crate::weights::save_model;
 use indicatif::ProgressBar;
 
 pub fn run() {
-    let pairs = load_mnist_pairs();
-    let vocab = Vocab::build_mnist();
+    let pairs = load_pairs();
+    let vocab = Vocab::build();
     let vocab_size = vocab.itos.len();
 
     let model_dim = 64;
@@ -20,7 +20,7 @@ pub fn run() {
             let x = to_matrix(src, vocab_size);
             let enc_out = encoder.forward(&x);
 
-            // encode target sentence with the same encoder to obtain a
+            // encode the target label sequence with the same encoder to obtain a
             // comparable representation and add a bit of noise
             let mut noisy = encoder.forward(&to_matrix(tgt, vocab_size));
             for v in &mut noisy.data.data {
