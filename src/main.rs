@@ -1,15 +1,15 @@
 mod autograd;
 mod data;
-mod transformer_t;
 mod decoding;
+mod math; // einfache Matrixops + softmax etc.
+mod metrics;
+mod positional;
+mod predict;
 mod train_backprop;
 mod train_elmo;
 mod train_noprop;
-mod positional;
-mod predict;
-mod math;         // einfache Matrixops + softmax etc.
+mod transformer_t;
 mod weights;
-mod metrics;
 
 use std::env;
 

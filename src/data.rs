@@ -21,7 +21,6 @@ impl Vocab {
         }
         Self { stoi, itos }
     }
-
 }
 
 /// Load a small portion of the MNIST dataset as (image, label) pairs.
@@ -55,9 +54,7 @@ pub fn download_mnist() {
     // `finalize` triggers the download when `download_and_extract` is
     // enabled. We drop the returned data since we only care about the
     // side effect of fetching the files.
-    let _ = MnistBuilder::new()
-        .download_and_extract()
-        .finalize();
+    let _ = MnistBuilder::new().download_and_extract().finalize();
 }
 
 pub fn to_matrix(seq: &[usize], vocab_size: usize) -> Matrix {

@@ -1,8 +1,8 @@
 use crate::data::{load_pairs, to_matrix, Vocab, END, START};
 use crate::decoding::beam_search_decode;
+use crate::math;
 use crate::transformer_t::{DecoderT, EncoderT};
 use crate::weights::load_model;
-use crate::math;
 use rand::Rng;
 
 pub fn run() {
@@ -45,4 +45,3 @@ pub fn run() {
     );
     println!("Total matrix ops: {}", math::matrix_ops_count());
 }
-

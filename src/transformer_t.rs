@@ -205,4 +205,3 @@ impl DecoderT {
         self.proj.forward(&h)
     }
 }
-

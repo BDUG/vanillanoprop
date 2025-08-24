@@ -23,12 +23,20 @@ pub struct Matrix {
 
 impl Matrix {
     pub fn zeros(r: usize, c: usize) -> Self {
-        Matrix { rows: r, cols: c, data: vec![0.0; r * c] }
+        Matrix {
+            rows: r,
+            cols: c,
+            data: vec![0.0; r * c],
+        }
     }
 
     pub fn from_vec(r: usize, c: usize, v: Vec<f32>) -> Self {
         assert_eq!(v.len(), r * c);
-        Matrix { rows: r, cols: c, data: v }
+        Matrix {
+            rows: r,
+            cols: c,
+            data: v,
+        }
     }
 
     pub fn get(&self, r: usize, c: usize) -> f32 {

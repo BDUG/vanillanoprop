@@ -1,9 +1,9 @@
-use crate::data::{load_pairs, to_matrix, Vocab, START, END};
-use crate::transformer_t::{DecoderT, EncoderT};
 use crate::autograd::Tensor;
-use crate::weights::save_model;
-use crate::metrics::f1_score;
+use crate::data::{load_pairs, to_matrix, Vocab, END, START};
 use crate::math;
+use crate::metrics::f1_score;
+use crate::transformer_t::{DecoderT, EncoderT};
+use crate::weights::save_model;
 use indicatif::ProgressBar;
 
 fn naive_decode(start_id: usize, end_id: usize) -> Vec<usize> {
@@ -62,9 +62,7 @@ pub fn run(_opt: &str) {
         pb.inc(1);
 
         if avg_f1 > best_f1 {
-            println!(
-                "Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}"
-            );
+            println!("Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}");
             best_f1 = avg_f1;
             save_model("checkpoint.json", &encoder, Some(&decoder));
         }

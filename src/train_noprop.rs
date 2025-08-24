@@ -1,8 +1,8 @@
 use crate::data::{load_pairs, to_matrix, Vocab};
+use crate::math;
+use crate::metrics::f1_score;
 use crate::transformer_t::EncoderT;
 use crate::weights::save_model;
-use crate::metrics::f1_score;
-use crate::math;
 use indicatif::ProgressBar;
 
 pub fn run() {
@@ -60,9 +60,7 @@ pub fn run() {
         pb.inc(1);
 
         if avg_f1 > best_f1 {
-            println!(
-                "Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}"
-            );
+            println!("Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}");
             best_f1 = avg_f1;
             save_model("checkpoint.json", &encoder, None);
         }
