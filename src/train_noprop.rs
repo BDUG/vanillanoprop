@@ -1,7 +1,6 @@
 use crate::data::{load_batches, to_matrix, Vocab};
 use crate::math::{self, Matrix};
 use crate::metrics::f1_score;
-use crate::optim::Adam;
 use crate::transformer_t::EncoderT;
 use crate::weights::save_model;
 use indicatif::ProgressBar;
@@ -14,11 +13,6 @@ pub fn run() {
     let model_dim = 64;
     let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256);
     let lr = 0.001;
-    let beta1 = 0.9;
-    let beta2 = 0.999;
-    let eps = 1e-8;
-    let weight_decay = 0.0;
-    let mut optim = Adam::new(lr, beta1, beta2, eps, weight_decay);
 
     math::reset_matrix_ops();
     let epochs = 5;
@@ -29,12 +23,11 @@ pub fn run() {
         let mut f1_sum = 0.0;
         let mut sample_cnt: f32 = 0.0;
         for batch in &batches {
-            encoder.zero_grad();
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
             for (src, tgt) in batch {
                 let x = to_matrix(src, vocab_size);
-                let enc_out = encoder.forward_train(&x);
+                let enc_out = encoder.forward_local(&x);
 
                 // encode target without affecting gradients and add noise
                 let mut noisy = encoder.forward(&to_matrix(tgt, vocab_size));
@@ -42,24 +35,24 @@ pub fn run() {
                     *v += (rand::random::<f32>() - 0.5) * 0.1;
                 }
 
-                // Mean squared error and gradient
-                let mut grad = Matrix::zeros(enc_out.rows, enc_out.cols);
+                // Mean squared error and local feedback alignment update
+                let mut delta = Matrix::zeros(enc_out.rows, enc_out.cols);
                 let mut loss = 0.0f32;
                 for i in 0..enc_out.data.len() {
                     let d = enc_out.data[i] - noisy.data.data[i];
                     loss += d * d;
-                    grad.data[i] = 2.0 * d;
+                    delta.data[i] = 2.0 * d;
                 }
                 let n = enc_out.data.len() as f32;
                 if n > 0.0 {
                     loss /= n;
-                    for v in grad.data.iter_mut() {
+                    for v in delta.data.iter_mut() {
                         *v /= n;
                     }
                 }
 
                 batch_loss += loss;
-                encoder.backward(&grad);
+                encoder.fa_update(&delta, lr);
                 let f1 = f1_score(&src[..tgt.len().min(src.len())], tgt);
                 batch_f1 += f1;
             }
@@ -69,8 +62,6 @@ pub fn run() {
             last_loss = batch_loss;
             f1_sum += batch_f1;
             sample_cnt += bsz;
-            let mut params = encoder.parameters();
-            optim.step(&mut params);
             println!("loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
         }
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
