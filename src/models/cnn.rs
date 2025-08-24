@@ -1,4 +1,4 @@
-use crate::math::Matrix;
+use crate::math::{self, Matrix};
 use rand::Rng;
 
 /// A very small convolutional network used for demonstration purposes.
@@ -29,6 +29,7 @@ impl SimpleCNN {
     }
 
     fn convolve(&self, img: &[u8]) -> Vec<f32> {
+        math::inc_ops();
         let width = 28;
         let height = 28;
         let mut out = vec![0f32; width * height];
@@ -57,6 +58,7 @@ impl SimpleCNN {
     /// Forward pass returning the convolution features and logits.
     pub fn forward(&self, img: &[u8]) -> (Vec<f32>, Vec<f32>) {
         let feat = self.convolve(img); // 28x28 -> 784 features
+        math::inc_ops();
         let rows = self.fc.rows;
         let cols = self.fc.cols;
         let mut logits = vec![0f32; cols];

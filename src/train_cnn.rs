@@ -67,6 +67,7 @@ pub fn run(opt: &str) {
                         fc.set(r, c, val);
                     }
                 }
+                math::inc_ops();
 
                 // Prediction for metrics
                 let mut best = 0usize;
