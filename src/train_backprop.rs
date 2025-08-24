@@ -1,6 +1,7 @@
 use crate::data::{load_pairs, to_matrix, Vocab, START};
 use crate::math;
 use crate::metrics::f1_score;
+use crate::optim::{Adam, SGD};
 use crate::transformer_t::{DecoderT, EncoderT};
 use crate::weights::save_model;
 use indicatif::ProgressBar;
@@ -20,6 +21,9 @@ pub fn run(_opt: &str) {
     let beta1 = 0.9;
     let beta2 = 0.999;
     let eps = 1e-8;
+    let weight_decay = 0.0;
+    let mut adam = Adam::new(lr, beta1, beta2, eps, weight_decay);
+    let mut sgd = SGD::new(lr, weight_decay);
     let start_id = *vocab.stoi.get(START).unwrap();
 
     math::reset_matrix_ops();
@@ -50,8 +54,16 @@ pub fn run(_opt: &str) {
             // Backward through decoder and encoder
             let grad_enc = decoder.backward(&grad);
             encoder.backward(&grad_enc);
-            decoder.adam_step(lr, beta1, beta2, eps);
-            encoder.adam_step(lr, beta1, beta2, eps);
+            let mut params = encoder.parameters();
+            {
+                let dec_params = decoder.parameters();
+                params.extend(dec_params);
+            }
+            if _opt == "sgd" {
+                sgd.step(&mut params);
+            } else {
+                adam.step(&mut params);
+            }
 
             let f1 = f1_score(&preds, tgt);
             f1_sum += f1;
