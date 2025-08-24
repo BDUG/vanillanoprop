@@ -29,7 +29,6 @@ impl SimpleCNN {
     }
 
     fn convolve(&self, img: &[u8]) -> Vec<f32> {
-        math::inc_ops();
         let width = 28;
         let height = 28;
         let mut out = vec![0f32; width * height];
@@ -43,6 +42,7 @@ impl SimpleCNN {
                         if ix >= 0 && ix < width as isize && iy >= 0 && iy < height as isize {
                             let idx = iy as usize * width + ix as usize;
                             acc += img[idx] as f32 * self.kernel[ky][kx];
+                            math::inc_ops_by(2); // mul and add
                         }
                     }
                 }
@@ -58,9 +58,9 @@ impl SimpleCNN {
     /// Forward pass returning the convolution features and logits.
     pub fn forward(&self, img: &[u8]) -> (Vec<f32>, Vec<f32>) {
         let feat = self.convolve(img); // 28x28 -> 784 features
-        math::inc_ops();
         let rows = self.fc.rows;
         let cols = self.fc.cols;
+        math::inc_ops_by(rows * cols * 2);
         let mut logits = vec![0f32; cols];
         for c in 0..cols {
             let mut sum = self.bias[c];
@@ -97,4 +97,3 @@ impl SimpleCNN {
         (&mut self.fc, &mut self.bias)
     }
 }
-
