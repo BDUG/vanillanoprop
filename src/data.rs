@@ -1,4 +1,5 @@
 use crate::math::Matrix;
+use mnist::MnistBuilder;
 
 static DATA: &[(&str, &str)] = &[
     ("hallo welt", "hello world"),
@@ -37,6 +38,17 @@ impl Vocab {
         Self { stoi, itos }
     }
 
+    pub fn build_mnist() -> Self {
+        let mut itos: Vec<String> = (0..256).map(|i| i.to_string()).collect();
+        itos.push(START.to_string());
+        itos.push(END.to_string());
+        let mut stoi = std::collections::HashMap::new();
+        for (i, w) in itos.iter().enumerate() {
+            stoi.insert(w.clone(), i);
+        }
+        Self { stoi, itos }
+    }
+
     pub fn encode(&self, s: &str) -> Vec<usize> {
         s.split_whitespace()
             .map(|w| *self.stoi.get(w).unwrap())
@@ -55,6 +67,24 @@ pub fn load_pairs() -> Vec<(Vec<usize>, Vec<usize>)> {
     let vocab = Vocab::build();
     DATA.iter()
         .map(|(a, b)| (vocab.encode(a), vocab.encode(b)))
+        .collect()
+}
+
+pub fn load_mnist_pairs() -> Vec<(Vec<usize>, Vec<usize>)> {
+    let mnist = MnistBuilder::new()
+        .label_format_digit()
+        .training_set_length(10)
+        .finalize();
+    let end_id = *Vocab::build_mnist().stoi.get(END).unwrap();
+    mnist
+        .trn_img
+        .chunks(28 * 28)
+        .zip(mnist.trn_lbl.iter())
+        .map(|(img, &lbl)| {
+            let src: Vec<usize> = img.iter().map(|&p| p as usize).collect();
+            let tgt = vec![lbl as usize, end_id];
+            (src, tgt)
+        })
         .collect()
 }
 

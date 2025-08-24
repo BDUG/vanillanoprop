@@ -1,11 +1,11 @@
-use crate::data::{load_pairs, to_matrix, Vocab};
+use crate::data::{load_mnist_pairs, to_matrix, Vocab};
 use crate::transformer_t::EncoderT;
 use crate::weights::save_model;
 use indicatif::ProgressBar;
 
 pub fn run() {
-    let pairs = load_pairs();
-    let vocab = Vocab::build();
+    let pairs = load_mnist_pairs();
+    let vocab = Vocab::build_mnist();
     let vocab_size = vocab.itos.len();
 
     // With embedding → model_dim separate
