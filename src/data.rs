@@ -1,13 +1,6 @@
 use crate::math::Matrix;
 use mnist::MnistBuilder;
 
-static DATA: &[(&str, &str)] = &[
-    ("hallo welt", "hello world"),
-    ("ich liebe rust", "i love rust"),
-    ("das ist gut", "that is good"),
-    ("wie geht es dir", "how are you"),
-];
-
 pub const START: &str = "<start>";
 pub const END: &str = "<end>";
 
@@ -17,28 +10,8 @@ pub struct Vocab {
 }
 
 impl Vocab {
+    /// Build a vocabulary for MNIST pixel values plus start/end tokens.
     pub fn build() -> Self {
-        let mut set = std::collections::HashSet::new();
-        set.insert(START.to_string());
-        set.insert(END.to_string());
-        for (s, t) in DATA.iter() {
-            for w in s.split_whitespace() {
-                set.insert(w.to_string());
-            }
-            for w in t.split_whitespace() {
-                set.insert(w.to_string());
-            }
-        }
-        let mut itos: Vec<String> = set.into_iter().collect();
-        itos.sort();
-        let mut stoi = std::collections::HashMap::new();
-        for (i, w) in itos.iter().enumerate() {
-            stoi.insert(w.clone(), i);
-        }
-        Self { stoi, itos }
-    }
-
-    pub fn build_mnist() -> Self {
         let mut itos: Vec<String> = (0..256).map(|i| i.to_string()).collect();
         itos.push(START.to_string());
         itos.push(END.to_string());
@@ -63,19 +36,13 @@ impl Vocab {
     }
 }
 
+/// Load a small portion of the MNIST dataset as (image, label) pairs.
 pub fn load_pairs() -> Vec<(Vec<usize>, Vec<usize>)> {
-    let vocab = Vocab::build();
-    DATA.iter()
-        .map(|(a, b)| (vocab.encode(a), vocab.encode(b)))
-        .collect()
-}
-
-pub fn load_mnist_pairs() -> Vec<(Vec<usize>, Vec<usize>)> {
     let mnist = MnistBuilder::new()
         .label_format_digit()
         .training_set_length(10)
         .finalize();
-    let end_id = *Vocab::build_mnist().stoi.get(END).unwrap();
+    let end_id = *Vocab::build().stoi.get(END).unwrap();
     mnist
         .trn_img
         .chunks(28 * 28)

@@ -1,4 +1,4 @@
-use crate::data::{load_mnist_pairs, to_matrix, Vocab, START, END};
+use crate::data::{load_pairs, to_matrix, Vocab, START, END};
 use crate::transformer_t::{DecoderT, EncoderT};
 use crate::autograd::Tensor;
 use crate::weights::save_model;
@@ -11,8 +11,8 @@ fn naive_decode(start_id: usize, end_id: usize) -> Vec<usize> {
 // Tensor Backprop Training (simplified Adam hook)
 // now using Embedding => model_dim independent of vocab_size
 pub fn run(_opt: &str) {
-    let pairs = load_mnist_pairs();
-    let vocab = Vocab::build_mnist();
+    let pairs = load_pairs();
+    let vocab = Vocab::build();
     let vocab_size = vocab.itos.len();
 
     let model_dim = 64;

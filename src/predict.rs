@@ -1,4 +1,4 @@
-use crate::data::{load_mnist_pairs, to_matrix, Vocab, END, START};
+use crate::data::{load_pairs, to_matrix, Vocab, END, START};
 use crate::decoding::beam_search_decode;
 use crate::transformer_t::{DecoderT, EncoderT};
 use crate::weights::load_model;
@@ -6,12 +6,12 @@ use rand::Rng;
 
 pub fn run() {
     // pick a random image from the MNIST training pairs
-    let pairs = load_mnist_pairs();
+    let pairs = load_pairs();
     let mut rng = rand::thread_rng();
     let idx = rng.gen_range(0..pairs.len());
     let (src, tgt) = &pairs[idx];
 
-    let vocab = Vocab::build_mnist();
+    let vocab = Vocab::build();
     let vocab_size = vocab.itos.len();
     let start_id = *vocab.stoi.get(START).unwrap();
     let end_id = *vocab.stoi.get(END).unwrap();
