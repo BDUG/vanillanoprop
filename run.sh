@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "Usage: $0 {download|predict|train-backprop|train-elmo|train-noprop}" >&2
+  exit 1
+}
+
+if [[ $# -lt 1 ]]; then
+  usage
+fi
+
+case "$1" in
+  download)
+    cargo run --bin main -- download
+    ;;
+  predict)
+    cargo run --bin main -- predict
+    ;;
+  train-backprop)
+    cargo run --bin train_backprop
+    ;;
+  train-elmo)
+    cargo run --bin train_elmo
+    ;;
+  train-noprop)
+    cargo run --bin train_noprop
+    ;;
+  *)
+    usage
+    ;;
+esac
