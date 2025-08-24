@@ -56,7 +56,8 @@ impl LinearT {
     /// gradient for the weights inside `self.grad`.
     pub fn backward(&mut self, grad_out: &Matrix) -> Matrix {
         let x_t = self.last_x.transpose();
-        self.grad = Matrix::matmul(&x_t, grad_out);
+        let grad_w = Matrix::matmul(&x_t, grad_out);
+        self.grad = self.grad.add(&grad_w);
         Matrix::matmul(grad_out, &self.w.data.transpose())
     }
 

@@ -70,6 +70,19 @@ pub fn load_pairs() -> Vec<(Vec<usize>, Vec<usize>)> {
         .collect()
 }
 
+/// Return the dataset grouped into mini-batches of the given size.
+///
+/// Batching allows training code to accumulate gradients across several
+/// samples before performing an optimisation step.  The final batch may be
+/// smaller than `batch_size` if the total number of samples is not divisible
+/// by it.
+pub fn load_batches(
+    batch_size: usize,
+) -> Vec<Vec<(Vec<usize>, Vec<usize>)>> {
+    let pairs = load_pairs();
+    pairs.chunks(batch_size).map(|c| c.to_vec()).collect()
+}
+
 /// Download the MNIST dataset into the local `data/` directory.
 ///
 /// This uses the `mnist` crate's built-in downloader which fetches the
