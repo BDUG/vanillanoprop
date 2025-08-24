@@ -15,6 +15,7 @@ pub struct LinearT {
     v: Matrix,
     t: usize,
     last_x: Matrix,
+    fb: Matrix,
 }
 
 impl LinearT {
@@ -31,29 +32,45 @@ impl LinearT {
         let m = Matrix::zeros(w.data.rows, w.data.cols);
         let v = Matrix::zeros(w.data.rows, w.data.cols);
         let last_x = Matrix::zeros(0, 0);
-        Self {
-            w,
-            grad,
-            m,
-            v,
-            t: 0,
-            last_x,
-        }
+        let fb = Matrix::from_vec(
+            out_dim,
+            in_dim,
+            (0..out_dim * in_dim)
+                .map(|_| (rand::random::<f32>() - 0.5) * 0.02)
+                .collect(),
+        );
+        Self { w, grad, m, v, t: 0, last_x, fb }
     }
 
     pub fn forward(&self, x: &Tensor) -> Tensor {
         Tensor::matmul(x, &self.w)
     }
 
-    /// Training variant of forward that remembers the input for backprop.
-    pub fn forward_train(&mut self, x: &Matrix) -> Matrix {
+    /// Forward pass storing the input for local/FA updates.
+    pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
         self.last_x = x.clone();
         Matrix::matmul(x, &self.w.data)
     }
 
-    /// Backward pass for the linear layer.  Takes the gradient of the output
-    /// and returns the gradient with respect to the input while storing the
-    /// gradient for the weights inside `self.grad`.
+    /// Backward-compatible training forward used by backprop examples.
+    pub fn forward_train(&mut self, x: &Matrix) -> Matrix {
+        self.forward_local(x)
+    }
+
+    /// Feedback alignment style local update.  `grad_out` is the error signal
+    /// for the layer output.  The weights are updated using a Hebbian rule and
+    /// a fixed random feedback matrix is used to propagate the error to the
+    /// previous layer.
+    pub fn fa_update(&mut self, grad_out: &Matrix, lr: f32) -> Matrix {
+        let x_t = self.last_x.transpose();
+        let grad_w = Matrix::matmul(&x_t, grad_out);
+        for i in 0..self.w.data.data.len() {
+            self.w.data.data[i] -= lr * grad_w.data[i];
+        }
+        Matrix::matmul(grad_out, &self.fb)
+    }
+
+    /// Standard backward pass accumulating gradients (used for backprop)
     pub fn backward(&mut self, grad_out: &Matrix) -> Matrix {
         let x_t = self.last_x.transpose();
         let grad_w = Matrix::matmul(&x_t, grad_out);
@@ -116,6 +133,14 @@ impl EmbeddingT {
         Tensor::matmul(x, &self.table.w)
     }
 
+    pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
+        self.table.forward_local(x)
+    }
+
+    pub fn fa_update(&mut self, grad_out: &Matrix, lr: f32) -> Matrix {
+        self.table.fa_update(grad_out, lr)
+    }
+
     pub fn forward_train(&mut self, x: &Matrix) -> Matrix {
         self.table.forward_train(x)
     }
@@ -166,8 +191,8 @@ impl FeedForwardT {
         self.w2.forward(&h)
     }
 
-    pub fn forward_train(&mut self, x: &Matrix) -> Matrix {
-        let mut h1 = self.w1.forward_train(x);
+    pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
+        let mut h1 = self.w1.forward_local(x);
         let mut mask = vec![0.0; h1.data.len()];
         for (i, v) in h1.data.iter_mut().enumerate() {
             if *v < 0.0 {
@@ -176,13 +201,23 @@ impl FeedForwardT {
                 mask[i] = 1.0;
             }
         }
-        // store mask in w1.last_x? we cannot; we need to store for backward.
-        // We'll temporarily store in last_x of w2? Instead easier: keep mask as
-        // member variable of FeedForwardT.
         self.mask = mask;
-        let out = self.w2.forward_train(&h1);
-        self.h1 = h1; // store activated h1 for backward
+        let out = self.w2.forward_local(&h1);
+        self.h1 = h1;
         out
+    }
+
+    pub fn fa_update(&mut self, grad_out: &Matrix, lr: f32) -> Matrix {
+        let grad_h1 = self.w2.fa_update(grad_out, lr);
+        let mut g = grad_h1.clone();
+        for (i, v) in g.data.iter_mut().enumerate() {
+            *v *= self.mask[i];
+        }
+        self.w1.fa_update(&g, lr)
+    }
+
+    pub fn forward_train(&mut self, x: &Matrix) -> Matrix {
+        self.forward_local(x)
     }
 
     pub fn backward(&mut self, grad_out: &Matrix) -> Matrix {
@@ -255,15 +290,32 @@ impl MultiHeadAttentionT {
         self.wo.forward(&scores)
     }
 
-    pub fn forward_train(&mut self, x: &Matrix) -> Matrix {
+    pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
         self.x = x.clone();
-        self.q = self.wq.forward_train(x);
-        self.k = self.wk.forward_train(x);
-        self.v = self.wv.forward_train(x);
+        self.q = self.wq.forward_local(x);
+        self.k = self.wk.forward_local(x);
+        self.v = self.wv.forward_local(x);
         let kt = self.k.transpose();
         self.attn = Matrix::matmul(&self.q, &kt);
         self.scores = Matrix::matmul(&self.attn, &self.v);
-        self.wo.forward_train(&self.scores)
+        self.wo.forward_local(&self.scores)
+    }
+
+    pub fn fa_update(&mut self, grad_out: &Matrix, lr: f32) -> Matrix {
+        let grad_scores = self.wo.fa_update(grad_out, lr);
+        let grad_attn = Matrix::matmul(&grad_scores, &self.v.transpose());
+        let grad_v = Matrix::matmul(&self.attn.transpose(), &grad_scores);
+        let grad_q = Matrix::matmul(&grad_attn, &self.k);
+        let grad_k = Matrix::matmul(&grad_attn.transpose(), &self.q);
+        let gx_q = self.wq.fa_update(&grad_q, lr);
+        let gx_k = self.wk.fa_update(&grad_k, lr);
+        let gx_v = self.wv.fa_update(&grad_v, lr);
+        let tmp = Matrix::add(&gx_q, &gx_k);
+        Matrix::add(&tmp, &gx_v)
+    }
+
+    pub fn forward_train(&mut self, x: &Matrix) -> Matrix {
+        self.forward_local(x)
     }
 
     pub fn backward(&mut self, grad_out: &Matrix) -> Matrix {
@@ -323,9 +375,18 @@ impl EncoderLayerT {
         self.ff.forward(&h)
     }
 
+    pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
+        self.attn_out = self.attn.forward_local(x);
+        self.ff.forward_local(&self.attn_out)
+    }
+
+    pub fn fa_update(&mut self, grad_out: &Matrix, lr: f32) -> Matrix {
+        let grad_attn_out = self.ff.fa_update(grad_out, lr);
+        self.attn.fa_update(&grad_attn_out, lr)
+    }
+
     pub fn forward_train(&mut self, x: &Matrix) -> Matrix {
-        self.attn_out = self.attn.forward_train(x);
-        self.ff.forward_train(&self.attn_out)
+        self.forward_local(x)
     }
 
     pub fn backward(&mut self, grad_out: &Matrix) -> Matrix {
@@ -391,14 +452,26 @@ impl EncoderT {
         h
     }
 
-    pub fn forward_train(&mut self, x: &Matrix) -> Matrix {
-        let mut h = self.embedding.forward_train(x);
+    pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
+        let mut h = self.embedding.forward_local(x);
         self.pos = positional_encoding(h.rows, h.cols);
         h = Matrix::add(&h, &self.pos);
         for l in self.layers.iter_mut() {
-            h = l.forward_train(&h);
+            h = l.forward_local(&h);
         }
         h
+    }
+
+    pub fn fa_update(&mut self, grad_out: &Matrix, lr: f32) {
+        let mut g = grad_out.clone();
+        for l in self.layers.iter_mut().rev() {
+            g = l.fa_update(&g, lr);
+        }
+        self.embedding.fa_update(&g, lr);
+    }
+
+    pub fn forward_train(&mut self, x: &Matrix) -> Matrix {
+        self.forward_local(x)
     }
 
     pub fn backward(&mut self, grad_out: &Matrix) {
