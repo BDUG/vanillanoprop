@@ -1,4 +1,4 @@
-use crate::data::{load_pairs, to_matrix, Vocab};
+use crate::data::{load_batches, to_matrix, Vocab};
 use crate::math::{self, Matrix};
 use crate::metrics::f1_score;
 use crate::optim::Adam;
@@ -7,7 +7,7 @@ use crate::weights::save_model;
 use indicatif::ProgressBar;
 
 pub fn run() {
-    let pairs = load_pairs();
+    let batches = load_batches(4);
     let vocab = Vocab::build();
     let vocab_size = vocab.itos.len();
 
@@ -28,42 +28,50 @@ pub fn run() {
         let mut last_loss = 0.0;
         let mut f1_sum = 0.0;
         let mut sample_cnt: f32 = 0.0;
-        for (src, tgt) in &pairs {
+        for batch in &batches {
             encoder.zero_grad();
-            let x = to_matrix(src, vocab_size);
-            let enc_out = encoder.forward_train(&x);
+            let mut batch_loss = 0.0f32;
+            let mut batch_f1 = 0.0f32;
+            for (src, tgt) in batch {
+                let x = to_matrix(src, vocab_size);
+                let enc_out = encoder.forward_train(&x);
 
-            // encode target without affecting gradients and add noise
-            let mut noisy = encoder.forward(&to_matrix(tgt, vocab_size));
-            for v in &mut noisy.data.data {
-                *v += (rand::random::<f32>() - 0.5) * 0.1;
-            }
-
-            // Mean squared error and gradient
-            let mut grad = Matrix::zeros(enc_out.rows, enc_out.cols);
-            let mut loss = 0.0f32;
-            for i in 0..enc_out.data.len() {
-                let d = enc_out.data[i] - noisy.data.data[i];
-                loss += d * d;
-                grad.data[i] = 2.0 * d;
-            }
-            let n = enc_out.data.len() as f32;
-            if n > 0.0 {
-                loss /= n;
-                for v in grad.data.iter_mut() {
-                    *v /= n;
+                // encode target without affecting gradients and add noise
+                let mut noisy = encoder.forward(&to_matrix(tgt, vocab_size));
+                for v in &mut noisy.data.data {
+                    *v += (rand::random::<f32>() - 0.5) * 0.1;
                 }
-            }
-            last_loss = loss;
 
-            encoder.backward(&grad);
+                // Mean squared error and gradient
+                let mut grad = Matrix::zeros(enc_out.rows, enc_out.cols);
+                let mut loss = 0.0f32;
+                for i in 0..enc_out.data.len() {
+                    let d = enc_out.data[i] - noisy.data.data[i];
+                    loss += d * d;
+                    grad.data[i] = 2.0 * d;
+                }
+                let n = enc_out.data.len() as f32;
+                if n > 0.0 {
+                    loss /= n;
+                    for v in grad.data.iter_mut() {
+                        *v /= n;
+                    }
+                }
+
+                batch_loss += loss;
+                encoder.backward(&grad);
+                let f1 = f1_score(&src[..tgt.len().min(src.len())], tgt);
+                batch_f1 += f1;
+            }
+            let bsz = batch.len() as f32;
+            batch_loss /= bsz;
+            let batch_f1_avg = batch_f1 / bsz;
+            last_loss = batch_loss;
+            f1_sum += batch_f1;
+            sample_cnt += bsz;
             let mut params = encoder.parameters();
             optim.step(&mut params);
-
-            let f1 = f1_score(&src[..tgt.len().min(src.len())], tgt);
-            f1_sum += f1;
-            sample_cnt += 1.0;
-            println!("loss {last_loss:.4} f1 {f1:.4}");
+            println!("loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
         }
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
