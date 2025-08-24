@@ -15,7 +15,8 @@ case "$1" in
     cargo run --bin main -- download
     ;;
   predict)
-    cargo run --bin main -- predict
+    shift
+    cargo run --bin main -- predict "$@"
     ;;
   train-backprop)
     cargo run --bin train_backprop
