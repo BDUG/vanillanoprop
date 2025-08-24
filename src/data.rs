@@ -1,6 +1,31 @@
 use crate::math::Matrix;
 use mnist::MnistBuilder;
 
+/// Apply a 3x3 convolution kernel with zero padding to an image.
+///
+/// The image is provided as a flat slice in row-major order. The returned
+/// vector has the same size as the input and contains the filtered pixels.
+fn convolve3x3(img: &[u8], width: usize, height: usize, kernel: [[f32; 3]; 3]) -> Vec<u8> {
+    let mut out = vec![0u8; width * height];
+    for y in 0..height {
+        for x in 0..width {
+            let mut acc = 0.0f32;
+            for ky in 0..3 {
+                for kx in 0..3 {
+                    let ix = x as isize + kx as isize - 1;
+                    let iy = y as isize + ky as isize - 1;
+                    if ix >= 0 && ix < width as isize && iy >= 0 && iy < height as isize {
+                        let idx = iy as usize * width + ix as usize;
+                        acc += img[idx] as f32 * kernel[ky][kx];
+                    }
+                }
+            }
+            out[y * width + x] = acc.round().clamp(0.0, 255.0) as u8;
+        }
+    }
+    out
+}
+
 pub const START: &str = "<start>";
 pub const END: &str = "<end>";
 
@@ -35,7 +60,10 @@ pub fn load_pairs() -> Vec<(Vec<usize>, Vec<usize>)> {
         .chunks(28 * 28)
         .zip(mnist.trn_lbl.iter())
         .map(|(img, &lbl)| {
-            let src: Vec<usize> = img.iter().map(|&p| p as usize).collect();
+            // Simple 3x3 mean blur to smooth the input image
+            let kernel = [[1.0 / 9.0; 3]; 3];
+            let processed = convolve3x3(img, 28, 28, kernel);
+            let src: Vec<usize> = processed.iter().map(|&p| p as usize).collect();
             let tgt = vec![lbl as usize, end_id];
             (src, tgt)
         })
