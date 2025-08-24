@@ -1,12 +1,20 @@
 use std::env;
 
 use indicatif::ProgressBar;
-use vanillanoprop::data::{load_batches, to_matrix, Vocab, START};
-use vanillanoprop::math;
+use vanillanoprop::data::load_batches;
+use vanillanoprop::math::{self, Matrix};
 use vanillanoprop::metrics::f1_score;
 use vanillanoprop::models::{DecoderT, EncoderT};
 use vanillanoprop::optim::{Adam, SGD};
 use vanillanoprop::weights::save_model;
+
+fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
+    let mut m = Matrix::zeros(seq.len(), vocab_size);
+    for (i, &tok) in seq.iter().enumerate() {
+        m.set(i, tok as usize, 1.0);
+    }
+    m
+}
 
 fn main() {
     let opt = env::args().nth(1).unwrap_or_else(|| "sgd".to_string());
@@ -17,8 +25,7 @@ fn main() {
 // now using Embedding => model_dim independent of vocab_size
 fn run(opt: &str) {
     let batches = load_batches(4);
-    let vocab = Vocab::build();
-    let vocab_size = vocab.itos.len();
+    let vocab_size = 256;
 
     let model_dim = 64;
     let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256);
@@ -31,7 +38,6 @@ fn run(opt: &str) {
     let weight_decay = 0.0;
     let mut adam = Adam::new(lr, beta1, beta2, eps, weight_decay);
     let mut sgd = SGD::new(lr, weight_decay);
-    let start_id = *vocab.stoi.get(START).unwrap();
 
     math::reset_matrix_ops();
     let epochs = 50;
@@ -47,24 +53,21 @@ fn run(opt: &str) {
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
             for (src, tgt) in batch {
-                // Encode source sentence
+                let tgt = *tgt;
                 let enc_x = to_matrix(src, vocab_size);
                 let enc_out = encoder.forward_train(&enc_x);
 
-                // Decoder input uses teacher forcing (START + target[:-1])
-                let mut dec_in = vec![start_id];
-                dec_in.extend_from_slice(tgt);
+                let dec_in = vec![tgt as u8];
                 let dec_x = to_matrix(&dec_in, vocab_size);
                 let logits = decoder.forward_train(&dec_x, &enc_out);
 
                 let (loss, grad, preds) =
-                    math::softmax_cross_entropy(&logits, tgt, 1);
+                    math::softmax_cross_entropy(&logits, &[tgt], 0);
                 batch_loss += loss;
 
-                // Backward through decoder and encoder
                 let grad_enc = decoder.backward(&grad);
                 encoder.backward(&grad_enc);
-                let f1 = f1_score(&preds, tgt);
+                let f1 = f1_score(&preds, &[tgt]);
                 batch_f1 += f1;
             }
             let bsz = batch.len() as f32;
