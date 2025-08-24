@@ -8,3 +8,4 @@ pub mod optim;
 pub mod positional;
 pub mod predict;
 pub mod weights;
+pub mod train_cnn;

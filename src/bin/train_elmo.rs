@@ -1,3 +1,5 @@
+use std::env;
+
 use indicatif::ProgressBar;
 use vanillanoprop::data::load_batches;
 use vanillanoprop::math::{self, Matrix};
@@ -5,9 +7,15 @@ use vanillanoprop::metrics::f1_score;
 use vanillanoprop::models::EncoderT;
 use vanillanoprop::optim::Adam;
 use vanillanoprop::weights::save_model;
+use vanillanoprop::train_cnn;
 
 fn main() {
-    run();
+    let model = env::args().nth(1).unwrap_or_else(|| "transformer".to_string());
+    if model == "cnn" {
+        train_cnn::run("sgd");
+    } else {
+        run();
+    }
 }
 
 fn run() {
