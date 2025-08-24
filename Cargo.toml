@@ -9,6 +9,7 @@ serde_json = "1.0"
 rand = "0.8"
 indicatif = "0.17"
 mnist = { version = "0.6", features = ["download"] }
+libc = "0.2"
 
 [lib]
 name = "vanillanoprop"
