@@ -9,7 +9,8 @@ mod optim;
 mod train_backprop;
 mod train_elmo;
 mod train_noprop;
-mod transformer_t;
+mod layers;
+mod models;
 mod weights;
 
 use std::env;

@@ -2,7 +2,7 @@ use crate::data::{load_batches, to_matrix, Vocab, START};
 use crate::math;
 use crate::metrics::f1_score;
 use crate::optim::{Adam, SGD};
-use crate::transformer_t::{DecoderT, EncoderT};
+use crate::models::{DecoderT, EncoderT};
 use crate::weights::save_model;
 use indicatif::ProgressBar;
 

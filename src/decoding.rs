@@ -1,6 +1,6 @@
 use crate::autograd::Tensor;
 use crate::data::to_matrix;
-use crate::transformer_t::DecoderT;
+use crate::models::DecoderT;
 
 pub fn beam_search_decode(
     decoder: &DecoderT,

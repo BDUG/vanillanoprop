@@ -1,7 +1,7 @@
 use crate::data::{load_pairs, to_matrix, Vocab, END, START};
 use crate::decoding::beam_search_decode;
 use crate::math;
-use crate::transformer_t::{DecoderT, EncoderT};
+use crate::models::{DecoderT, EncoderT};
 use crate::weights::load_model;
 use rand::Rng;
 

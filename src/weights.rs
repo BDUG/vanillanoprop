@@ -1,6 +1,6 @@
 use crate::autograd::Tensor;
 use crate::math::Matrix;
-use crate::transformer_t::{DecoderT, EncoderT};
+use crate::models::{DecoderT, EncoderT};
 use serde::{Deserialize, Serialize};
 use std::fs;
 

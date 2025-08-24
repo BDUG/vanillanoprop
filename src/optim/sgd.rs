@@ -1,4 +1,4 @@
-use crate::transformer_t::LinearT;
+use crate::layers::LinearT;
 
 pub struct SGD {
     pub lr: f32,
