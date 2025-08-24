@@ -1,17 +1,44 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-static MATRIX_OPS: AtomicUsize = AtomicUsize::new(0);
+// Separate counters for addition and multiplication operations.
+static ADD_OPS: AtomicUsize = AtomicUsize::new(0);
+static MUL_OPS: AtomicUsize = AtomicUsize::new(0);
 
+/// Reset the operation counters.
 pub fn reset_matrix_ops() {
-    MATRIX_OPS.store(0, Ordering::SeqCst);
+    ADD_OPS.store(0, Ordering::SeqCst);
+    MUL_OPS.store(0, Ordering::SeqCst);
 }
 
+/// Return the total number of tracked operations (adds + muls).
 pub fn matrix_ops_count() -> usize {
-    MATRIX_OPS.load(Ordering::SeqCst)
+    ADD_OPS.load(Ordering::SeqCst) + MUL_OPS.load(Ordering::SeqCst)
 }
 
+/// Return the number of addition operations performed.
+pub fn add_ops_count() -> usize {
+    ADD_OPS.load(Ordering::SeqCst)
+}
+
+/// Return the number of multiplication operations performed.
+pub fn mul_ops_count() -> usize {
+    MUL_OPS.load(Ordering::SeqCst)
+}
+
+pub(crate) fn inc_add_ops_by(n: usize) {
+    ADD_OPS.fetch_add(n, Ordering::SeqCst);
+}
+
+pub(crate) fn inc_mul_ops_by(n: usize) {
+    MUL_OPS.fetch_add(n, Ordering::SeqCst);
+}
+
+/// Legacy helper for sites that tracked a combined count. The value is split
+/// evenly between addition and multiplication counters.
 pub(crate) fn inc_ops_by(n: usize) {
-    MATRIX_OPS.fetch_add(n, Ordering::SeqCst);
+    let half = n / 2;
+    inc_add_ops_by(half);
+    inc_mul_ops_by(n - half);
 }
 
 #[derive(Clone, Debug)]
@@ -49,8 +76,10 @@ impl Matrix {
 
     pub fn matmul(a: &Matrix, b: &Matrix) -> Matrix {
         // Each output element requires a.cols multiplications and additions
-        let ops = a.rows * a.cols * b.cols * 2;
-        inc_ops_by(ops);
+        let muls = a.rows * a.cols * b.cols;
+        let adds = muls;
+        inc_mul_ops_by(muls);
+        inc_add_ops_by(adds);
         assert_eq!(a.cols, b.rows);
         let mut out = vec![0.0; a.rows * b.cols];
         for i in 0..a.rows {
@@ -68,7 +97,7 @@ impl Matrix {
 
     pub fn add(&self, other: &Matrix) -> Matrix {
         // One addition per element
-        inc_ops_by(self.data.len());
+        inc_add_ops_by(self.data.len());
         assert_eq!(self.rows, other.rows);
         assert_eq!(self.cols, other.cols);
         let mut v = vec![0.0; self.data.len()];
@@ -90,7 +119,7 @@ impl Matrix {
 
     pub fn softmax(&self) -> Matrix {
         // One addition per element when accumulating the sum
-        inc_ops_by(self.rows * self.cols);
+        inc_add_ops_by(self.rows * self.cols);
         let mut v = vec![0.0; self.data.len()];
         for r in 0..self.rows {
             // stabilisiert gegen Overflow:
