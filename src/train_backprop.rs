@@ -1,5 +1,5 @@
 use crate::data::{load_pairs, to_matrix, Vocab, START};
-use crate::math::{self, Matrix};
+use crate::math;
 use crate::metrics::f1_score;
 use crate::transformer_t::{DecoderT, EncoderT};
 use crate::weights::save_model;
@@ -44,37 +44,7 @@ pub fn run(_opt: &str) {
             let dec_x = to_matrix(&dec_in, vocab_size);
             let logits = decoder.forward_train(&dec_x, &enc_out);
 
-            let probs = logits.softmax();
-            let mut grad = Matrix::zeros(logits.rows, logits.cols);
-            let mut loss = 0.0f32;
-            let mut preds = Vec::new();
-            for (i, &tok) in tgt.iter().enumerate() {
-                let row = i + 1;
-                if row >= logits.rows {
-                    break;
-                }
-                let mut best_tok = 0usize;
-                let mut best_val = f32::NEG_INFINITY;
-                for t in 0..vocab_size {
-                    let p = probs.get(row, t);
-                    grad.set(row, t, p);
-                    if p > best_val {
-                        best_val = p;
-                        best_tok = t;
-                    }
-                }
-                let p = probs.get(row, tok);
-                loss += -(p + 1e-9).ln();
-                grad.set(row, tok, grad.get(row, tok) - 1.0);
-                preds.push(best_tok);
-            }
-            let cnt = tgt.len() as f32;
-            if cnt > 0.0 {
-                loss /= cnt;
-            }
-            for v in grad.data.iter_mut() {
-                *v /= cnt.max(1.0);
-            }
+            let (loss, grad, preds) = math::softmax_cross_entropy(&logits, tgt, 1);
             last_loss = loss;
 
             // Backward through decoder and encoder

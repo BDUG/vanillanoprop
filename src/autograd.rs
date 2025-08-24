@@ -1,4 +1,4 @@
-use crate::math::Matrix;
+use crate::math::{self, Matrix};
 
 #[derive(Clone)]
 pub struct Tensor {
@@ -27,5 +27,14 @@ impl Tensor {
     pub fn softmax(t: &Tensor) -> Tensor {
         let data = t.data.softmax();
         Tensor::from_matrix(data)
+    }
+
+    /// Compute cross-entropy loss and gradient w.r.t. the logits contained in
+    /// this tensor.  The returned gradient tensor can be fed directly into a
+    /// backward pass of subsequent layers.
+    #[allow(dead_code)]
+    pub fn softmax_cross_entropy(&self, targets: &[usize], row_offset: usize) -> (f32, Tensor) {
+        let (loss, grad, _) = math::softmax_cross_entropy(&self.data, targets, row_offset);
+        (loss, Tensor::from_matrix(grad))
     }
 }
