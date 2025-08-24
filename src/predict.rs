@@ -32,14 +32,21 @@ pub fn run() {
     let enc_x = to_matrix(src, vocab_size);
     let enc_out = encoder.forward(&enc_x);
 
-    let dec_in = vec![0u8];
-    let dec_x = to_matrix(&dec_in, vocab_size);
-    let logits = decoder.forward(&Tensor::from_matrix(dec_x), &enc_out);
-    let probs = Tensor::softmax(&logits);
+    // Average encoder activations across the sequence
+    let mut avg = Matrix::zeros(1, enc_out.data.cols);
+    for c in 0..enc_out.data.cols {
+        let mut sum = 0f32;
+        for r in 0..enc_out.data.rows {
+            sum += enc_out.data.get(r, c);
+        }
+        avg.set(0, c, sum / enc_out.data.rows as f32);
+    }
+
+    let probs = Tensor::softmax(&Tensor::from_matrix(avg));
 
     let mut best_tok = 0usize;
     let mut best_val = f32::NEG_INFINITY;
-    for t in 0..vocab_size {
+    for t in 0..probs.data.cols {
         let p = probs.data.get(0, t);
         if p > best_val {
             best_val = p;
@@ -47,9 +54,6 @@ pub fn run() {
         }
     }
 
-    println!(
-        "{{\"actual\":{}, \"prediction\":{}}}",
-        tgt, best_tok
-    );
+    println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
     println!("Total matrix ops: {}", math::matrix_ops_count());
 }
