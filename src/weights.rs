@@ -35,15 +35,27 @@ pub fn load_model(path: &str, encoder: &mut EncoderT, decoder: &mut DecoderT) {
         if !model.encoder_embedding.is_empty() {
             let e_rows = model.encoder_embedding.len();
             let e_cols = model.encoder_embedding[0].len();
-            let e_flat: Vec<f32> = model.encoder_embedding.into_iter().flatten().collect();
-            let mat = Matrix::from_vec(e_rows, e_cols, e_flat);
+            let exp_rows = encoder.embedding.table.w.data.rows;
+            let exp_cols = encoder.embedding.table.w.data.cols;
+            let mut mat = Matrix::zeros(exp_rows, exp_cols);
+            for r in 0..e_rows.min(exp_rows) {
+                for c in 0..e_cols.min(exp_cols) {
+                    mat.set(r, c, model.encoder_embedding[r][c]);
+                }
+            }
             encoder.embedding.table.w = Tensor::from_matrix(mat);
         }
         if !model.decoder_embedding.is_empty() {
             let d_rows = model.decoder_embedding.len();
             let d_cols = model.decoder_embedding[0].len();
-            let d_flat: Vec<f32> = model.decoder_embedding.into_iter().flatten().collect();
-            let mat = Matrix::from_vec(d_rows, d_cols, d_flat);
+            let exp_rows = decoder.embedding.table.w.data.rows;
+            let exp_cols = decoder.embedding.table.w.data.cols;
+            let mut mat = Matrix::zeros(exp_rows, exp_cols);
+            for r in 0..d_rows.min(exp_rows) {
+                for c in 0..d_cols.min(exp_cols) {
+                    mat.set(r, c, model.decoder_embedding[r][c]);
+                }
+            }
             decoder.embedding.table.w = Tensor::from_matrix(mat);
         }
     }
