@@ -22,18 +22,6 @@ impl Vocab {
         Self { stoi, itos }
     }
 
-    pub fn encode(&self, s: &str) -> Vec<usize> {
-        s.split_whitespace()
-            .map(|w| *self.stoi.get(w).unwrap())
-            .collect()
-    }
-
-    pub fn decode(&self, v: &[usize]) -> String {
-        v.iter()
-            .map(|i| self.itos[*i].clone())
-            .collect::<Vec<_>>()
-            .join(" ")
-    }
 }
 
 /// Load a small portion of the MNIST dataset as (image, label) pairs.

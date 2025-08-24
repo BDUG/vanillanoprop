@@ -1,3 +1,19 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static MATRIX_OPS: AtomicUsize = AtomicUsize::new(0);
+
+pub fn reset_matrix_ops() {
+    MATRIX_OPS.store(0, Ordering::SeqCst);
+}
+
+pub fn matrix_ops_count() -> usize {
+    MATRIX_OPS.load(Ordering::SeqCst)
+}
+
+fn inc_ops() {
+    MATRIX_OPS.fetch_add(1, Ordering::SeqCst);
+}
+
 #[derive(Clone, Debug)]
 pub struct Matrix {
     pub rows: usize,
@@ -24,6 +40,7 @@ impl Matrix {
     }
 
     pub fn matmul(a: &Matrix, b: &Matrix) -> Matrix {
+        inc_ops();
         assert_eq!(a.cols, b.rows);
         let mut out = vec![0.0; a.rows * b.cols];
         for i in 0..a.rows {
@@ -40,6 +57,7 @@ impl Matrix {
     }
 
     pub fn add(&self, other: &Matrix) -> Matrix {
+        inc_ops();
         assert_eq!(self.rows, other.rows);
         assert_eq!(self.cols, other.cols);
         let mut v = vec![0.0; self.data.len()];
@@ -50,6 +68,7 @@ impl Matrix {
     }
 
     pub fn transpose(&self) -> Matrix {
+        inc_ops();
         let mut v = vec![0.0; self.rows * self.cols];
         for i in 0..self.rows {
             for j in 0..self.cols {
@@ -60,6 +79,7 @@ impl Matrix {
     }
 
     pub fn softmax(&self) -> Matrix {
+        inc_ops();
         let mut v = vec![0.0; self.data.len()];
         for r in 0..self.rows {
             // stabilisiert gegen Overflow:
