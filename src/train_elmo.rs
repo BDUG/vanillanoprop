@@ -1,6 +1,7 @@
 use crate::data::{load_pairs, to_matrix, Vocab};
 use crate::math;
 use crate::metrics::f1_score;
+use crate::optim::Adam;
 use crate::transformer_t::EncoderT;
 use crate::weights::save_model;
 use indicatif::ProgressBar;
@@ -17,6 +18,8 @@ pub fn run() {
     let beta1 = 0.9;
     let beta2 = 0.999;
     let eps = 1e-8;
+    let weight_decay = 0.0;
+    let mut optim = Adam::new(lr, beta1, beta2, eps, weight_decay);
 
     math::reset_matrix_ops();
     let epochs = 5;
@@ -35,7 +38,8 @@ pub fn run() {
 
             // backprop + optimisation
             encoder.backward(&grad);
-            encoder.adam_step(lr, beta1, beta2, eps);
+            let mut params = encoder.parameters();
+            optim.step(&mut params);
 
             let f1 = f1_score(&preds, tgt);
             f1_sum += f1;

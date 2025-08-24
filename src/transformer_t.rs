@@ -67,16 +67,34 @@ impl LinearT {
     /// Adam optimisation step.  This is intentionally very small and only
     /// implements what is required for the training examples in this
     /// repository.
-    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32) {
+    pub fn sgd_step(&mut self, lr: f32, weight_decay: f32) {
+        for i in 0..self.grad.data.len() {
+            let g = self.grad.data[i] + weight_decay * self.w.data.data[i];
+            self.w.data.data[i] -= lr * g;
+        }
+    }
+
+    pub fn adam_step(
+        &mut self,
+        lr: f32,
+        beta1: f32,
+        beta2: f32,
+        eps: f32,
+        weight_decay: f32,
+    ) {
         self.t += 1;
         for i in 0..self.grad.data.len() {
-            let g = self.grad.data[i];
+            let g = self.grad.data[i] + weight_decay * self.w.data.data[i];
             self.m.data[i] = beta1 * self.m.data[i] + (1.0 - beta1) * g;
             self.v.data[i] = beta2 * self.v.data[i] + (1.0 - beta2) * g * g;
             let m_hat = self.m.data[i] / (1.0 - beta1.powi(self.t as i32));
             let v_hat = self.v.data[i] / (1.0 - beta2.powi(self.t as i32));
             self.w.data.data[i] -= lr * m_hat / (v_hat.sqrt() + eps);
         }
+    }
+
+    pub fn parameters(&mut self) -> Vec<&mut LinearT> {
+        vec![self]
     }
 }
 
@@ -109,8 +127,13 @@ impl EmbeddingT {
         self.table.zero_grad();
     }
 
-    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32) {
-        self.table.adam_step(lr, beta1, beta2, eps);
+    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
+        self.table
+            .adam_step(lr, beta1, beta2, eps, weight_decay);
+    }
+
+    pub fn parameters(&mut self) -> Vec<&mut LinearT> {
+        self.table.parameters()
     }
 }
 
@@ -175,9 +198,16 @@ impl FeedForwardT {
         self.w2.zero_grad();
     }
 
-    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32) {
-        self.w1.adam_step(lr, beta1, beta2, eps);
-        self.w2.adam_step(lr, beta1, beta2, eps);
+    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
+        self.w1
+            .adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.w2
+            .adam_step(lr, beta1, beta2, eps, weight_decay);
+    }
+
+    pub fn parameters(&mut self) -> Vec<&mut LinearT> {
+        let (w1, w2) = (&mut self.w1, &mut self.w2);
+        vec![w1, w2]
     }
 }
 
@@ -255,11 +285,20 @@ impl MultiHeadAttentionT {
         self.wo.zero_grad();
     }
 
-    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32) {
-        self.wq.adam_step(lr, beta1, beta2, eps);
-        self.wk.adam_step(lr, beta1, beta2, eps);
-        self.wv.adam_step(lr, beta1, beta2, eps);
-        self.wo.adam_step(lr, beta1, beta2, eps);
+    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
+        self.wq
+            .adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.wk
+            .adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.wv
+            .adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.wo
+            .adam_step(lr, beta1, beta2, eps, weight_decay);
+    }
+
+    pub fn parameters(&mut self) -> Vec<&mut LinearT> {
+        let (wq, wk, wv, wo) = (&mut self.wq, &mut self.wk, &mut self.wv, &mut self.wo);
+        vec![wq, wk, wv, wo]
     }
 }
 
@@ -298,9 +337,24 @@ impl EncoderLayerT {
         self.ff.zero_grad();
     }
 
-    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32) {
-        self.attn.adam_step(lr, beta1, beta2, eps);
-        self.ff.adam_step(lr, beta1, beta2, eps);
+    pub fn adam_step(
+        &mut self,
+        lr: f32,
+        beta1: f32,
+        beta2: f32,
+        eps: f32,
+        weight_decay: f32,
+    ) {
+        self.attn
+            .adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.ff
+            .adam_step(lr, beta1, beta2, eps, weight_decay);
+    }
+
+    pub fn parameters(&mut self) -> Vec<&mut LinearT> {
+        let mut params = self.attn.parameters();
+        params.extend(self.ff.parameters());
+        params
     }
 }
 
@@ -361,11 +415,27 @@ impl EncoderT {
         }
     }
 
-    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32) {
-        self.embedding.adam_step(lr, beta1, beta2, eps);
+    pub fn adam_step(
+        &mut self,
+        lr: f32,
+        beta1: f32,
+        beta2: f32,
+        eps: f32,
+        weight_decay: f32,
+    ) {
+        self.embedding
+            .adam_step(lr, beta1, beta2, eps, weight_decay);
         for l in self.layers.iter_mut() {
-            l.adam_step(lr, beta1, beta2, eps);
+            l.adam_step(lr, beta1, beta2, eps, weight_decay);
         }
+    }
+
+    pub fn parameters(&mut self) -> Vec<&mut LinearT> {
+        let mut params = self.embedding.parameters();
+        for l in self.layers.iter_mut() {
+            params.extend(l.parameters());
+        }
+        params
     }
 }
 
@@ -431,10 +501,27 @@ impl DecoderLayerT {
         self.ff.zero_grad();
     }
 
-    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32) {
-        self.self_attn.adam_step(lr, beta1, beta2, eps);
-        self.enc_dec_attn.adam_step(lr, beta1, beta2, eps);
-        self.ff.adam_step(lr, beta1, beta2, eps);
+    pub fn adam_step(
+        &mut self,
+        lr: f32,
+        beta1: f32,
+        beta2: f32,
+        eps: f32,
+        weight_decay: f32,
+    ) {
+        self.self_attn
+            .adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.enc_dec_attn
+            .adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.ff
+            .adam_step(lr, beta1, beta2, eps, weight_decay);
+    }
+
+    pub fn parameters(&mut self) -> Vec<&mut LinearT> {
+        let mut params = self.self_attn.parameters();
+        params.extend(self.enc_dec_attn.parameters());
+        params.extend(self.ff.parameters());
+        params
     }
 }
 
@@ -500,11 +587,30 @@ impl DecoderT {
         }
     }
 
-    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32) {
-        self.embedding.adam_step(lr, beta1, beta2, eps);
-        self.proj.adam_step(lr, beta1, beta2, eps);
+    pub fn adam_step(
+        &mut self,
+        lr: f32,
+        beta1: f32,
+        beta2: f32,
+        eps: f32,
+        weight_decay: f32,
+    ) {
+        self.embedding
+            .adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.proj
+            .adam_step(lr, beta1, beta2, eps, weight_decay);
         for l in self.layers.iter_mut() {
-            l.adam_step(lr, beta1, beta2, eps);
+            l.adam_step(lr, beta1, beta2, eps, weight_decay);
         }
+    }
+
+    pub fn parameters(&mut self) -> Vec<&mut LinearT> {
+        let (embedding, proj) = (&mut self.embedding, &mut self.proj);
+        let mut params = embedding.parameters();
+        params.push(proj);
+        for l in self.layers.iter_mut() {
+            params.extend(l.parameters());
+        }
+        params
     }
 }

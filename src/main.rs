@@ -5,6 +5,7 @@ mod math; // einfache Matrixops + softmax etc.
 mod metrics;
 mod positional;
 mod predict;
+mod optim;
 mod train_backprop;
 mod train_elmo;
 mod train_noprop;
