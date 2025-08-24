@@ -30,3 +30,7 @@ path = "src/bin/train_elmo.rs"
 name = "train_noprop"
 path = "src/bin/train_noprop.rs"
 
+
+[[bin]]
+name = "compare"
+path = "src/bin/compare.rs"
