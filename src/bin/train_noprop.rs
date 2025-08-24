@@ -1,9 +1,17 @@
 use indicatif::ProgressBar;
-use vanillanoprop::data::{load_batches, to_matrix, Vocab};
+use vanillanoprop::data::load_batches;
 use vanillanoprop::math::{self, Matrix};
 use vanillanoprop::metrics::f1_score;
 use vanillanoprop::models::EncoderT;
 use vanillanoprop::weights::save_model;
+
+fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
+    let mut m = Matrix::zeros(seq.len(), vocab_size);
+    for (i, &tok) in seq.iter().enumerate() {
+        m.set(i, tok as usize, 1.0);
+    }
+    m
+}
 
 fn main() {
     run();
@@ -11,8 +19,7 @@ fn main() {
 
 fn run() {
     let batches = load_batches(4);
-    let vocab = Vocab::build();
-    let vocab_size = vocab.itos.len();
+    let vocab_size = 256;
 
     let model_dim = 64;
     let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256);
@@ -30,12 +37,13 @@ fn run() {
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
             for (src, tgt) in batch {
-                let len = src.len().min(tgt.len());
+                let tgt = *tgt;
+                let len = 1usize;
                 let x = to_matrix(&src[..len], vocab_size);
                 let enc_out = encoder.forward_local(&x);
 
                 // encode target without affecting gradients and add noise
-                let mut noisy = encoder.forward(&to_matrix(&tgt[..len], vocab_size));
+                let mut noisy = encoder.forward(&to_matrix(&[tgt as u8], vocab_size));
                 for v in &mut noisy.data.data {
                     *v += (rand::random::<f32>() - 0.5) * 0.1;
                 }
@@ -58,7 +66,8 @@ fn run() {
 
                 batch_loss += loss;
                 encoder.fa_update(&delta, lr);
-                let f1 = f1_score(&src[..len], &tgt[..len]);
+                let src_slice: Vec<usize> = src[..len].iter().map(|&v| v as usize).collect();
+                let f1 = f1_score(&src_slice, &[tgt]);
                 batch_f1 += f1;
             }
             let bsz = batch.len() as f32;

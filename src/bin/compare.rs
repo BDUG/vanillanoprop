@@ -1,14 +1,21 @@
 use indicatif::ProgressBar;
-use vanillanoprop::data::{download_mnist, load_batches, to_matrix, Vocab, START};
+use vanillanoprop::data::{download_mnist, load_batches};
 use vanillanoprop::math::{self, Matrix};
 use vanillanoprop::metrics::f1_score;
 use vanillanoprop::models::{DecoderT, EncoderT};
 use vanillanoprop::optim::Adam;
 
+fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
+    let mut m = Matrix::zeros(seq.len(), vocab_size);
+    for (i, &tok) in seq.iter().enumerate() {
+        m.set(i, tok as usize, 1.0);
+    }
+    m
+}
+
 fn train_backprop(epochs: usize) -> (f32, usize) {
     let batches = load_batches(4);
-    let vocab = Vocab::build();
-    let vocab_size = vocab.itos.len();
+    let vocab_size = 256;
 
     let model_dim = 64;
     let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256);
@@ -20,7 +27,6 @@ fn train_backprop(epochs: usize) -> (f32, usize) {
     let eps = 1e-8;
     let weight_decay = 0.0;
     let mut adam = Adam::new(lr, beta1, beta2, eps, weight_decay);
-    let start_id = *vocab.stoi.get(START).unwrap();
 
     math::reset_matrix_ops();
     let pb = ProgressBar::new(epochs as u64);
@@ -35,20 +41,20 @@ fn train_backprop(epochs: usize) -> (f32, usize) {
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
             for (src, tgt) in batch {
+                let tgt = *tgt;
                 let enc_x = to_matrix(src, vocab_size);
                 let enc_out = encoder.forward_train(&enc_x);
 
-                let mut dec_in = vec![start_id];
-                dec_in.extend_from_slice(tgt);
+                let dec_in = vec![tgt as u8];
                 let dec_x = to_matrix(&dec_in, vocab_size);
                 let logits = decoder.forward_train(&dec_x, &enc_out);
 
-                let (loss, grad, preds) = math::softmax_cross_entropy(&logits, tgt, 1);
+                let (loss, grad, preds) = math::softmax_cross_entropy(&logits, &[tgt], 0);
                 batch_loss += loss;
 
                 let grad_enc = decoder.backward(&grad);
                 encoder.backward(&grad_enc);
-                let f1 = f1_score(&preds, tgt);
+                let f1 = f1_score(&preds, &[tgt]);
                 batch_f1 += f1;
             }
             let bsz = batch.len() as f32;
@@ -79,8 +85,7 @@ fn train_backprop(epochs: usize) -> (f32, usize) {
 
 fn train_noprop(epochs: usize) -> (f32, usize) {
     let batches = load_batches(4);
-    let vocab = Vocab::build();
-    let vocab_size = vocab.itos.len();
+    let vocab_size = 256;
 
     let model_dim = 64;
     let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256);
@@ -97,11 +102,12 @@ fn train_noprop(epochs: usize) -> (f32, usize) {
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
             for (src, tgt) in batch {
-                let len = src.len().min(tgt.len());
+                let tgt = *tgt;
+                let len = 1usize;
                 let x = to_matrix(&src[..len], vocab_size);
                 let enc_out = encoder.forward_local(&x);
 
-                let mut noisy = encoder.forward(&to_matrix(&tgt[..len], vocab_size));
+                let mut noisy = encoder.forward(&to_matrix(&[tgt as u8], vocab_size));
                 for v in &mut noisy.data.data {
                     *v += (rand::random::<f32>() - 0.5) * 0.1;
                 }
@@ -123,7 +129,8 @@ fn train_noprop(epochs: usize) -> (f32, usize) {
 
                 batch_loss += loss;
                 encoder.fa_update(&delta, lr);
-                let f1 = f1_score(&src[..len], &tgt[..len]);
+                let src_slice: Vec<usize> = src[..len].iter().map(|&v| v as usize).collect();
+                let f1 = f1_score(&src_slice, &[tgt]);
                 batch_f1 += f1;
             }
             let bsz = batch.len() as f32;

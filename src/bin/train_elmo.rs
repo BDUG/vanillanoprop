@@ -1,10 +1,18 @@
 use indicatif::ProgressBar;
-use vanillanoprop::data::{load_batches, to_matrix, Vocab};
-use vanillanoprop::math;
+use vanillanoprop::data::load_batches;
+use vanillanoprop::math::{self, Matrix};
 use vanillanoprop::metrics::f1_score;
 use vanillanoprop::models::EncoderT;
 use vanillanoprop::optim::Adam;
 use vanillanoprop::weights::save_model;
+
+fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
+    let mut m = Matrix::zeros(seq.len(), vocab_size);
+    for (i, &tok) in seq.iter().enumerate() {
+        m.set(i, tok as usize, 1.0);
+    }
+    m
+}
 
 fn main() {
     run();
@@ -12,8 +20,7 @@ fn main() {
 
 fn run() {
     let batches = load_batches(4);
-    let vocab = Vocab::build();
-    let vocab_size = vocab.itos.len();
+    let vocab_size = 256;
 
     // With embedding → model_dim separate
     let model_dim = 64;
@@ -38,13 +45,14 @@ fn run() {
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
             for (src, tgt) in batch {
+                let tgt = *tgt;
                 let x = to_matrix(src, vocab_size);
                 let logits = encoder.forward_train(&x);
                 let (loss, grad, preds) =
-                    math::softmax_cross_entropy(&logits, tgt, 0);
+                    math::softmax_cross_entropy(&logits, &[tgt], 0);
                 batch_loss += loss;
                 encoder.backward(&grad);
-                let f1 = f1_score(&preds, tgt);
+                let f1 = f1_score(&preds, &[tgt]);
                 batch_f1 += f1;
             }
             let bsz = batch.len() as f32;

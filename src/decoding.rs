@@ -1,6 +1,14 @@
 use crate::autograd::Tensor;
-use crate::data::to_matrix;
+use crate::math::Matrix;
 use crate::models::DecoderT;
+
+fn to_matrix(seq: &[usize], vocab_size: usize) -> Matrix {
+    let mut m = Matrix::zeros(seq.len(), vocab_size);
+    for (i, &tok) in seq.iter().enumerate() {
+        m.set(i, tok, 1.0);
+    }
+    m
+}
 
 pub fn beam_search_decode(
     decoder: &DecoderT,

@@ -1,4 +1,3 @@
-use crate::math::Matrix;
 use mnist::MnistBuilder;
 
 /// Apply a 3x3 convolution kernel with zero padding to an image.
@@ -26,35 +25,12 @@ fn convolve3x3(img: &[u8], width: usize, height: usize, kernel: [[f32; 3]; 3]) -
     out
 }
 
-pub const START: &str = "<start>";
-pub const END: &str = "<end>";
-
-pub struct Vocab {
-    pub stoi: std::collections::HashMap<String, usize>,
-    pub itos: Vec<String>,
-}
-
-impl Vocab {
-    /// Build a vocabulary for MNIST pixel values plus start/end tokens.
-    pub fn build() -> Self {
-        let mut itos: Vec<String> = (0..256).map(|i| i.to_string()).collect();
-        itos.push(START.to_string());
-        itos.push(END.to_string());
-        let mut stoi = std::collections::HashMap::new();
-        for (i, w) in itos.iter().enumerate() {
-            stoi.insert(w.clone(), i);
-        }
-        Self { stoi, itos }
-    }
-}
-
-/// Load a small portion of the MNIST dataset as (image, label) pairs.
-pub fn load_pairs() -> Vec<(Vec<usize>, Vec<usize>)> {
+/// Load a small portion of the MNIST dataset as `(pixels, label)` pairs.
+pub fn load_pairs() -> Vec<(Vec<u8>, usize)> {
     let mnist = MnistBuilder::new()
         .label_format_digit()
         .training_set_length(10)
         .finalize();
-    let end_id = *Vocab::build().stoi.get(END).unwrap();
     mnist
         .trn_img
         .chunks(28 * 28)
@@ -62,10 +38,8 @@ pub fn load_pairs() -> Vec<(Vec<usize>, Vec<usize>)> {
         .map(|(img, &lbl)| {
             // Simple 3x3 mean blur to smooth the input image
             let kernel = [[1.0 / 9.0; 3]; 3];
-            let processed = convolve3x3(img, 28, 28, kernel);
-            let src: Vec<usize> = processed.iter().map(|&p| p as usize).collect();
-            let tgt = vec![lbl as usize, end_id];
-            (src, tgt)
+            let pixels = convolve3x3(img, 28, 28, kernel);
+            (pixels, lbl as usize)
         })
         .collect()
 }
@@ -76,9 +50,7 @@ pub fn load_pairs() -> Vec<(Vec<usize>, Vec<usize>)> {
 /// samples before performing an optimisation step.  The final batch may be
 /// smaller than `batch_size` if the total number of samples is not divisible
 /// by it.
-pub fn load_batches(
-    batch_size: usize,
-) -> Vec<Vec<(Vec<usize>, Vec<usize>)>> {
+pub fn load_batches(batch_size: usize) -> Vec<Vec<(Vec<u8>, usize)>> {
     let pairs = load_pairs();
     pairs.chunks(batch_size).map(|c| c.to_vec()).collect()
 }
@@ -98,10 +70,3 @@ pub fn download_mnist() {
     let _ = MnistBuilder::new().download_and_extract().finalize();
 }
 
-pub fn to_matrix(seq: &[usize], vocab_size: usize) -> Matrix {
-    let mut m = Matrix::zeros(seq.len(), vocab_size);
-    for (i, &tok) in seq.iter().enumerate() {
-        m.set(i, tok, 1.0);
-    }
-    m
-}
