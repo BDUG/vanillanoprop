@@ -1,73 +1,87 @@
 use indicatif::ProgressBar;
-use vanillanoprop::data::{download_mnist, load_batches};
-use vanillanoprop::math::{self, Matrix};
-use vanillanoprop::metrics::f1_score;
-use vanillanoprop::models::{DecoderT, EncoderT};
-use vanillanoprop::optim::Adam;
+use rand::random;
 
+use vanillanoprop::data::{download_mnist, load_batches};
+use vanillanoprop::math;
+use vanillanoprop::metrics::f1_score;
+use vanillanoprop::models::SimpleCNN;
+
+// Train a SimpleCNN with standard backpropagation using a basic SGD loop.
 fn train_backprop(epochs: usize) -> (f32, usize) {
     let batches = load_batches(4);
-    let vocab_size = 256;
+    let mut cnn = SimpleCNN::new(10);
 
-    let model_dim = 64;
-    let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256);
-    let mut decoder = DecoderT::new(6, vocab_size, model_dim, 256);
-
-    let lr = 0.001;
-    let beta1 = 0.9;
-    let beta2 = 0.999;
-    let eps = 1e-8;
-    let weight_decay = 0.0;
-    let mut adam = Adam::new(lr, beta1, beta2, eps, weight_decay);
+    let lr = 0.01f32;
 
     math::reset_matrix_ops();
     let pb = ProgressBar::new(epochs as u64);
     let mut best_f1 = f32::NEG_INFINITY;
+
     for epoch in 0..epochs {
-        let mut last_loss = 0.0;
-        let mut f1_sum = 0.0;
-        let mut sample_cnt: f32 = 0.0;
+        let mut last_loss = 0.0f32;
+        let mut f1_sum = 0.0f32;
+        let mut sample_cnt = 0.0f32;
+
         for batch in &batches {
-            encoder.zero_grad();
-            decoder.zero_grad();
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
-            for (src, tgt) in batch {
-                let tgt = *tgt;
-                // one-hot encode source sequence for embedding layer
-                let mut enc_x = Matrix::zeros(src.len(), vocab_size);
-                for (i, &tok) in src.iter().enumerate() {
-                    enc_x.set(i, tok as usize, 1.0);
+
+            for (img, tgt) in batch {
+                let (feat, logits) = cnn.forward(img);
+
+                // Softmax cross entropy
+                let max = logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                let mut exp_sum = 0.0f32;
+                let mut probs = vec![0f32; logits.len()];
+                for (i, &v) in logits.iter().enumerate() {
+                    let e = (v - max).exp();
+                    probs[i] = e;
+                    exp_sum += e;
                 }
-                let enc_out = encoder.forward_train(&enc_x);
+                for p in &mut probs {
+                    *p /= exp_sum;
+                }
 
-                // one-hot encode target token for decoder input
-                let mut dec_x = Matrix::zeros(1, vocab_size);
-                dec_x.set(0, tgt as usize, 1.0);
-                let logits = decoder.forward_train(&dec_x, &enc_out);
-
-                let (loss, grad, preds) = math::softmax_cross_entropy(&logits, &[tgt], 0);
+                let loss = -probs[*tgt as usize].ln();
                 batch_loss += loss;
 
-                let grad_enc = decoder.backward(&grad);
-                encoder.backward(&grad_enc);
-                let f1 = f1_score(&preds, &[tgt]);
-                batch_f1 += f1;
+                let mut grad_logits = probs.clone();
+                grad_logits[*tgt as usize] -= 1.0;
+
+                // Update weights
+                let (fc, bias) = cnn.parameters_mut();
+                let rows = fc.rows;
+                let cols = fc.cols;
+                for c in 0..cols {
+                    let g = grad_logits[c];
+                    bias[c] -= lr * g;
+                    for r in 0..rows {
+                        let val = fc.get(r, c) - lr * g * feat[r];
+                        fc.set(r, c, val);
+                    }
+                }
+
+                // Metrics
+                let mut best = 0usize;
+                let mut best_val = f32::NEG_INFINITY;
+                for (i, &v) in probs.iter().enumerate() {
+                    if v > best_val {
+                        best_val = v;
+                        best = i;
+                    }
+                }
+                batch_f1 += f1_score(&[best], &[*tgt as usize]);
             }
+
             let bsz = batch.len() as f32;
             batch_loss /= bsz;
             let batch_f1_avg = batch_f1 / bsz;
             last_loss = batch_loss;
             f1_sum += batch_f1;
             sample_cnt += bsz;
-            let mut params = encoder.parameters();
-            {
-                let dec_params = decoder.parameters();
-                params.extend(dec_params);
-            }
-            adam.step(&mut params);
             println!("backprop epoch {epoch} batch loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
         }
+
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
         pb.inc(1);
@@ -80,63 +94,71 @@ fn train_backprop(epochs: usize) -> (f32, usize) {
     (best_f1, ops)
 }
 
+// Train a SimpleCNN using a NoProp-style local update with noisy targets.
 fn train_noprop(epochs: usize) -> (f32, usize) {
     let batches = load_batches(4);
-    let vocab_size = 256;
+    let mut cnn = SimpleCNN::new(10);
 
-    let model_dim = 64;
-    let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256);
-    let lr = 0.001;
+    let lr = 0.01f32;
 
     math::reset_matrix_ops();
     let pb = ProgressBar::new(epochs as u64);
     let mut best_f1 = f32::NEG_INFINITY;
+
     for epoch in 0..epochs {
-        let mut last_loss = 0.0;
-        let mut f1_sum = 0.0;
-        let mut sample_cnt: f32 = 0.0;
+        let mut last_loss = 0.0f32;
+        let mut f1_sum = 0.0f32;
+        let mut sample_cnt = 0.0f32;
+
         for batch in &batches {
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
-            for (src, tgt) in batch {
-                let tgt = *tgt;
-                let len = 1usize;
-                // one-hot encode the source token for the embedding layer
-                let mut x = Matrix::zeros(len, vocab_size);
-                for (i, &tok) in src[..len].iter().enumerate() {
-                    x.set(i, tok as usize, 1.0);
-                }
-                let enc_out = encoder.forward_local(&x);
 
-                // encode target without affecting gradients and add noise
-                let mut tgt_mat = Matrix::zeros(1, vocab_size);
-                tgt_mat.set(0, tgt as usize, 1.0);
-                let mut noisy = encoder.forward(&tgt_mat);
-                for v in &mut noisy.data.data {
-                    *v += (rand::random::<f32>() - 0.5) * 0.1;
+            for (img, tgt) in batch {
+                let (feat, logits) = cnn.forward(img);
+
+                // Create noisy one-hot target
+                let mut target = vec![0f32; logits.len()];
+                target[*tgt as usize] = 1.0;
+                for v in &mut target {
+                    *v += (random::<f32>() - 0.5) * 0.1;
                 }
 
-                let mut delta = Matrix::zeros(enc_out.rows, enc_out.cols);
+                let mut delta = vec![0f32; logits.len()];
                 let mut loss = 0.0f32;
-                for i in 0..len * model_dim {
-                    let d = enc_out.data[i] - noisy.data.data[i];
+                for i in 0..logits.len() {
+                    let d = logits[i] - target[i];
                     loss += d * d;
-                    delta.data[i] = 2.0 * d;
+                    delta[i] = 2.0 * d / logits.len() as f32;
                 }
-                let n = (len * model_dim) as f32;
-                if n > 0.0 {
-                    loss /= n;
-                    for v in delta.data.iter_mut() {
-                        *v /= n;
+                loss /= logits.len() as f32;
+                batch_loss += loss;
+
+                // Local weight update
+                let (fc, bias) = cnn.parameters_mut();
+                let rows = fc.rows;
+                let cols = fc.cols;
+                for c in 0..cols {
+                    let g = delta[c];
+                    bias[c] -= lr * g;
+                    for r in 0..rows {
+                        let val = fc.get(r, c) - lr * g * feat[r];
+                        fc.set(r, c, val);
                     }
                 }
 
-                batch_loss += loss;
-                encoder.fa_update(&delta, lr);
-                let src_slice: Vec<usize> = src[..len].iter().map(|&v| v as usize).collect();
-                let f1 = f1_score(&src_slice, &[tgt]);
-                batch_f1 += f1;
+                // Metrics
+                let mut best = 0usize;
+                let mut best_val = f32::NEG_INFINITY;
+                for (i, &v) in logits.iter().enumerate() {
+                    if v > best_val {
+                        best_val = v;
+                        best = i;
+                    }
+                }
+                batch_f1 += f1_score(&[best], &[*tgt as usize]);
             }
+
             let bsz = batch.len() as f32;
             batch_loss /= bsz;
             let batch_f1_avg = batch_f1 / bsz;
@@ -145,6 +167,7 @@ fn train_noprop(epochs: usize) -> (f32, usize) {
             sample_cnt += bsz;
             println!("noprop epoch {epoch} batch loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
         }
+
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
         pb.inc(1);
@@ -159,7 +182,7 @@ fn train_noprop(epochs: usize) -> (f32, usize) {
 
 fn main() {
     download_mnist();
-    let epochs = 10;
+    let epochs = 5;
     println!("Running backpropagation for {epochs} epochs...");
     let (bp_f1, bp_ops) = train_backprop(epochs);
     println!("Running noprop for {epochs} epochs...");
@@ -168,3 +191,4 @@ fn main() {
     println!("Backprop -> Best F1: {bp_f1:.4}, Matrix Ops: {bp_ops}");
     println!("Noprop   -> Best F1: {np_f1:.4}, Matrix Ops: {np_ops}");
 }
+
