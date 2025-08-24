@@ -85,7 +85,7 @@ pub fn run(_opt: &str) {
         if avg_f1 > best_f1 {
             println!("Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}");
             best_f1 = avg_f1;
-            save_model("checkpoint.json", &encoder, Some(&decoder));
+            save_model("checkpoint.json", &mut encoder, Some(&mut decoder));
         }
     }
     pb.finish_with_message("training done");
@@ -93,5 +93,5 @@ pub fn run(_opt: &str) {
     println!("Total matrix ops: {}", math::matrix_ops_count());
 
     // Save trained weights
-    save_model("model.json", &encoder, Some(&decoder));
+    save_model("model.json", &mut encoder, Some(&mut decoder));
 }

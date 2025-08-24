@@ -1,19 +1,19 @@
-use crate::layers::{EmbeddingT, FeedForwardT, LinearT, MultiHeadAttentionT};
+use crate::layers::{EmbeddingT, FeedForwardT, LinearT, MultiHeadAttentionT, Layer};
 use crate::math::Matrix;
 use crate::autograd::Tensor;
 use crate::positional::positional_encoding;
 
 pub struct EncoderLayerT {
-    pub attn: MultiHeadAttentionT,
-    pub ff: FeedForwardT,
+    pub attn: Box<dyn Layer>,
+    pub ff: Box<dyn Layer>,
     attn_out: Matrix,
 }
 
 impl EncoderLayerT {
     pub fn new(dim: usize, hidden: usize) -> Self {
         Self {
-            attn: MultiHeadAttentionT::new(dim),
-            ff: FeedForwardT::new(dim, hidden),
+            attn: Box::new(MultiHeadAttentionT::new(dim)),
+            ff: Box::new(FeedForwardT::new(dim, hidden)),
             attn_out: Matrix::zeros(0, 0),
         }
     }
@@ -24,8 +24,8 @@ impl EncoderLayerT {
     }
 
     pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
-        self.attn_out = self.attn.forward_local(x);
-        self.ff.forward_local(&self.attn_out)
+        self.attn_out = self.attn.forward_train(x);
+        self.ff.forward_train(&self.attn_out)
     }
 
     pub fn fa_update(&mut self, grad_out: &Matrix, lr: f32) -> Matrix {
@@ -70,7 +70,7 @@ impl EncoderLayerT {
 
 pub struct EncoderT {
     pub layers: Vec<EncoderLayerT>,
-    pub embedding: EmbeddingT,
+    pub embedding: Box<dyn Layer>,
     pos: Matrix,
 }
 
@@ -82,7 +82,7 @@ impl EncoderT {
         }
         Self {
             layers: v,
-            embedding: EmbeddingT::new(vocab_size, model_dim),
+            embedding: Box::new(EmbeddingT::new(vocab_size, model_dim)),
             pos: Matrix::zeros(0, 0),
         }
     }
@@ -101,7 +101,7 @@ impl EncoderT {
     }
 
     pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
-        let mut h = self.embedding.forward_local(x);
+        let mut h = self.embedding.forward_train(x);
         self.pos = positional_encoding(h.rows, h.cols);
         h = Matrix::add(&h, &self.pos);
         for l in self.layers.iter_mut() {

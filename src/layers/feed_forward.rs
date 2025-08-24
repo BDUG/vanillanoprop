@@ -1,6 +1,7 @@
 use crate::autograd::Tensor;
 use crate::math::Matrix;
 use super::linear::LinearT;
+use super::layer::Layer;
 
 pub struct FeedForwardT {
     pub w1: LinearT,
@@ -83,6 +84,43 @@ impl FeedForwardT {
     pub fn parameters(&mut self) -> Vec<&mut LinearT> {
         let (w1, w2) = (&mut self.w1, &mut self.w2);
         vec![w1, w2]
+    }
+}
+
+impl Layer for FeedForwardT {
+    fn forward(&self, x: &Tensor) -> Tensor {
+        FeedForwardT::forward(self, x)
+    }
+
+    fn forward_train(&mut self, x: &Matrix) -> Matrix {
+        FeedForwardT::forward_train(self, x)
+    }
+
+    fn backward(&mut self, grad_out: &Matrix) -> Matrix {
+        FeedForwardT::backward(self, grad_out)
+    }
+
+    fn zero_grad(&mut self) {
+        FeedForwardT::zero_grad(self);
+    }
+
+    fn fa_update(&mut self, grad_out: &Matrix, lr: f32) -> Matrix {
+        FeedForwardT::fa_update(self, grad_out, lr)
+    }
+
+    fn adam_step(
+        &mut self,
+        lr: f32,
+        beta1: f32,
+        beta2: f32,
+        eps: f32,
+        weight_decay: f32,
+    ) {
+        FeedForwardT::adam_step(self, lr, beta1, beta2, eps, weight_decay);
+    }
+
+    fn parameters(&mut self) -> Vec<&mut LinearT> {
+        FeedForwardT::parameters(self)
     }
 }
 
