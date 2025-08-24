@@ -27,26 +27,16 @@ pub fn run() {
 
     // use beam search for better predictions
     let out_ids = beam_search_decode(&decoder, &enc_out, start_id, end_id, vocab_size, 50, 3);
-    let mut filtered = Vec::new();
-    for &id in out_ids.iter() {
-        if id == start_id {
-            continue;
-        }
-        if id == end_id {
-            break;
-        }
-        filtered.push(id);
-    }
-    let prediction = if filtered.is_empty() {
-        "[no prediction]".to_string()
-    } else {
-        vocab.decode(&filtered)
-    };
-    let actual = if tgt.len() > 1 {
-        vocab.decode(&tgt[..tgt.len() - 1])
-    } else {
-        "[unknown]".to_string()
-    };
+    let pred_id = out_ids
+        .into_iter()
+        .find(|&id| id != start_id && id != end_id);
+    let prediction = pred_id
+        .map(|id| vocab.itos[id].clone())
+        .unwrap_or_else(|| "[no prediction]".to_string());
+    let actual = tgt
+        .first()
+        .map(|&id| vocab.itos[id].clone())
+        .unwrap_or_else(|| "[unknown]".to_string());
     println!(
         "{{\"actual\":\"{}\", \"prediction\":\"{}\"}}",
         actual, prediction
