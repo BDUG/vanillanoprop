@@ -5,6 +5,7 @@ use crate::math;
 use crate::metrics::f1_score;
 use crate::models::SimpleCNN;
 use crate::weights::save_cnn;
+use crate::memory;
 
 /// Train a [`SimpleCNN`] on the MNIST data using a basic SGD loop.
 ///
@@ -105,5 +106,7 @@ pub fn run(opt: &str) {
     pb.finish_with_message("training done");
 
     println!("Total matrix ops: {}", math::matrix_ops_count());
+    let peak = memory::peak_memory_bytes();
+    println!("Max memory usage: {:.2} MB", peak as f64 / (1024.0 * 1024.0));
     save_cnn("cnn.json", &cnn);
 }

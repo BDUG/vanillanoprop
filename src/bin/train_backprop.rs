@@ -8,6 +8,7 @@ use vanillanoprop::models::{DecoderT, EncoderT};
 use vanillanoprop::optim::{Adam, SGD};
 use vanillanoprop::weights::save_model;
 use vanillanoprop::train_cnn;
+use vanillanoprop::memory;
 
 fn main() {
     let model = env::args().nth(1).unwrap_or_else(|| "transformer".to_string());
@@ -103,6 +104,8 @@ fn run(opt: &str) {
     pb.finish_with_message("training done");
 
     println!("Total matrix ops: {}", math::matrix_ops_count());
+    let peak = memory::peak_memory_bytes();
+    println!("Max memory usage: {:.2} MB", peak as f64 / (1024.0 * 1024.0));
 
     // Save trained weights
     save_model("model.json", &mut encoder, Some(&mut decoder));
