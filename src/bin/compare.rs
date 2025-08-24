@@ -5,14 +5,6 @@ use vanillanoprop::metrics::f1_score;
 use vanillanoprop::models::{DecoderT, EncoderT};
 use vanillanoprop::optim::Adam;
 
-fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
-    let mut m = Matrix::zeros(seq.len(), vocab_size);
-    for (i, &tok) in seq.iter().enumerate() {
-        m.set(i, tok as usize, 1.0);
-    }
-    m
-}
-
 fn train_backprop(epochs: usize) -> (f32, usize) {
     let batches = load_batches(4);
     let vocab_size = 256;
@@ -42,11 +34,14 @@ fn train_backprop(epochs: usize) -> (f32, usize) {
             let mut batch_f1 = 0.0f32;
             for (src, tgt) in batch {
                 let tgt = *tgt;
-                let enc_x = to_matrix(src, vocab_size);
+                let enc_x = Matrix::from_vec(
+                    src.len(),
+                    1,
+                    src.iter().map(|&v| v as f32).collect(),
+                );
                 let enc_out = encoder.forward_train(&enc_x);
 
-                let dec_in = vec![tgt as u8];
-                let dec_x = to_matrix(&dec_in, vocab_size);
+                let dec_x = Matrix::from_vec(1, 1, vec![tgt as f32]);
                 let logits = decoder.forward_train(&dec_x, &enc_out);
 
                 let (loss, grad, preds) = math::softmax_cross_entropy(&logits, &[tgt], 0);
@@ -104,10 +99,14 @@ fn train_noprop(epochs: usize) -> (f32, usize) {
             for (src, tgt) in batch {
                 let tgt = *tgt;
                 let len = 1usize;
-                let x = to_matrix(&src[..len], vocab_size);
+                let x = Matrix::from_vec(
+                    len,
+                    1,
+                    src[..len].iter().map(|&v| v as f32).collect(),
+                );
                 let enc_out = encoder.forward_local(&x);
 
-                let mut noisy = encoder.forward(&to_matrix(&[tgt as u8], vocab_size));
+                let mut noisy = encoder.forward(&Matrix::from_vec(1, 1, vec![tgt as f32]));
                 for v in &mut noisy.data.data {
                     *v += (rand::random::<f32>() - 0.5) * 0.1;
                 }

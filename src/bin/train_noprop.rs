@@ -5,14 +5,6 @@ use vanillanoprop::metrics::f1_score;
 use vanillanoprop::models::EncoderT;
 use vanillanoprop::weights::save_model;
 
-fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
-    let mut m = Matrix::zeros(seq.len(), vocab_size);
-    for (i, &tok) in seq.iter().enumerate() {
-        m.set(i, tok as usize, 1.0);
-    }
-    m
-}
-
 fn main() {
     run();
 }
@@ -39,11 +31,15 @@ fn run() {
             for (src, tgt) in batch {
                 let tgt = *tgt;
                 let len = 1usize;
-                let x = to_matrix(&src[..len], vocab_size);
+                let x = Matrix::from_vec(
+                    len,
+                    1,
+                    src[..len].iter().map(|&v| v as f32).collect(),
+                );
                 let enc_out = encoder.forward_local(&x);
 
                 // encode target without affecting gradients and add noise
-                let mut noisy = encoder.forward(&to_matrix(&[tgt as u8], vocab_size));
+                let mut noisy = encoder.forward(&Matrix::from_vec(1, 1, vec![tgt as f32]));
                 for v in &mut noisy.data.data {
                     *v += (rand::random::<f32>() - 0.5) * 0.1;
                 }

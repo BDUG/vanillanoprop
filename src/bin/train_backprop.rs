@@ -8,14 +8,6 @@ use vanillanoprop::models::{DecoderT, EncoderT};
 use vanillanoprop::optim::{Adam, SGD};
 use vanillanoprop::weights::save_model;
 
-fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
-    let mut m = Matrix::zeros(seq.len(), vocab_size);
-    for (i, &tok) in seq.iter().enumerate() {
-        m.set(i, tok as usize, 1.0);
-    }
-    m
-}
-
 fn main() {
     let opt = env::args().nth(1).unwrap_or_else(|| "sgd".to_string());
     run(&opt);
@@ -54,11 +46,14 @@ fn run(opt: &str) {
             let mut batch_f1 = 0.0f32;
             for (src, tgt) in batch {
                 let tgt = *tgt;
-                let enc_x = to_matrix(src, vocab_size);
+                let enc_x = Matrix::from_vec(
+                    src.len(),
+                    1,
+                    src.iter().map(|&v| v as f32).collect(),
+                );
                 let enc_out = encoder.forward_train(&enc_x);
 
-                let dec_in = vec![tgt as u8];
-                let dec_x = to_matrix(&dec_in, vocab_size);
+                let dec_x = Matrix::from_vec(1, 1, vec![tgt as f32]);
                 let logits = decoder.forward_train(&dec_x, &enc_out);
 
                 let (loss, grad, preds) =
