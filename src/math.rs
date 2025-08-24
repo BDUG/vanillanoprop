@@ -10,7 +10,7 @@ pub fn matrix_ops_count() -> usize {
     MATRIX_OPS.load(Ordering::SeqCst)
 }
 
-fn inc_ops() {
+pub(crate) fn inc_ops() {
     MATRIX_OPS.fetch_add(1, Ordering::SeqCst);
 }
 
