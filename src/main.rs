@@ -16,7 +16,7 @@ fn main() {
     let mut args: Vec<String> = env::args().collect();
     args.push(String::from("backprop"));
     if args.len() < 2 {
-        eprintln!("Usage: {} <mode> [optimizer|reload|input]", args[0]);
+        eprintln!("Usage: {} <mode> [optimizer|reload]", args[0]);
         eprintln!("Modes: backprop | elmo | noprop | predict | download");
         return;
     }
@@ -37,8 +37,7 @@ fn main() {
         }
         "noprop" => train_noprop::run(),
         "predict" => {
-            let input = args.get(2).expect("provide input sentence");
-            predict::run(input);
+            predict::run();
         }
         "download" => {
             data::download_mnist();
