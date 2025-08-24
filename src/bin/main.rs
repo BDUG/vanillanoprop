@@ -10,7 +10,10 @@ fn main() {
     }
 
     match args[1].as_str() {
-        "predict" => predict::run(),
+        "predict" => {
+            let model = args.get(2).map(|s| s.as_str());
+            predict::run(model);
+        }
         "download" => data::download_mnist(),
         other => eprintln!("Unknown mode {}", other),
     }
