@@ -1,4 +1,4 @@
-use crate::autograd::Tensor;
+use crate::tensor::Tensor;
 use crate::math::Matrix;
 use crate::models::{DecoderT, EncoderT, SimpleCNN};
 use serde::{Deserialize, Serialize};

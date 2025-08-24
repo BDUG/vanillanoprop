@@ -1,6 +1,6 @@
 use crate::layers::{EmbeddingT, FeedForwardT, LinearT, MultiHeadAttentionT, Layer};
 use crate::math::Matrix;
-use crate::autograd::Tensor;
+use crate::tensor::Tensor;
 use crate::positional::positional_encoding;
 
 pub struct EncoderLayerT {
