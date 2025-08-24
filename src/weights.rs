@@ -17,11 +17,17 @@ fn tensor_to_vec2(t: &Tensor) -> Vec<Vec<f32>> {
         .collect()
 }
 
-pub fn save_model(path: &str, encoder: &EncoderT, decoder: Option<&DecoderT>) {
-    let enc_emb = tensor_to_vec2(&encoder.embedding.table.w);
-    let dec_emb = decoder
-        .map(|d| tensor_to_vec2(&d.embedding.table.w))
-        .unwrap_or_default();
+pub fn save_model(path: &str, encoder: &mut EncoderT, decoder: Option<&mut DecoderT>) {
+    let enc_emb = {
+        let params = encoder.embedding.parameters();
+        tensor_to_vec2(&params[0].w)
+    };
+    let dec_emb = if let Some(d) = decoder {
+        let params = d.embedding.parameters();
+        tensor_to_vec2(&params[0].w)
+    } else {
+        Vec::new()
+    };
     let model = ModelJson {
         encoder_embedding: enc_emb,
         decoder_embedding: dec_emb,
@@ -38,28 +44,30 @@ pub fn load_model(path: &str, encoder: &mut EncoderT, decoder: &mut DecoderT) {
         if !model.encoder_embedding.is_empty() {
             let e_rows = model.encoder_embedding.len();
             let e_cols = model.encoder_embedding[0].len();
-            let exp_rows = encoder.embedding.table.w.data.rows;
-            let exp_cols = encoder.embedding.table.w.data.cols;
+            let mut params = encoder.embedding.parameters();
+            let exp_rows = params[0].w.data.rows;
+            let exp_cols = params[0].w.data.cols;
             let mut mat = Matrix::zeros(exp_rows, exp_cols);
             for r in 0..e_rows.min(exp_rows) {
                 for c in 0..e_cols.min(exp_cols) {
                     mat.set(r, c, model.encoder_embedding[r][c]);
                 }
             }
-            encoder.embedding.table.w = Tensor::from_matrix(mat);
+            params[0].w = Tensor::from_matrix(mat);
         }
         if !model.decoder_embedding.is_empty() {
             let d_rows = model.decoder_embedding.len();
             let d_cols = model.decoder_embedding[0].len();
-            let exp_rows = decoder.embedding.table.w.data.rows;
-            let exp_cols = decoder.embedding.table.w.data.cols;
+            let mut params = decoder.embedding.parameters();
+            let exp_rows = params[0].w.data.rows;
+            let exp_cols = params[0].w.data.cols;
             let mut mat = Matrix::zeros(exp_rows, exp_cols);
             for r in 0..d_rows.min(exp_rows) {
                 for c in 0..d_cols.min(exp_cols) {
                     mat.set(r, c, model.decoder_embedding[r][c]);
                 }
             }
-            decoder.embedding.table.w = Tensor::from_matrix(mat);
+            params[0].w = Tensor::from_matrix(mat);
         }
     }
     println!("Loaded weights from {}", path);

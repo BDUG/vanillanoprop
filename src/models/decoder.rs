@@ -1,11 +1,11 @@
-use crate::layers::{EmbeddingT, FeedForwardT, LinearT, MultiHeadAttentionT};
+use crate::layers::{EmbeddingT, FeedForwardT, LinearT, MultiHeadAttentionT, Layer};
 use crate::math::Matrix;
 use crate::autograd::Tensor;
 
 pub struct DecoderLayerT {
-    self_attn: MultiHeadAttentionT,
-    enc_dec_attn: MultiHeadAttentionT,
-    ff: FeedForwardT,
+    self_attn: Box<dyn Layer>,
+    enc_dec_attn: Box<dyn Layer>,
+    ff: Box<dyn Layer>,
     h1: Matrix,
     ctx: Matrix,
 }
@@ -13,9 +13,9 @@ pub struct DecoderLayerT {
 impl DecoderLayerT {
     pub fn new(dim: usize, hidden: usize) -> Self {
         Self {
-            self_attn: MultiHeadAttentionT::new(dim),
-            enc_dec_attn: MultiHeadAttentionT::new(dim),
-            ff: FeedForwardT::new(dim, hidden),
+            self_attn: Box::new(MultiHeadAttentionT::new(dim)),
+            enc_dec_attn: Box::new(MultiHeadAttentionT::new(dim)),
+            ff: Box::new(FeedForwardT::new(dim, hidden)),
             h1: Matrix::zeros(0, 0),
             ctx: Matrix::zeros(0, 0),
         }
@@ -90,8 +90,8 @@ impl DecoderLayerT {
 
 pub struct DecoderT {
     pub layers: Vec<DecoderLayerT>,
-    pub embedding: EmbeddingT,
-    pub proj: LinearT,
+    pub embedding: Box<dyn Layer>,
+    pub proj: Box<dyn Layer>,
     enc_out_cache: Matrix,
 }
 
@@ -103,8 +103,8 @@ impl DecoderT {
         }
         Self {
             layers: v,
-            embedding: EmbeddingT::new(vocab_size, model_dim),
-            proj: LinearT::new(model_dim, vocab_size),
+            embedding: Box::new(EmbeddingT::new(vocab_size, model_dim)),
+            proj: Box::new(LinearT::new(model_dim, vocab_size)),
             enc_out_cache: Matrix::zeros(0, 0),
         }
     }
@@ -168,9 +168,8 @@ impl DecoderT {
     }
 
     pub fn parameters(&mut self) -> Vec<&mut LinearT> {
-        let (embedding, proj) = (&mut self.embedding, &mut self.proj);
-        let mut params = embedding.parameters();
-        params.push(proj);
+        let mut params = self.embedding.parameters();
+        params.extend(self.proj.parameters());
         for l in self.layers.iter_mut() {
             params.extend(l.parameters());
         }

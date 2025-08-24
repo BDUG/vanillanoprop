@@ -1,6 +1,7 @@
 use crate::autograd::Tensor;
 use crate::math::Matrix;
 use super::linear::LinearT;
+use super::layer::Layer;
 
 pub struct MultiHeadAttentionT {
     pub wq: LinearT,
@@ -106,7 +107,44 @@ impl MultiHeadAttentionT {
 
     pub fn parameters(&mut self) -> Vec<&mut LinearT> {
         let (wq, wk, wv, wo) = (&mut self.wq, &mut self.wk, &mut self.wv, &mut self.wo);
-        vec![wq, wk, wv, wo]
+       vec![wq, wk, wv, wo]
+    }
+}
+
+impl Layer for MultiHeadAttentionT {
+    fn forward(&self, x: &Tensor) -> Tensor {
+        MultiHeadAttentionT::forward(self, x)
+    }
+
+    fn forward_train(&mut self, x: &Matrix) -> Matrix {
+        MultiHeadAttentionT::forward_train(self, x)
+    }
+
+    fn backward(&mut self, grad_out: &Matrix) -> Matrix {
+        MultiHeadAttentionT::backward(self, grad_out)
+    }
+
+    fn zero_grad(&mut self) {
+        MultiHeadAttentionT::zero_grad(self);
+    }
+
+    fn fa_update(&mut self, grad_out: &Matrix, lr: f32) -> Matrix {
+        MultiHeadAttentionT::fa_update(self, grad_out, lr)
+    }
+
+    fn adam_step(
+        &mut self,
+        lr: f32,
+        beta1: f32,
+        beta2: f32,
+        eps: f32,
+        weight_decay: f32,
+    ) {
+        MultiHeadAttentionT::adam_step(self, lr, beta1, beta2, eps, weight_decay);
+    }
+
+    fn parameters(&mut self) -> Vec<&mut LinearT> {
+        MultiHeadAttentionT::parameters(self)
     }
 }
 
