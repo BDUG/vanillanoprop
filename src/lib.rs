@@ -1,4 +1,4 @@
-pub mod autograd;
+pub mod tensor;
 pub mod data;
 pub mod layers;
 pub mod math;

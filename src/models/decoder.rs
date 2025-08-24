@@ -1,6 +1,6 @@
 use crate::layers::{EmbeddingT, FeedForwardT, LinearT, MultiHeadAttentionT, Layer};
 use crate::math::Matrix;
-use crate::autograd::Tensor;
+use crate::tensor::Tensor;
 
 pub struct DecoderLayerT {
     self_attn: Box<dyn Layer>,

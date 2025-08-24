@@ -1,4 +1,4 @@
-use crate::autograd::Tensor;
+use crate::tensor::Tensor;
 use crate::data::load_pairs;
 use crate::math::{self, Matrix};
 use crate::models::{DecoderT, EncoderT};

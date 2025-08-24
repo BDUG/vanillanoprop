@@ -1,4 +1,4 @@
-use crate::autograd::Tensor;
+use crate::tensor::Tensor;
 use crate::math::Matrix;
 use super::linear::LinearT;
 use super::layer::Layer;
