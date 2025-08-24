@@ -17,7 +17,7 @@ fn main() {
     args.push(String::from("backprop"));
     if args.len() < 2 {
         eprintln!("Usage: {} <mode> [optimizer|reload|input]", args[0]);
-        eprintln!("Modes: backprop | elmo | noprop | predict");
+        eprintln!("Modes: backprop | elmo | noprop | predict | download");
         return;
     }
 
@@ -39,6 +39,9 @@ fn main() {
         "predict" => {
             let input = args.get(2).expect("provide input sentence");
             predict::run(input);
+        }
+        "download" => {
+            data::download_mnist();
         }
         _ => eprintln!("Unknown mode {}", mode),
     }
