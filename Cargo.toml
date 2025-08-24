@@ -10,3 +10,23 @@ rand = "0.8"
 indicatif = "0.17"
 mnist = { version = "0.6", features = ["download"] }
 
+[lib]
+name = "vanillanoprop"
+path = "src/lib.rs"
+
+[[bin]]
+name = "main"
+path = "src/bin/main.rs"
+
+[[bin]]
+name = "train_backprop"
+path = "src/bin/train_backprop.rs"
+
+[[bin]]
+name = "train_elmo"
+path = "src/bin/train_elmo.rs"
+
+[[bin]]
+name = "train_noprop"
+path = "src/bin/train_noprop.rs"
+
