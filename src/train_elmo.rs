@@ -1,5 +1,6 @@
 use crate::data::{load_pairs, to_matrix, Vocab};
 use crate::math;
+use crate::math::Matrix;
 use crate::metrics::f1_score;
 use crate::transformer_t::EncoderT;
 use crate::weights::save_model;
@@ -14,6 +15,9 @@ pub fn run() {
     let model_dim = 64;
     let mut encoder = EncoderT::new(6, vocab_size, model_dim, 128);
     let lr = 0.001;
+    let beta1 = 0.9;
+    let beta2 = 0.999;
+    let eps = 1e-8;
 
     math::reset_matrix_ops();
     let epochs = 5;
@@ -24,47 +28,53 @@ pub fn run() {
         let mut f1_sum = 0.0;
         let mut sample_cnt: f32 = 0.0;
         for (src, tgt) in &pairs {
+            encoder.zero_grad();
             let x = to_matrix(src, vocab_size);
-            let out = encoder.forward(&x);
+            let logits = encoder.forward_train(&x);
 
-            // Cross Entropy
-            let mut ce = 0.0;
-            let mut cnt: f32 = 0.0;
+            // Cross-entropy loss and gradient
+            let probs = logits.softmax();
+            let mut grad = Matrix::zeros(logits.rows, logits.cols);
+            let mut loss = 0.0f32;
             let mut preds = Vec::new();
-            for (i, &_tok) in tgt.iter().enumerate() {
-                if i >= out.data.rows {
+            let mut cnt = 0.0f32;
+            for (i, &tok) in tgt.iter().enumerate() {
+                if i >= logits.rows {
                     break;
                 }
-                let mut sum = 0.0;
-                let mut best_tok = 0;
+                let mut best_tok = 0usize;
                 let mut best_val = f32::NEG_INFINITY;
                 for t in 0..vocab_size {
-                    let val = out.data.get(i, t);
-                    sum += val.exp();
-                    if val > best_val {
-                        best_val = val;
+                    let p = probs.get(i, t);
+                    grad.set(i, t, p);
+                    if p > best_val {
+                        best_val = p;
                         best_tok = t;
                     }
                 }
-                let p = best_val.exp() / sum;
-                ce += -(p + 1e-9).ln();
-                cnt += 1.0;
+                let p = probs.get(i, tok);
+                loss += -(p + 1e-9).ln();
+                let g = grad.get(i, tok) - 1.0;
+                grad.set(i, tok, g);
                 preds.push(best_tok);
+                cnt += 1.0;
             }
-            let loss = ce / if cnt > 0.0 { cnt } else { 1.0 };
+            if cnt > 0.0 {
+                loss /= cnt;
+            }
+            for v in grad.data.iter_mut() {
+                *v /= cnt.max(1.0);
+            }
             last_loss = loss;
+
+            // backprop + optimisation
+            encoder.backward(&grad);
+            encoder.adam_step(lr, beta1, beta2, eps);
 
             let f1 = f1_score(&preds, tgt);
             f1_sum += f1;
             sample_cnt += 1.0;
             println!("loss {loss:.4} f1 {f1:.4}");
-
-            // dummy weight update
-            for layer in &mut encoder.layers {
-                for w in &mut layer.attn.wq.w.data.data {
-                    *w -= lr * loss;
-                }
-            }
         }
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
