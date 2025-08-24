@@ -15,6 +15,7 @@ pub struct LinearT {
     v: Matrix,
     t: usize,
     last_x: Matrix,
+    fb: Matrix,
 }
 
 impl LinearT {
@@ -31,6 +32,7 @@ impl LinearT {
         let m = Matrix::zeros(w.data.rows, w.data.cols);
         let v = Matrix::zeros(w.data.rows, w.data.cols);
         let last_x = Matrix::zeros(0, 0);
+        let fb = Matrix::zeros(0, 0);
         Self {
             w,
             grad,
@@ -38,6 +40,7 @@ impl LinearT {
             v,
             t: 0,
             last_x,
+            fb,
         }
     }
 
@@ -47,6 +50,12 @@ impl LinearT {
 
     /// Training variant of forward that remembers the input for backprop.
     pub fn forward_train(&mut self, x: &Matrix) -> Matrix {
+        self.last_x = x.clone();
+        Matrix::matmul(x, &self.w.data)
+    }
+
+    /// Forward pass for local learning.
+    pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
         self.last_x = x.clone();
         Matrix::matmul(x, &self.w.data)
     }
@@ -96,6 +105,26 @@ impl LinearT {
     pub fn parameters(&mut self) -> Vec<&mut LinearT> {
         vec![self]
     }
+
+    /// Local Hebbian-style weight update using a random feedback matrix.
+    pub fn local_update(&mut self, top_error: &Matrix, lr: f32, weight_decay: f32) {
+        if self.fb.rows != top_error.cols || self.fb.cols != self.w.data.cols {
+            self.fb = Matrix::from_vec(
+                top_error.cols,
+                self.w.data.cols,
+                (0..top_error.cols * self.w.data.cols)
+                    .map(|_| (rand::random::<f32>() - 0.5) * 0.1)
+                    .collect(),
+            );
+        }
+        let local_err = Matrix::matmul(top_error, &self.fb);
+        let x_t = self.last_x.transpose();
+        let grad = Matrix::matmul(&x_t, &local_err);
+        for i in 0..self.w.data.data.len() {
+            let g = grad.data[i] + weight_decay * self.w.data.data[i];
+            self.w.data.data[i] -= lr * g;
+        }
+    }
 }
 
 /// Embedding layer: maps one-hot (vocab_size) into dense model_dim.
@@ -119,6 +148,10 @@ impl EmbeddingT {
         self.table.forward_train(x)
     }
 
+    pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
+        self.table.forward_local(x)
+    }
+
     pub fn backward(&mut self, grad_out: &Matrix) -> Matrix {
         self.table.backward(grad_out)
     }
@@ -134,6 +167,10 @@ impl EmbeddingT {
 
     pub fn parameters(&mut self) -> Vec<&mut LinearT> {
         self.table.parameters()
+    }
+
+    pub fn local_update(&mut self, top_error: &Matrix, lr: f32, weight_decay: f32) {
+        self.table.local_update(top_error, lr, weight_decay);
     }
 }
 
@@ -184,6 +221,17 @@ impl FeedForwardT {
         out
     }
 
+    pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
+        let mut h1 = self.w1.forward_local(x);
+        for v in h1.data.iter_mut() {
+            if *v < 0.0 {
+                *v = 0.0;
+            }
+        }
+        self.h1 = h1.clone();
+        self.w2.forward_local(&h1)
+    }
+
     pub fn backward(&mut self, grad_out: &Matrix) -> Matrix {
         let grad_h1 = self.w2.backward(grad_out);
         let mut g = grad_h1.clone();
@@ -208,6 +256,11 @@ impl FeedForwardT {
     pub fn parameters(&mut self) -> Vec<&mut LinearT> {
         let (w1, w2) = (&mut self.w1, &mut self.w2);
         vec![w1, w2]
+    }
+
+    pub fn local_update(&mut self, top_error: &Matrix, lr: f32, weight_decay: f32) {
+        self.w1.local_update(top_error, lr, weight_decay);
+        self.w2.local_update(top_error, lr, weight_decay);
     }
 }
 
@@ -265,6 +318,17 @@ impl MultiHeadAttentionT {
         self.wo.forward_train(&self.scores)
     }
 
+    pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
+        self.x = x.clone();
+        self.q = self.wq.forward_local(x);
+        self.k = self.wk.forward_local(x);
+        self.v = self.wv.forward_local(x);
+        let kt = self.k.transpose();
+        self.attn = Matrix::matmul(&self.q, &kt);
+        self.scores = Matrix::matmul(&self.attn, &self.v);
+        self.wo.forward_local(&self.scores)
+    }
+
     pub fn backward(&mut self, grad_out: &Matrix) -> Matrix {
         let grad_scores = self.wo.backward(grad_out);
         let grad_attn = Matrix::matmul(&grad_scores, &self.v.transpose());
@@ -300,6 +364,13 @@ impl MultiHeadAttentionT {
         let (wq, wk, wv, wo) = (&mut self.wq, &mut self.wk, &mut self.wv, &mut self.wo);
         vec![wq, wk, wv, wo]
     }
+
+    pub fn local_update(&mut self, top_error: &Matrix, lr: f32, weight_decay: f32) {
+        self.wq.local_update(top_error, lr, weight_decay);
+        self.wk.local_update(top_error, lr, weight_decay);
+        self.wv.local_update(top_error, lr, weight_decay);
+        self.wo.local_update(top_error, lr, weight_decay);
+    }
 }
 
 pub struct EncoderLayerT {
@@ -325,6 +396,11 @@ impl EncoderLayerT {
     pub fn forward_train(&mut self, x: &Matrix) -> Matrix {
         self.attn_out = self.attn.forward_train(x);
         self.ff.forward_train(&self.attn_out)
+    }
+
+    pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
+        self.attn_out = self.attn.forward_local(x);
+        self.ff.forward_local(&self.attn_out)
     }
 
     pub fn backward(&mut self, grad_out: &Matrix) -> Matrix {
@@ -355,6 +431,11 @@ impl EncoderLayerT {
         let mut params = self.attn.parameters();
         params.extend(self.ff.parameters());
         params
+    }
+
+    pub fn local_update(&mut self, top_error: &Matrix, lr: f32, weight_decay: f32) {
+        self.attn.local_update(top_error, lr, weight_decay);
+        self.ff.local_update(top_error, lr, weight_decay);
     }
 }
 
@@ -400,6 +481,16 @@ impl EncoderT {
         h
     }
 
+    pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
+        let mut h = self.embedding.forward_local(x);
+        self.pos = positional_encoding(h.rows, h.cols);
+        h = Matrix::add(&h, &self.pos);
+        for l in self.layers.iter_mut() {
+            h = l.forward_local(&h);
+        }
+        h
+    }
+
     pub fn backward(&mut self, grad_out: &Matrix) {
         let mut g = grad_out.clone();
         for l in self.layers.iter_mut().rev() {
@@ -436,6 +527,13 @@ impl EncoderT {
             params.extend(l.parameters());
         }
         params
+    }
+
+    pub fn local_update(&mut self, top_error: &Matrix, lr: f32, weight_decay: f32) {
+        self.embedding.local_update(top_error, lr, weight_decay);
+        for l in self.layers.iter_mut() {
+            l.local_update(top_error, lr, weight_decay);
+        }
     }
 }
 
