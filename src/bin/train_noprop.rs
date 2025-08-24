@@ -30,11 +30,12 @@ fn run() {
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
             for (src, tgt) in batch {
-                let x = to_matrix(src, vocab_size);
+                let len = src.len().min(tgt.len());
+                let x = to_matrix(&src[..len], vocab_size);
                 let enc_out = encoder.forward_local(&x);
 
                 // encode target without affecting gradients and add noise
-                let mut noisy = encoder.forward(&to_matrix(tgt, vocab_size));
+                let mut noisy = encoder.forward(&to_matrix(&tgt[..len], vocab_size));
                 for v in &mut noisy.data.data {
                     *v += (rand::random::<f32>() - 0.5) * 0.1;
                 }
@@ -42,12 +43,12 @@ fn run() {
                 // Mean squared error and local feedback alignment update
                 let mut delta = Matrix::zeros(enc_out.rows, enc_out.cols);
                 let mut loss = 0.0f32;
-                for i in 0..enc_out.data.len() {
+                for i in 0..len * model_dim {
                     let d = enc_out.data[i] - noisy.data.data[i];
                     loss += d * d;
                     delta.data[i] = 2.0 * d;
                 }
-                let n = enc_out.data.len() as f32;
+                let n = (len * model_dim) as f32;
                 if n > 0.0 {
                     loss /= n;
                     for v in delta.data.iter_mut() {
@@ -57,7 +58,7 @@ fn run() {
 
                 batch_loss += loss;
                 encoder.fa_update(&delta, lr);
-                let f1 = f1_score(&src[..tgt.len().min(src.len())], tgt);
+                let f1 = f1_score(&src[..len], &tgt[..len]);
                 batch_f1 += f1;
             }
             let bsz = batch.len() as f32;
