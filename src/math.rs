@@ -107,3 +107,56 @@ impl Matrix {
         Matrix::from_vec(self.rows, self.cols, v)
     }
 }
+
+/// Compute a numerically stable softmax followed by cross-entropy loss.
+///
+/// The function returns the average loss, the gradient with respect to the
+/// logits and the predicted token ids (argmax of the probabilities) for the
+/// processed rows.  `targets` provides the expected token ids for each row and
+/// `row_offset` allows skipping rows at the top of the `logits` matrix (useful
+/// for decoder training where the first row corresponds to the start token).
+pub fn softmax_cross_entropy(
+    logits: &Matrix,
+    targets: &[usize],
+    row_offset: usize,
+) -> (f32, Matrix, Vec<usize>) {
+    // compute softmax probabilities
+    let probs = logits.softmax();
+    let mut grad = probs.clone();
+    let mut loss = 0.0f32;
+    let mut preds = Vec::new();
+    let mut cnt = 0.0f32;
+
+    for (i, &tok) in targets.iter().enumerate() {
+        let row = i + row_offset;
+        if row >= logits.rows {
+            break;
+        }
+
+        // determine prediction via argmax
+        let mut best_tok = 0usize;
+        let mut best_val = f32::NEG_INFINITY;
+        for t in 0..logits.cols {
+            let p = probs.get(row, t);
+            if p > best_val {
+                best_val = p;
+                best_tok = t;
+            }
+        }
+
+        let p = probs.get(row, tok);
+        loss += -(p + 1e-9).ln();
+        grad.set(row, tok, grad.get(row, tok) - 1.0);
+        preds.push(best_tok);
+        cnt += 1.0;
+    }
+
+    if cnt > 0.0 {
+        loss /= cnt;
+        for v in grad.data.iter_mut() {
+            *v /= cnt;
+        }
+    }
+
+    (loss, grad, preds)
+}
