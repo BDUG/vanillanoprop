@@ -29,4 +29,3 @@ impl Tensor {
         Tensor::from_matrix(data)
     }
 }
-

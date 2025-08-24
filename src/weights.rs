@@ -1,7 +1,7 @@
-use crate::transformer_t::{EncoderT, DecoderT};
 use crate::autograd::Tensor;
 use crate::math::Matrix;
-use serde::{Serialize, Deserialize};
+use crate::transformer_t::{DecoderT, EncoderT};
+use serde::{Deserialize, Serialize};
 use std::fs;
 
 #[derive(Serialize, Deserialize)]
@@ -22,7 +22,10 @@ pub fn save_model(path: &str, encoder: &EncoderT, decoder: Option<&DecoderT>) {
     let dec_emb = decoder
         .map(|d| tensor_to_vec2(&d.embedding.table.w))
         .unwrap_or_default();
-    let model = ModelJson { encoder_embedding: enc_emb, decoder_embedding: dec_emb };
+    let model = ModelJson {
+        encoder_embedding: enc_emb,
+        decoder_embedding: dec_emb,
+    };
     if let Ok(txt) = serde_json::to_string(&model) {
         let _ = fs::write(path, txt);
         println!("Saved weights to {}", path);
@@ -61,4 +64,3 @@ pub fn load_model(path: &str, encoder: &mut EncoderT, decoder: &mut DecoderT) {
     }
     println!("Loaded weights from {}", path);
 }
-
