@@ -136,7 +136,9 @@ impl DecoderT {
         for l in self.layers.iter_mut().rev() {
             let (ng, genc) = l.backward(&g);
             g = ng;
-            grad_enc = Matrix::add(&grad_enc, &genc);
+            if grad_enc.rows == genc.rows && grad_enc.cols == genc.cols {
+                grad_enc = Matrix::add(&grad_enc, &genc);
+            }
         }
         self.embedding.backward(&g);
         grad_enc
