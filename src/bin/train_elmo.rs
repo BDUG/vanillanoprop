@@ -6,14 +6,6 @@ use vanillanoprop::models::EncoderT;
 use vanillanoprop::optim::Adam;
 use vanillanoprop::weights::save_model;
 
-fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
-    let mut m = Matrix::zeros(seq.len(), vocab_size);
-    for (i, &tok) in seq.iter().enumerate() {
-        m.set(i, tok as usize, 1.0);
-    }
-    m
-}
-
 fn main() {
     run();
 }
@@ -46,7 +38,11 @@ fn run() {
             let mut batch_f1 = 0.0f32;
             for (src, tgt) in batch {
                 let tgt = *tgt;
-                let x = to_matrix(src, vocab_size);
+                let x = Matrix::from_vec(
+                    src.len(),
+                    1,
+                    src.iter().map(|&v| v as f32).collect(),
+                );
                 let logits = encoder.forward_train(&x);
                 let (loss, grad, preds) =
                     math::softmax_cross_entropy(&logits, &[tgt], 0);
