@@ -1,4 +1,4 @@
-use crate::layers::{EmbeddingT, FeedForwardT, LinearT, MultiHeadAttentionT, Layer};
+use crate::layers::{EmbeddingT, FeedForwardT, Layer, LinearT, MultiHeadAttentionT};
 use crate::math::Matrix;
 use crate::tensor::Tensor;
 
@@ -15,7 +15,7 @@ impl DecoderLayerT {
         Self {
             self_attn: Box::new(MultiHeadAttentionT::new(dim)),
             enc_dec_attn: Box::new(MultiHeadAttentionT::new(dim)),
-            ff: Box::new(FeedForwardT::new(dim, hidden)),
+            ff: Box::new(FeedForwardT::new(dim, hidden, true)),
             h1: Matrix::zeros(0, 0),
             ctx: Matrix::zeros(0, 0),
         }
@@ -64,20 +64,12 @@ impl DecoderLayerT {
         self.ff.zero_grad();
     }
 
-    pub fn adam_step(
-        &mut self,
-        lr: f32,
-        beta1: f32,
-        beta2: f32,
-        eps: f32,
-        weight_decay: f32,
-    ) {
+    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
         self.self_attn
             .adam_step(lr, beta1, beta2, eps, weight_decay);
         self.enc_dec_attn
             .adam_step(lr, beta1, beta2, eps, weight_decay);
-        self.ff
-            .adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.ff.adam_step(lr, beta1, beta2, eps, weight_decay);
     }
 
     pub fn parameters(&mut self) -> Vec<&mut LinearT> {
@@ -152,18 +144,10 @@ impl DecoderT {
         }
     }
 
-    pub fn adam_step(
-        &mut self,
-        lr: f32,
-        beta1: f32,
-        beta2: f32,
-        eps: f32,
-        weight_decay: f32,
-    ) {
+    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
         self.embedding
             .adam_step(lr, beta1, beta2, eps, weight_decay);
-        self.proj
-            .adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.proj.adam_step(lr, beta1, beta2, eps, weight_decay);
         for l in self.layers.iter_mut() {
             l.adam_step(lr, beta1, beta2, eps, weight_decay);
         }
@@ -178,4 +162,3 @@ impl DecoderT {
         params
     }
 }
-

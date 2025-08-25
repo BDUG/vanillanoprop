@@ -1,21 +1,23 @@
-use crate::tensor::Tensor;
-use crate::math::Matrix;
-use super::linear::LinearT;
 use super::layer::Layer;
+use super::linear::LinearT;
+use crate::math::Matrix;
+use crate::tensor::Tensor;
 
 pub struct FeedForwardT {
     pub w1: LinearT,
     pub w2: LinearT,
+    pub use_relu: bool,
     // caches for backward
     mask: Vec<f32>,
     h1: Matrix,
 }
 
 impl FeedForwardT {
-    pub fn new(dim: usize, hidden: usize) -> Self {
+    pub fn new(dim: usize, hidden: usize, use_relu: bool) -> Self {
         Self {
             w1: LinearT::new(dim, hidden),
             w2: LinearT::new(hidden, dim),
+            use_relu,
             mask: Vec::new(),
             h1: Matrix::zeros(0, 0),
         }
@@ -23,9 +25,11 @@ impl FeedForwardT {
 
     pub fn forward(&self, x: &Tensor) -> Tensor {
         let mut h = self.w1.forward(x);
-        for v in h.data.data.iter_mut() {
-            if *v < 0.0 {
-                *v = 0.0;
+        if self.use_relu {
+            for v in h.data.data.iter_mut() {
+                if *v < 0.0 {
+                    *v = 0.0;
+                }
             }
         }
         self.w2.forward(&h)
@@ -33,15 +37,19 @@ impl FeedForwardT {
 
     pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
         let mut h1 = self.w1.forward_local(x);
-        let mut mask = vec![0.0; h1.data.len()];
-        for (i, v) in h1.data.iter_mut().enumerate() {
-            if *v < 0.0 {
-                *v = 0.0;
-            } else {
-                mask[i] = 1.0;
+        if self.use_relu {
+            let mut mask = vec![0.0; h1.data.len()];
+            for (i, v) in h1.data.iter_mut().enumerate() {
+                if *v < 0.0 {
+                    *v = 0.0;
+                } else {
+                    mask[i] = 1.0;
+                }
             }
+            self.mask = mask;
+        } else {
+            self.mask = vec![1.0; h1.data.len()];
         }
-        self.mask = mask;
         let out = self.w2.forward_local(&h1);
         self.h1 = h1;
         out
@@ -75,10 +83,8 @@ impl FeedForwardT {
     }
 
     pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
-        self.w1
-            .adam_step(lr, beta1, beta2, eps, weight_decay);
-        self.w2
-            .adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.w1.adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.w2.adam_step(lr, beta1, beta2, eps, weight_decay);
     }
 
     pub fn parameters(&mut self) -> Vec<&mut LinearT> {
@@ -108,14 +114,7 @@ impl Layer for FeedForwardT {
         FeedForwardT::fa_update(self, grad_out, lr)
     }
 
-    fn adam_step(
-        &mut self,
-        lr: f32,
-        beta1: f32,
-        beta2: f32,
-        eps: f32,
-        weight_decay: f32,
-    ) {
+    fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
         FeedForwardT::adam_step(self, lr, beta1, beta2, eps, weight_decay);
     }
 
@@ -123,4 +122,3 @@ impl Layer for FeedForwardT {
         FeedForwardT::parameters(self)
     }
 }
-
