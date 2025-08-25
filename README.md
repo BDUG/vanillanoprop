@@ -7,7 +7,7 @@ Call
 ```
 ./run.sh
 ```
-to see the continously evolving command line parameter. 
+to see the continously evolving command line parameters. 
 
 For example:
 ```
