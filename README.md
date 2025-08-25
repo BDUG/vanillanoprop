@@ -8,3 +8,9 @@ Call
 ./run.sh
 ```
 to see the continously evolving command line parameter. 
+
+For example:
+```
+./run.sh train-noprop cnn
+./run.sh predict
+```
