@@ -1,7 +1,7 @@
-use crate::layers::{EmbeddingT, FeedForwardT, LinearT, MultiHeadAttentionT, Layer};
+use crate::layers::{EmbeddingT, FeedForwardT, Layer, LinearT, MultiHeadAttentionT};
 use crate::math::Matrix;
-use crate::tensor::Tensor;
 use crate::positional::positional_encoding;
+use crate::tensor::Tensor;
 
 pub struct EncoderLayerT {
     pub attn: Box<dyn Layer>,
@@ -13,7 +13,7 @@ impl EncoderLayerT {
     pub fn new(dim: usize, hidden: usize) -> Self {
         Self {
             attn: Box::new(MultiHeadAttentionT::new(dim)),
-            ff: Box::new(FeedForwardT::new(dim, hidden)),
+            ff: Box::new(FeedForwardT::new(dim, hidden, true)),
             attn_out: Matrix::zeros(0, 0),
         }
     }
@@ -47,18 +47,9 @@ impl EncoderLayerT {
         self.ff.zero_grad();
     }
 
-    pub fn adam_step(
-        &mut self,
-        lr: f32,
-        beta1: f32,
-        beta2: f32,
-        eps: f32,
-        weight_decay: f32,
-    ) {
-        self.attn
-            .adam_step(lr, beta1, beta2, eps, weight_decay);
-        self.ff
-            .adam_step(lr, beta1, beta2, eps, weight_decay);
+    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
+        self.attn.adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.ff.adam_step(lr, beta1, beta2, eps, weight_decay);
     }
 
     pub fn parameters(&mut self) -> Vec<&mut LinearT> {
@@ -137,14 +128,7 @@ impl EncoderT {
         }
     }
 
-    pub fn adam_step(
-        &mut self,
-        lr: f32,
-        beta1: f32,
-        beta2: f32,
-        eps: f32,
-        weight_decay: f32,
-    ) {
+    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
         self.embedding
             .adam_step(lr, beta1, beta2, eps, weight_decay);
         for l in self.layers.iter_mut() {
@@ -160,4 +144,3 @@ impl EncoderT {
         params
     }
 }
-
