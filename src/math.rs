@@ -113,9 +113,9 @@ impl Matrix {
         inc_add_ops_by(self.data.len());
         assert_eq!(self.rows, other.rows);
         assert_eq!(self.cols, other.cols);
-        let mut v = vec![0.0; self.data.len()];
-        for i in 0..v.len() {
-            v[i] = self.data[i] + other.data[i];
+        let mut v = Vec::with_capacity(self.data.len());
+        for (&a, &b) in self.data.iter().zip(other.data.iter()) {
+            v.push(a + b);
         }
         Matrix::from_vec(self.rows, self.cols, v)
     }
@@ -134,19 +134,19 @@ impl Matrix {
         // One addition per element when accumulating the sum
         inc_add_ops_by(self.rows * self.cols);
         let mut v = vec![0.0; self.data.len()];
-        for r in 0..self.rows {
+        for (out_row, row_slice) in v
+            .chunks_mut(self.cols)
+            .zip(self.data.chunks(self.cols))
+        {
             // stabilisiert gegen Overflow:
-            let row_start = r * self.cols;
-            let row_slice = &self.data[row_start..row_start + self.cols];
-            let max = row_slice.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-            let mut sum = 0.0;
-            for c in 0..self.cols {
-                let e = (self.get(r, c) - max).exp();
-                v[row_start + c] = e;
-                sum += e;
-            }
-            for c in 0..self.cols {
-                v[row_start + c] /= sum;
+            let max = row_slice
+                .iter()
+                .cloned()
+                .fold(f32::NEG_INFINITY, f32::max);
+            let exps: Vec<f32> = row_slice.iter().map(|x| (*x - max).exp()).collect();
+            let sum: f32 = exps.iter().sum();
+            for (out, e) in out_row.iter_mut().zip(exps.iter()) {
+                *out = e / sum;
             }
         }
         Matrix::from_vec(self.rows, self.cols, v)
