@@ -49,15 +49,27 @@ pub fn run(opt: &str, _moe: bool, _num_experts: usize) {
                 } else {
                     let rows = fc.rows;
                     let cols = fc.cols;
-                    for c in 0..cols {
-                        let g = grad_logits[c];
-                        bias[c] -= lr * g; // mul + add
-                        for r in 0..rows {
-                            let val = fc.get(r, c) - lr * g * feat[r]; // 2 mul + add
-                            fc.set(r, c, val);
+
+                    // Compute outer product of `feat` and `grad_logits`
+                    let mut grad_matrix = vec![0.0f32; rows * cols];
+                    for (c, &g) in grad_logits.iter().enumerate() {
+                        for (r, &f) in feat.iter().enumerate() {
+                            grad_matrix[r * cols + c] = f * g; // mul
                         }
                     }
-                    let ops = cols * (2 + rows * 3); // bias update + weight update
+
+                    // Update weights in a single pass
+                    for (w, &g) in fc.data.iter_mut().zip(grad_matrix.iter()) {
+                        *w -= lr * g; // mul + add
+                    }
+
+                    // Update bias using slice-based subtraction
+                    for (b, &g) in bias.iter_mut().zip(grad_logits.iter()) {
+                        *b -= lr * g; // mul + add
+                    }
+
+                    // bias update + outer product + weight update
+                    let ops = rows * cols * 3 + cols * 2;
                     math::inc_ops_by(ops);
                 }
 
