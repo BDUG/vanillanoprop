@@ -2,21 +2,35 @@ use mnist::MnistBuilder;
 
 /// Apply a 3x3 convolution kernel with zero padding to an image.
 ///
-/// The image is provided as a flat slice in row-major order. The returned
-/// vector has the same size as the input and contains the filtered pixels.
-fn convolve3x3(img: &[u8], width: usize, height: usize, kernel: [[f32; 3]; 3]) -> Vec<u8> {
+/// The image is provided as a flat slice in row-major order. A caller supplied
+/// buffer holds the 1-pixel padded copy of the image so the function can read
+/// neighbouring pixels without bounds checks. The returned vector has the same
+/// size as the input and contains the filtered pixels.
+fn convolve3x3(
+    img: &[u8],
+    width: usize,
+    height: usize,
+    kernel: [[f32; 3]; 3],
+    padded: &mut [u8],
+) -> Vec<u8> {
+    let padded_width = width + 2;
+
+    // Fill buffer with zeros and copy image into the centred region
+    padded.fill(0);
+    for y in 0..height {
+        let src = &img[y * width..(y + 1) * width];
+        let dst_offset = (y + 1) * padded_width + 1;
+        padded[dst_offset..dst_offset + width].copy_from_slice(src);
+    }
+
     let mut out = vec![0u8; width * height];
     for y in 0..height {
         for x in 0..width {
             let mut acc = 0.0f32;
             for ky in 0..3 {
                 for kx in 0..3 {
-                    let ix = x as isize + kx as isize - 1;
-                    let iy = y as isize + ky as isize - 1;
-                    if ix >= 0 && ix < width as isize && iy >= 0 && iy < height as isize {
-                        let idx = iy as usize * width + ix as usize;
-                        acc += img[idx] as f32 * kernel[ky][kx];
-                    }
+                    let idx = (y + ky) * padded_width + (x + kx);
+                    acc += padded[idx] as f32 * kernel[ky][kx];
                 }
             }
             out[y * width + x] = acc.round().clamp(0.0, 255.0) as u8;
@@ -31,14 +45,14 @@ pub fn load_pairs() -> Vec<(Vec<u8>, usize)> {
         .label_format_digit()
         .training_set_length(10)
         .finalize();
+    let kernel = [[1.0 / 9.0; 3]; 3];
+    let mut padded = vec![0u8; (28 + 2) * (28 + 2)];
     mnist
         .trn_img
         .chunks(28 * 28)
         .zip(mnist.trn_lbl.iter())
         .map(|(img, &lbl)| {
-            // Simple 3x3 mean blur to smooth the input image
-            let kernel = [[1.0 / 9.0; 3]; 3];
-            let pixels = convolve3x3(img, 28, 28, kernel);
+            let pixels = convolve3x3(img, 28, 28, kernel, &mut padded);
             (pixels, lbl as usize)
         })
         .collect()
@@ -69,4 +83,3 @@ pub fn download_mnist() {
     // side effect of fetching the files.
     let _ = MnistBuilder::new().download_and_extract().finalize();
 }
-
