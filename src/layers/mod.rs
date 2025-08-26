@@ -12,6 +12,7 @@ pub mod relu;
 pub mod sigmoid;
 pub mod softmax;
 pub mod tanh;
+pub mod rnn;
 
 pub use dropout::Dropout;
 pub use embedding::EmbeddingT;
@@ -23,3 +24,4 @@ pub use multi_head_attention::MultiHeadAttentionT;
 pub use normalization::{BatchNorm, LayerNorm};
 pub use pooling::{avg_pool2d, avg_pool2d_backward, max_pool2d, max_pool2d_backward};
 pub use softmax::SoftmaxT;
+pub use rnn::{LSTM, GRU};
