@@ -1,5 +1,5 @@
+use crate::device::{Cpu, Device};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use crate::device::{Device, Cpu};
 
 // Separate counters for addition and multiplication operations.
 static ADD_OPS: AtomicUsize = AtomicUsize::new(0);
@@ -58,18 +58,54 @@ pub(crate) fn matmul_cpu(a: &Matrix, b: &Matrix) -> Matrix {
     inc_mul_ops_by(muls);
     inc_add_ops_by(adds);
     assert_eq!(a.cols, b.rows);
-    let mut out = vec![0.0; a.rows * b.cols];
-    for i in 0..a.rows {
-        let a_row = &a.data[i * a.cols..(i + 1) * a.cols];
-        for k in 0..a.cols {
-            let a_val = a_row[k];
-            let b_row = &b.data[k * b.cols..(k + 1) * b.cols];
-            for j in 0..b.cols {
-                out[i * b.cols + j] += a_val * b_row[j];
+
+    const BLOCK: usize = 32;
+    const PAR_THRESHOLD: usize = 128 * 128; // Use rayon when matrix is reasonably large
+
+    let m = a.rows;
+    let n = b.cols;
+    let k_dim = a.cols;
+    let mut out = vec![0.0; m * n];
+
+    if m * n > PAR_THRESHOLD {
+        use rayon::prelude::*;
+        out.par_chunks_mut(n).enumerate().for_each(|(i, out_row)| {
+            let a_row = &a.data[i * k_dim..(i + 1) * k_dim];
+            for kk in (0..k_dim).step_by(BLOCK) {
+                let k_end = (kk + BLOCK).min(k_dim);
+                for k_idx in kk..k_end {
+                    let a_val = a_row[k_idx];
+                    let b_row = &b.data[k_idx * n..(k_idx + 1) * n];
+                    for jj in (0..n).step_by(BLOCK) {
+                        let j_end = (jj + BLOCK).min(n);
+                        for j in jj..j_end {
+                            out_row[j] += a_val * b_row[j];
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        for i in 0..m {
+            let a_row = &a.data[i * k_dim..(i + 1) * k_dim];
+            let out_row = &mut out[i * n..(i + 1) * n];
+            for kk in (0..k_dim).step_by(BLOCK) {
+                let k_end = (kk + BLOCK).min(k_dim);
+                for k_idx in kk..k_end {
+                    let a_val = a_row[k_idx];
+                    let b_row = &b.data[k_idx * n..(k_idx + 1) * n];
+                    for jj in (0..n).step_by(BLOCK) {
+                        let j_end = (jj + BLOCK).min(n);
+                        for j in jj..j_end {
+                            out_row[j] += a_val * b_row[j];
+                        }
+                    }
+                }
             }
         }
     }
-    Matrix::from_vec(a.rows, b.cols, out)
+
+    Matrix::from_vec(m, n, out)
 }
 
 impl Matrix {
@@ -134,15 +170,9 @@ impl Matrix {
         // One addition per element when accumulating the sum
         inc_add_ops_by(self.rows * self.cols);
         let mut v = vec![0.0; self.data.len()];
-        for (out_row, row_slice) in v
-            .chunks_mut(self.cols)
-            .zip(self.data.chunks(self.cols))
-        {
+        for (out_row, row_slice) in v.chunks_mut(self.cols).zip(self.data.chunks(self.cols)) {
             // stabilisiert gegen Overflow:
-            let max = row_slice
-                .iter()
-                .cloned()
-                .fold(f32::NEG_INFINITY, f32::max);
+            let max = row_slice.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
             let exps: Vec<f32> = row_slice.iter().map(|x| (*x - max).exp()).collect();
             let sum: f32 = exps.iter().sum();
             for (out, e) in out_row.iter_mut().zip(exps.iter()) {
