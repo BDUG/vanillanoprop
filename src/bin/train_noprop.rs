@@ -2,28 +2,31 @@ use std::env;
 
 use indicatif::ProgressBar;
 use rand::Rng;
-use vanillanoprop::rng::rng_from_env;
 use vanillanoprop::data::load_batches;
 use vanillanoprop::layers::Activation;
 use vanillanoprop::math::{self, Matrix};
 use vanillanoprop::memory;
 use vanillanoprop::metrics::f1_score;
 use vanillanoprop::models::EncoderT;
+use vanillanoprop::optim::lr_scheduler::{
+    ConstantLr, CosineLr, LearningRateSchedule, LrScheduleConfig, StepLr,
+};
+use vanillanoprop::rng::rng_from_env;
 use vanillanoprop::train_cnn;
 use vanillanoprop::weights::save_model;
 
 mod common;
 
 fn main() {
-    let (model, opt, moe, num_experts, _) = common::parse_cli(env::args().skip(1));
+    let (model, opt, moe, num_experts, lr_cfg, _) = common::parse_cli(env::args().skip(1));
     if model == "cnn" {
-        train_cnn::run(&opt, moe, num_experts);
+        train_cnn::run(&opt, moe, num_experts, lr_cfg);
     } else {
-        run(moe, num_experts);
+        run(moe, num_experts, lr_cfg);
     }
 }
 
-fn run(moe: bool, num_experts: usize) {
+fn run(moe: bool, num_experts: usize, lr_cfg: LrScheduleConfig) {
     let batches = load_batches(4);
     let mut rng = rng_from_env();
     let vocab_size = 256;
@@ -38,7 +41,15 @@ fn run(moe: bool, num_experts: usize) {
         moe,
         num_experts,
     );
-    let lr = 0.001;
+    let base_lr = 0.001;
+    let scheduler: Box<dyn LearningRateSchedule> = match lr_cfg {
+        LrScheduleConfig::Step { step_size, gamma } => {
+            Box::new(StepLr::new(base_lr, step_size, gamma))
+        }
+        LrScheduleConfig::Cosine { max_steps } => Box::new(CosineLr::new(base_lr, max_steps)),
+        LrScheduleConfig::Constant => Box::new(ConstantLr::new(base_lr)),
+    };
+    let mut step = 0usize;
 
     math::reset_matrix_ops();
     let epochs = 5;
@@ -87,7 +98,9 @@ fn run(moe: bool, num_experts: usize) {
                 }
 
                 batch_loss += loss;
+                let lr = scheduler.next_lr(step);
                 encoder.fa_update(&delta, lr);
+                step += 1;
                 let src_slice: Vec<usize> = src[..len].iter().map(|&v| v as usize).collect();
                 let f1 = f1_score(&src_slice, &[tgt]);
                 batch_f1 += f1;

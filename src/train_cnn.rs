@@ -5,6 +5,9 @@ use crate::math::{self, Matrix};
 use crate::memory;
 use crate::metrics::f1_score;
 use crate::models::SimpleCNN;
+use crate::optim::lr_scheduler::{
+    ConstantLr, CosineLr, LearningRateSchedule, LrScheduleConfig, StepLr,
+};
 use crate::optim::Hrm;
 use crate::weights::save_cnn;
 
@@ -12,13 +15,21 @@ use crate::weights::save_cnn;
 ///
 /// `opt` selects the optimisation algorithm.  `moe` and `num_experts` are
 /// accepted for API compatibility but currently unused.
-pub fn run(opt: &str, _moe: bool, _num_experts: usize) {
+pub fn run(opt: &str, _moe: bool, _num_experts: usize, lr_cfg: LrScheduleConfig) {
     let batches = load_batches(4);
     let mut cnn = SimpleCNN::new(10);
 
-    let lr = 0.01f32;
-    let mut hrm = Hrm::new(lr, 0.0);
+    let base_lr = 0.01f32;
+    let mut hrm = Hrm::new(base_lr, 0.0);
+    let scheduler: Box<dyn LearningRateSchedule> = match lr_cfg {
+        LrScheduleConfig::Step { step_size, gamma } => {
+            Box::new(StepLr::new(base_lr, step_size, gamma))
+        }
+        LrScheduleConfig::Cosine { max_steps } => Box::new(CosineLr::new(base_lr, max_steps)),
+        LrScheduleConfig::Constant => Box::new(ConstantLr::new(base_lr)),
+    };
     let epochs = 5;
+    let mut step = 0usize;
 
     math::reset_matrix_ops();
     let pb = ProgressBar::new(epochs as u64);
@@ -44,7 +55,9 @@ pub fn run(opt: &str, _moe: bool, _num_experts: usize) {
 
                 // Update weights
                 let (fc, bias) = cnn.parameters_mut();
+                let lr = scheduler.next_lr(step);
                 if opt == "hrm" {
+                    hrm.lr = lr;
                     hrm.update(fc, bias, &grad_logits, &feat);
                 } else {
                     let rows = fc.rows;
@@ -72,6 +85,7 @@ pub fn run(opt: &str, _moe: bool, _num_experts: usize) {
                     let ops = rows * cols * 3 + cols * 2;
                     math::inc_ops_by(ops);
                 }
+                step += 1;
 
                 batch_f1 += f1_score(&preds, &[*tgt as usize]);
             }
