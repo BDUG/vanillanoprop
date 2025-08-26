@@ -171,12 +171,18 @@ impl Matrix {
         inc_add_ops_by(self.rows * self.cols);
         let mut v = vec![0.0; self.data.len()];
         for (out_row, row_slice) in v.chunks_mut(self.cols).zip(self.data.chunks(self.cols)) {
-            // stabilisiert gegen Overflow:
+            // stabilizes against overflow
             let max = row_slice.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-            let exps: Vec<f32> = row_slice.iter().map(|x| (*x - max).exp()).collect();
-            let sum: f32 = exps.iter().sum();
-            for (out, e) in out_row.iter_mut().zip(exps.iter()) {
-                *out = e / sum;
+            // compute exponentials directly into the output buffer while accumulating the sum
+            let mut sum = 0.0f32;
+            for (out, &x) in out_row.iter_mut().zip(row_slice.iter()) {
+                let e = (x - max).exp();
+                *out = e;
+                sum += e;
+            }
+            // normalize in-place
+            for out in out_row.iter_mut() {
+                *out /= sum;
             }
         }
         Matrix::from_vec(self.rows, self.cols, v)
