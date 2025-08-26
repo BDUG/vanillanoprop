@@ -1,6 +1,8 @@
 use crate::tensor::Tensor;
 use crate::math::Matrix;
 use super::layer::Layer;
+use rand::Rng;
+use crate::rng::rng_from_env;
 
 // Simple linear module with rudimentary autograd support.  During training
 // each `LinearT` stores the last input that was seen so that a backward pass
@@ -20,11 +22,12 @@ pub struct LinearT {
 
 impl LinearT {
     pub fn new(in_dim: usize, out_dim: usize) -> Self {
+        let mut rng = rng_from_env();
         let data = Matrix::from_vec(
             in_dim,
             out_dim,
             (0..in_dim * out_dim)
-                .map(|_| (rand::random::<f32>() - 0.5) * 0.02)
+                .map(|_| (rng.gen::<f32>() - 0.5) * 0.02)
                 .collect(),
         );
         let w = Tensor::from_matrix(data);
@@ -36,7 +39,7 @@ impl LinearT {
             out_dim,
             in_dim,
             (0..out_dim * in_dim)
-                .map(|_| (rand::random::<f32>() - 0.5) * 0.02)
+                .map(|_| (rng.gen::<f32>() - 0.5) * 0.02)
                 .collect(),
         );
         Self { w, grad, m, v, t: 0, last_x, fb }
