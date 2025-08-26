@@ -4,7 +4,7 @@ use vanillanoprop::config::Config;
 
 /// Parses common CLI arguments across training binaries.
 ///
-/// Returns a tuple `(model, optimizer, moe, num_experts, lr_schedule, resume, save_every, checkpoint_dir, config, positional_args)`.
+/// Returns a tuple `(model, optimizer, moe, num_experts, lr_schedule, resume, save_every, checkpoint_dir, log_dir, experiment_name, config, positional_args)`.
 /// - `model` defaults to "transformer" if not specified.
 /// - `optimizer` defaults to "sgd" if not specified.
 /// - `moe` is true if `--moe` flag is present.
@@ -16,6 +16,8 @@ use vanillanoprop::config::Config;
 /// - `save_every` saves checkpoints every N epochs with `--save-every N`.
 /// - `checkpoint_dir` overrides the directory in which checkpoints are stored
 ///   using `--checkpoint-dir <dir>`.
+/// - `log_dir` sets the base directory for metrics logs via `--log-dir <dir>`.
+/// - `experiment_name` names the experiment for logging with `--experiment-name <name>`.
 /// - `positional_args` contains remaining positional arguments in order.
 pub fn parse_cli<I>(
     mut args: I,
@@ -27,6 +29,8 @@ pub fn parse_cli<I>(
     LrScheduleConfig,
     Option<String>,
     Option<usize>,
+    Option<String>,
+    Option<String>,
     Option<String>,
     Config,
     Vec<String>,
@@ -45,6 +49,8 @@ where
     let mut resume = None;
     let mut save_every = None;
     let mut checkpoint_dir = None;
+    let mut log_dir = None;
+    let mut experiment_name = None;
     let mut epochs = None;
     let mut batch_size = None;
     let mut config_path = None;
@@ -91,6 +97,16 @@ where
             "--checkpoint-dir" => {
                 if let Some(v) = args.next() {
                     checkpoint_dir = Some(v);
+                }
+            }
+            "--log-dir" => {
+                if let Some(v) = args.next() {
+                    log_dir = Some(v);
+                }
+            }
+            "--experiment-name" => {
+                if let Some(v) = args.next() {
+                    experiment_name = Some(v);
                 }
             }
             "--epochs" => {
@@ -145,6 +161,8 @@ where
         resume,
         save_every,
         checkpoint_dir,
+        log_dir,
+        experiment_name,
         config,
         positional,
     )
@@ -162,9 +180,11 @@ pub fn parse_env(
     Option<String>,
     Option<usize>,
     Option<String>,
+    Option<String>,
+    Option<String>,
     Config,
     Vec<String>,
-) {
+ ) {
     let args = env::args().skip(1);
     parse_cli(args)
 }
