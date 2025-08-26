@@ -22,6 +22,7 @@ fn main() {
                 _resume,
                 _save_every,
                 _ckpt_dir,
+                _config,
                 positional,
             ) = common::parse_cli(args[2..].iter().cloned());
             let model_opt = if positional.is_empty() {

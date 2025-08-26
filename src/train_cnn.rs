@@ -1,6 +1,7 @@
 use indicatif::ProgressBar;
 
 use crate::data::load_batches;
+use crate::config::Config;
 use crate::math::{self, Matrix};
 use crate::memory;
 use crate::metrics::f1_score;
@@ -36,8 +37,9 @@ pub fn run(
     resume: Option<String>,
     save_every: Option<usize>,
     checkpoint_dir: Option<String>,
+    config: &Config,
 ) {
-    let batches = load_batches(4);
+    let batches = load_batches(config.batch_size);
     let mut cnn = SimpleCNN::new(10);
 
     let base_lr = 0.01f32;
@@ -49,7 +51,7 @@ pub fn run(
         LrScheduleConfig::Cosine { max_steps } => Box::new(CosineLr::new(base_lr, max_steps)),
         LrScheduleConfig::Constant => Box::new(ConstantLr::new(base_lr)),
     };
-    let epochs = 5;
+    let epochs = config.epochs;
     let mut step = 0usize;
     let mut start_epoch = 0usize;
     let mut best_f1 = f32::NEG_INFINITY;
