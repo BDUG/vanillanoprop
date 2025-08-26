@@ -1,6 +1,6 @@
 use crate::math::{self, Matrix};
-use rand::Rng;
 use crate::rng::rng_from_env;
+use rand::Rng;
 
 /// A very small convolutional network used for demonstration purposes.
 ///
@@ -76,16 +76,7 @@ impl SimpleCNN {
     /// Predict the class for a single image.
     pub fn predict(&self, img: &[u8]) -> usize {
         let (_feat, logits) = self.forward(img);
-        // Argmax over logits
-        let mut best = 0usize;
-        let mut best_val = f32::NEG_INFINITY;
-        for (i, &v) in logits.iter().enumerate() {
-            if v > best_val {
-                best_val = v;
-                best = i;
-            }
-        }
-        best
+        math::argmax(&logits)
     }
 
     /// Access immutable parameters.

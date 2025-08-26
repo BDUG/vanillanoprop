@@ -1,7 +1,7 @@
 use indicatif::ProgressBar;
 
 use crate::data::load_batches;
-use crate::math;
+use crate::math::{self, Matrix};
 use crate::memory;
 use crate::metrics::f1_score;
 use crate::models::SimpleCNN;
@@ -36,25 +36,11 @@ pub fn run(opt: &str, _moe: bool, _num_experts: usize) {
             for (img, tgt) in batch {
                 let (feat, logits) = cnn.forward(img);
 
-                // Softmax
-                let max = logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-                let mut exp_sum = 0.0f32;
-                let mut probs = vec![0f32; logits.len()];
-                for (i, &v) in logits.iter().enumerate() {
-                    let e = (v - max).exp();
-                    probs[i] = e;
-                    exp_sum += e;
-                }
-                for p in &mut probs {
-                    *p /= exp_sum;
-                }
-
-                let loss = -probs[*tgt as usize].ln();
+                let logits_m = Matrix::from_vec(1, logits.len(), logits);
+                let (loss, grad_m, preds) =
+                    math::softmax_cross_entropy(&logits_m, &[*tgt as usize], 0);
                 batch_loss += loss;
-
-                // Gradient of cross-entropy w.r.t logits
-                let mut grad_logits = probs.clone();
-                grad_logits[*tgt as usize] -= 1.0;
+                let grad_logits = grad_m.data;
 
                 // Update weights
                 let (fc, bias) = cnn.parameters_mut();
@@ -75,16 +61,7 @@ pub fn run(opt: &str, _moe: bool, _num_experts: usize) {
                     math::inc_ops_by(ops);
                 }
 
-                // Prediction for metrics
-                let mut best = 0usize;
-                let mut best_val = f32::NEG_INFINITY;
-                for (i, &v) in probs.iter().enumerate() {
-                    if v > best_val {
-                        best_val = v;
-                        best = i;
-                    }
-                }
-                batch_f1 += f1_score(&[best], &[*tgt as usize]);
+                batch_f1 += f1_score(&preds, &[*tgt as usize]);
             }
 
             let bsz = batch.len() as f32;

@@ -46,3 +46,5 @@ pub fn parse_env() -> (String, String, bool, usize, Vec<String>) {
     let args = env::args().skip(1);
     parse_cli(args)
 }
+
+fn main() {}
