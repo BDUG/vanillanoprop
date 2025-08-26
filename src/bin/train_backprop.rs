@@ -2,16 +2,19 @@ use std::env;
 
 use indicatif::ProgressBar;
 use vanillanoprop::data::load_batches;
+use vanillanoprop::layers::Activation;
 use vanillanoprop::math::{self, Matrix};
+use vanillanoprop::memory;
 use vanillanoprop::metrics::f1_score;
 use vanillanoprop::models::{DecoderT, EncoderT};
 use vanillanoprop::optim::{Adam, SGD};
-use vanillanoprop::weights::save_model;
 use vanillanoprop::train_cnn;
-use vanillanoprop::memory;
+use vanillanoprop::weights::save_model;
 
 fn main() {
-    let model = env::args().nth(1).unwrap_or_else(|| "transformer".to_string());
+    let model = env::args()
+        .nth(1)
+        .unwrap_or_else(|| "transformer".to_string());
     let opt = env::args().nth(2).unwrap_or_else(|| "sgd".to_string());
     if model == "cnn" {
         train_cnn::run(&opt);
@@ -27,8 +30,8 @@ fn run(opt: &str) {
     let vocab_size = 256;
 
     let model_dim = 64;
-    let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256);
-    let mut decoder = DecoderT::new(6, vocab_size, model_dim, 256);
+    let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256, Activation::ReLU);
+    let mut decoder = DecoderT::new(6, vocab_size, model_dim, 256, Activation::ReLU);
 
     let lr = 0.001;
     let beta1 = 0.9;
@@ -105,7 +108,10 @@ fn run(opt: &str) {
 
     println!("Total matrix ops: {}", math::matrix_ops_count());
     let peak = memory::peak_memory_bytes();
-    println!("Max memory usage: {:.2} MB", peak as f64 / (1024.0 * 1024.0));
+    println!(
+        "Max memory usage: {:.2} MB",
+        peak as f64 / (1024.0 * 1024.0)
+    );
 
     // Save trained weights
     save_model("model.json", &mut encoder, Some(&mut decoder));

@@ -11,11 +11,11 @@ pub struct DecoderLayerT {
 }
 
 impl DecoderLayerT {
-    pub fn new(dim: usize, hidden: usize) -> Self {
+    pub fn new(dim: usize, hidden: usize, activation: Activation) -> Self {
         Self {
             self_attn: Box::new(MultiHeadAttentionT::new(dim)),
             enc_dec_attn: Box::new(MultiHeadAttentionT::new(dim)),
-            ff: Box::new(FeedForwardT::new(dim, hidden, Activation::ReLU)),
+            ff: Box::new(FeedForwardT::new(dim, hidden, activation)),
             h1: Matrix::zeros(0, 0),
             ctx: Matrix::zeros(0, 0),
         }
@@ -88,10 +88,16 @@ pub struct DecoderT {
 }
 
 impl DecoderT {
-    pub fn new(n: usize, vocab_size: usize, model_dim: usize, hidden: usize) -> Self {
+    pub fn new(
+        n: usize,
+        vocab_size: usize,
+        model_dim: usize,
+        hidden: usize,
+        activation: Activation,
+    ) -> Self {
         let mut v = Vec::new();
         for _ in 0..n {
-            v.push(DecoderLayerT::new(model_dim, hidden));
+            v.push(DecoderLayerT::new(model_dim, hidden, activation));
         }
         Self {
             layers: v,

@@ -1,7 +1,8 @@
-use crate::tensor::Tensor;
 use crate::data::load_pairs;
+use crate::layers::Activation;
 use crate::math::{self, Matrix};
 use crate::models::{DecoderT, EncoderT};
+use crate::tensor::Tensor;
 use crate::weights::{load_cnn, load_model};
 use rand::Rng;
 
@@ -24,8 +25,8 @@ pub fn run(model: Option<&str>) {
         "transformer" => {
             let vocab_size = 256;
             let model_dim = 64;
-            let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256);
-            let mut decoder = DecoderT::new(6, vocab_size, model_dim, 256);
+            let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256, Activation::ReLU);
+            let mut decoder = DecoderT::new(6, vocab_size, model_dim, 256, Activation::ReLU);
 
             load_model("model.json", &mut encoder, &mut decoder);
 
