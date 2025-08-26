@@ -1,6 +1,6 @@
 use crate::math::{self, Matrix};
 
-/// Optimizer implementing the https://arxiv.org/abs/2506.21734 algorithm.
+/// Optimizer implementing the https://arxiv.org/abs/2506.21734 "Hierarchical Reasoning Model" algorithm.
 ///
 /// The algorithm uses a simple decaying learning rate to update a linear layer
 /// given the feature vector and gradient on the output logits.  This is merely
