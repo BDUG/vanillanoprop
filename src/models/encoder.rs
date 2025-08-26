@@ -1,4 +1,4 @@
-use crate::layers::{EmbeddingT, FeedForwardT, Layer, LinearT, MultiHeadAttentionT};
+use crate::layers::{Activation, EmbeddingT, FeedForwardT, Layer, LinearT, MultiHeadAttentionT};
 use crate::math::Matrix;
 use crate::positional::positional_encoding;
 use crate::tensor::Tensor;
@@ -13,7 +13,7 @@ impl EncoderLayerT {
     pub fn new(dim: usize, hidden: usize) -> Self {
         Self {
             attn: Box::new(MultiHeadAttentionT::new(dim)),
-            ff: Box::new(FeedForwardT::new(dim, hidden, true)),
+            ff: Box::new(FeedForwardT::new(dim, hidden, Activation::ReLU)),
             attn_out: Matrix::zeros(0, 0),
         }
     }
