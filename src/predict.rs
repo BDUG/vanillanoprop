@@ -1,7 +1,7 @@
 use crate::data::load_pairs;
 use crate::layers::Activation;
 use crate::math::{self, Matrix};
-use crate::models::{DecoderT, EncoderT};
+use crate::models::{DecoderT, EncoderT, SimpleCNN};
 use crate::tensor::Tensor;
 use crate::weights::{load_cnn, load_model};
 use rand::Rng;
@@ -45,7 +45,9 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                 num_experts,
             );
 
-            load_model("model.json", &mut encoder, &mut decoder);
+            if let Err(e) = load_model("model.json", &mut encoder, &mut decoder) {
+                eprintln!("Failed to load model weights: {e}");
+            }
 
             math::reset_matrix_ops();
             let enc_x = to_matrix(src, vocab_size);
@@ -78,7 +80,13 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
         }
         _ => {
             // default CNN
-            let cnn = load_cnn("cnn.json", 10);
+            let cnn = match load_cnn("cnn.json", 10) {
+                Ok(cnn) => cnn,
+                Err(e) => {
+                    eprintln!("Using random CNN weights; failed to load cnn.json: {e}");
+                    SimpleCNN::new(10)
+                }
+            };
             let pred = cnn.predict(src);
             println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
         }
