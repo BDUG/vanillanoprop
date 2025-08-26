@@ -30,8 +30,8 @@ fn run(opt: &str) {
     let vocab_size = 256;
 
     let model_dim = 64;
-    let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256, Activation::ReLU);
-    let mut decoder = DecoderT::new(6, vocab_size, model_dim, 256, Activation::ReLU);
+    let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256, Activation::ReLU, false);
+    let mut decoder = DecoderT::new(6, vocab_size, model_dim, 256, Activation::ReLU, false);
 
     let lr = 0.001;
     let beta1 = 0.9;

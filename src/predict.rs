@@ -25,8 +25,8 @@ pub fn run(model: Option<&str>) {
         "transformer" => {
             let vocab_size = 256;
             let model_dim = 64;
-            let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256, Activation::ReLU);
-            let mut decoder = DecoderT::new(6, vocab_size, model_dim, 256, Activation::ReLU);
+            let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256, Activation::ReLU, false);
+            let mut decoder = DecoderT::new(6, vocab_size, model_dim, 256, Activation::ReLU, false);
 
             load_model("model.json", &mut encoder, &mut decoder);
 

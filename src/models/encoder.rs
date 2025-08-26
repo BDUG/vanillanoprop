@@ -1,4 +1,7 @@
-use crate::layers::{Activation, EmbeddingT, FeedForwardT, Layer, LinearT, MultiHeadAttentionT};
+use crate::layers::{
+    Activation, EmbeddingT, FeedForwardT, Layer, LinearT, MixtureOfExpertsT,
+    MultiHeadAttentionT,
+};
 use crate::math::Matrix;
 use crate::positional::positional_encoding;
 use crate::tensor::Tensor;
@@ -10,10 +13,19 @@ pub struct EncoderLayerT {
 }
 
 impl EncoderLayerT {
-    pub fn new(dim: usize, hidden: usize, activation: Activation) -> Self {
+    pub fn new(dim: usize, hidden: usize, activation: Activation, use_moe: bool) -> Self {
+        let ff: Box<dyn Layer> = if use_moe {
+            let experts: Vec<Box<dyn Layer>> = vec![
+                Box::new(FeedForwardT::new(dim, hidden, activation)),
+                Box::new(FeedForwardT::new(dim, hidden, activation)),
+            ];
+            Box::new(MixtureOfExpertsT::new(dim, experts, 1))
+        } else {
+            Box::new(FeedForwardT::new(dim, hidden, activation))
+        };
         Self {
             attn: Box::new(MultiHeadAttentionT::new(dim, 1)),
-            ff: Box::new(FeedForwardT::new(dim, hidden, activation)),
+            ff,
             attn_out: Matrix::zeros(0, 0),
         }
     }
@@ -72,10 +84,11 @@ impl EncoderT {
         model_dim: usize,
         hidden: usize,
         activation: Activation,
+        use_moe: bool,
     ) -> Self {
         let mut v = Vec::new();
         for _ in 0..n {
-            v.push(EncoderLayerT::new(model_dim, hidden, activation));
+            v.push(EncoderLayerT::new(model_dim, hidden, activation, use_moe));
         }
         Self {
             layers: v,

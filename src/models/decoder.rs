@@ -1,4 +1,7 @@
-use crate::layers::{Activation, EmbeddingT, FeedForwardT, Layer, LinearT, MultiHeadAttentionT};
+use crate::layers::{
+    Activation, EmbeddingT, FeedForwardT, Layer, LinearT, MixtureOfExpertsT,
+    MultiHeadAttentionT,
+};
 use crate::math::Matrix;
 use crate::tensor::Tensor;
 
@@ -11,11 +14,20 @@ pub struct DecoderLayerT {
 }
 
 impl DecoderLayerT {
-    pub fn new(dim: usize, hidden: usize, activation: Activation) -> Self {
+    pub fn new(dim: usize, hidden: usize, activation: Activation, use_moe: bool) -> Self {
+        let ff: Box<dyn Layer> = if use_moe {
+            let experts: Vec<Box<dyn Layer>> = vec![
+                Box::new(FeedForwardT::new(dim, hidden, activation)),
+                Box::new(FeedForwardT::new(dim, hidden, activation)),
+            ];
+            Box::new(MixtureOfExpertsT::new(dim, experts, 1))
+        } else {
+            Box::new(FeedForwardT::new(dim, hidden, activation))
+        };
         Self {
             self_attn: Box::new(MultiHeadAttentionT::new(dim, 1)),
             enc_dec_attn: Box::new(MultiHeadAttentionT::new(dim, 1)),
-            ff: Box::new(FeedForwardT::new(dim, hidden, activation)),
+            ff,
             h1: Matrix::zeros(0, 0),
             ctx: Matrix::zeros(0, 0),
         }
@@ -41,6 +53,19 @@ impl DecoderLayerT {
         }
         let h2 = self.enc_dec_attn.forward_train(&self.ctx);
         self.ff.forward_train(&h2)
+    }
+
+    pub fn fa_update(&mut self, grad_out: &Matrix, lr: f32) -> (Matrix, Matrix) {
+        let grad_ff = self.ff.fa_update(grad_out, lr);
+        let grad_ctx = self.enc_dec_attn.fa_update(&grad_ff, lr);
+        let grad_h1 = grad_ctx.clone();
+        let grad_enc = if self.h1.rows == self.ctx.rows && self.h1.cols == self.ctx.cols {
+            grad_ctx.clone()
+        } else {
+            Matrix::zeros(grad_ctx.rows, grad_ctx.cols)
+        };
+        let grad_in = self.self_attn.fa_update(&grad_h1, lr);
+        (grad_in, grad_enc)
     }
 
     /// Backward pass returns gradient w.r.t. the layer input and w.r.t. the
@@ -94,10 +119,11 @@ impl DecoderT {
         model_dim: usize,
         hidden: usize,
         activation: Activation,
+        use_moe: bool,
     ) -> Self {
         let mut v = Vec::new();
         for _ in 0..n {
-            v.push(DecoderLayerT::new(model_dim, hidden, activation));
+            v.push(DecoderLayerT::new(model_dim, hidden, activation, use_moe));
         }
         Self {
             layers: v,
@@ -123,6 +149,20 @@ impl DecoderT {
         }
         self.enc_out_cache = enc_out.clone();
         self.proj.forward_train(&h)
+    }
+
+    pub fn fa_update(&mut self, grad_out: &Matrix, lr: f32) -> Matrix {
+        let mut g = self.proj.fa_update(grad_out, lr);
+        let mut grad_enc = Matrix::zeros(self.enc_out_cache.rows, self.enc_out_cache.cols);
+        for l in self.layers.iter_mut().rev() {
+            let (ng, genc) = l.fa_update(&g, lr);
+            g = ng;
+            if grad_enc.rows == genc.rows && grad_enc.cols == genc.cols {
+                grad_enc = Matrix::add(&grad_enc, &genc);
+            }
+        }
+        self.embedding.fa_update(&g, lr);
+        grad_enc
     }
 
     /// Backward pass through the decoder.  Returns the gradient with respect to
