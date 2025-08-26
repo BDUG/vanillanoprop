@@ -10,30 +10,10 @@ use vanillanoprop::models::EncoderT;
 use vanillanoprop::train_cnn;
 use vanillanoprop::weights::save_model;
 
+mod common;
+
 fn main() {
-    let mut args = env::args().skip(1);
-    let mut model = "transformer".to_string();
-    let mut opt = "sgd".to_string();
-    let mut moe = false;
-    let mut num_experts = 1usize;
-    let mut positional = Vec::new();
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "--moe" => moe = true,
-            "--num-experts" => {
-                if let Some(n) = args.next() {
-                    num_experts = n.parse().unwrap_or(1);
-                }
-            }
-            _ => positional.push(arg),
-        }
-    }
-    if let Some(m) = positional.get(0) {
-        model = m.clone();
-    }
-    if let Some(o) = positional.get(1) {
-        opt = o.clone();
-    }
+    let (model, opt, moe, num_experts, _) = common::parse_cli(env::args().skip(1));
     if model == "cnn" {
         train_cnn::run(&opt, moe, num_experts);
     } else {
