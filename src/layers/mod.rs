@@ -1,5 +1,6 @@
 pub mod dropout;
 pub mod embedding;
+pub mod conv;
 pub mod feed_forward;
 pub mod layer;
 pub mod leaky_relu;
@@ -14,6 +15,7 @@ pub mod tanh;
 
 pub use dropout::Dropout;
 pub use embedding::EmbeddingT;
+pub use conv::Conv2d;
 pub use feed_forward::{Activation, FeedForwardT};
 pub use layer::Layer;
 pub use linear::LinearT;
