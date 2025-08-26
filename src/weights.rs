@@ -1,6 +1,6 @@
 use crate::tensor::Tensor;
 use crate::math::Matrix;
-use crate::models::{DecoderT, EncoderT, SimpleCNN};
+use crate::models::{DecoderT, EncoderT, LargeConceptModel, SimpleCNN};
 use serde::{Deserialize, Serialize};
 use std::{fs, io};
 
@@ -14,6 +14,14 @@ pub struct ModelJson {
 pub struct CnnJson {
     pub fc: Vec<Vec<f32>>,
     pub bias: Vec<f32>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct LcmJson {
+    pub w1: Vec<Vec<f32>>,
+    pub b1: Vec<f32>,
+    pub w2: Vec<Vec<f32>>,
+    pub b2: Vec<f32>,
 }
 
 /// Convert a [`Tensor`] into a 2-D `Vec` for serialisation.
@@ -132,6 +140,64 @@ pub fn load_cnn(path: &str, num_classes: usize) -> Result<SimpleCNN, io::Error> 
     }
     println!("Loaded CNN weights from {}", path);
     Ok(cnn)
+}
+
+pub fn save_lcm(path: &str, model: &LargeConceptModel) -> Result<(), io::Error> {
+    let (w1, b1, w2, b2) = model.parameters();
+    let json = LcmJson {
+        w1: matrix_to_vec2(w1),
+        b1: b1.clone(),
+        w2: matrix_to_vec2(w2),
+        b2: b2.clone(),
+    };
+    let txt = serde_json::to_string(&json)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    fs::write(path, txt)?;
+    println!("Saved LCM weights to {}", path);
+    Ok(())
+}
+
+pub fn load_lcm(
+    path: &str,
+    input_dim: usize,
+    hidden_dim: usize,
+    num_classes: usize,
+) -> Result<LargeConceptModel, io::Error> {
+    let txt = fs::read_to_string(path)?;
+    let json: LcmJson = serde_json::from_str(&txt)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let mut model = LargeConceptModel::new(input_dim, hidden_dim, num_classes);
+    let (w1, b1, w2, b2) = model.parameters_mut();
+    if !json.w1.is_empty() {
+        let rows = json.w1.len();
+        let cols = json.w1[0].len();
+        let mut mat = Matrix::zeros(rows, cols);
+        for r in 0..rows {
+            for c in 0..cols {
+                mat.set(r, c, json.w1[r][c]);
+            }
+        }
+        *w1 = mat;
+    }
+    if !json.w2.is_empty() {
+        let rows = json.w2.len();
+        let cols = json.w2[0].len();
+        let mut mat = Matrix::zeros(rows, cols);
+        for r in 0..rows {
+            for c in 0..cols {
+                mat.set(r, c, json.w2[r][c]);
+            }
+        }
+        *w2 = mat;
+    }
+    if !json.b1.is_empty() {
+        *b1 = json.b1.clone();
+    }
+    if !json.b2.is_empty() {
+        *b2 = json.b2.clone();
+    }
+    println!("Loaded LCM weights from {}", path);
+    Ok(model)
 }
 
 /// Save an arbitrary checkpoint structure to `path` using JSON serialisation.

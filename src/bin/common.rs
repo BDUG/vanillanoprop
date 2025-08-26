@@ -5,7 +5,8 @@ use vanillanoprop::config::Config;
 /// Parses common CLI arguments across training binaries.
 ///
 /// Returns a tuple `(model, optimizer, moe, num_experts, lr_schedule, resume, save_every, checkpoint_dir, log_dir, experiment_name, config, positional_args)`.
-/// - `model` defaults to "transformer" if not specified.
+/// - `model` defaults to "transformer" if not specified. Supported models include
+///   "transformer", "cnn" and the new "lcm" large concept model.
 /// - `optimizer` defaults to "sgd" if not specified.
 /// - `moe` is true if `--moe` flag is present.
 /// - `num_experts` reads the value after `--num-experts`, defaulting to 1.

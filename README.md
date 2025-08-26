@@ -13,6 +13,8 @@ For example:
 ```
 ./run.sh train-noprop cnn --moe --num-experts 4
 ./run.sh predict --moe --num-experts 4
+./run.sh train-lcm
+./run.sh predict lcm
 ```
 The `--moe` flag enables mixture-of-experts layers and `--num-experts` sets
 how many experts to use.
@@ -32,6 +34,7 @@ Run a training binary with a configuration file:
 
 ```
 ./run.sh train-noprop --config config.toml
+./run.sh train-lcm --config lcm_config.toml
 ```
 
 Or override specific settings from the command line:
