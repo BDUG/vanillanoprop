@@ -1,6 +1,8 @@
 use std::env;
 
 use indicatif::ProgressBar;
+use rand::Rng;
+use vanillanoprop::rng::rng_from_env;
 use vanillanoprop::data::load_batches;
 use vanillanoprop::layers::Activation;
 use vanillanoprop::math::{self, Matrix};
@@ -23,6 +25,7 @@ fn main() {
 
 fn run(moe: bool, num_experts: usize) {
     let batches = load_batches(4);
+    let mut rng = rng_from_env();
     let vocab_size = 256;
 
     let model_dim = 64;
@@ -64,7 +67,7 @@ fn run(moe: bool, num_experts: usize) {
                 tgt_mat.set(0, tgt as usize, 1.0);
                 let mut noisy = encoder.forward(&tgt_mat);
                 for v in &mut noisy.data.data {
-                    *v += (rand::random::<f32>() - 0.5) * 0.1;
+                    *v += (rng.gen::<f32>() - 0.5) * 0.1;
                 }
 
                 // Mean squared error and local feedback alignment update

@@ -5,6 +5,7 @@ use crate::models::{DecoderT, EncoderT};
 use crate::tensor::Tensor;
 use crate::weights::{load_cnn, load_model};
 use rand::Rng;
+use crate::rng::rng_from_env;
 
 fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
     let mut m = Matrix::zeros(seq.len(), vocab_size);
@@ -17,7 +18,7 @@ fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
 pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
     // pick a random image from the MNIST training pairs
     let pairs = load_pairs();
-    let mut rng = rand::thread_rng();
+    let mut rng = rng_from_env();
     let idx = rng.gen_range(0..pairs.len());
     let (src, tgt) = &pairs[idx];
 

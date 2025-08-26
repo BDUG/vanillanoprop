@@ -1,5 +1,6 @@
 use indicatif::ProgressBar;
-use rand::random;
+use rand::Rng;
+use vanillanoprop::rng::rng_from_env;
 
 use vanillanoprop::data::{download_mnist, load_batches};
 use vanillanoprop::math;
@@ -102,6 +103,7 @@ fn train_backprop(epochs: usize) -> (f32, usize, usize, u64) {
 fn train_noprop(epochs: usize) -> (f32, usize, usize, u64) {
     let batches = load_batches(4);
     let mut cnn = SimpleCNN::new(10);
+    let mut rng = rng_from_env();
 
     let lr = 0.01f32;
 
@@ -126,7 +128,7 @@ fn train_noprop(epochs: usize) -> (f32, usize, usize, u64) {
                 let mut target = vec![0f32; logits.len()];
                 target[*tgt as usize] = 1.0;
                 for v in &mut target {
-                    *v += (random::<f32>() - 0.5) * 0.1;
+                    *v += (rng.gen::<f32>() - 0.5) * 0.1;
                 }
 
                 let mut delta = vec![0f32; logits.len()];

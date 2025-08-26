@@ -1,4 +1,6 @@
 use crate::math::Matrix;
+use rand::Rng;
+use crate::rng::rng_from_env;
 
 /// Dropout layer that randomly zeros elements during training.
 ///
@@ -9,12 +11,13 @@ use crate::math::Matrix;
 /// backward pass.
 pub struct Dropout {
     mask: Vec<f32>,
+    rng: rand::rngs::StdRng,
 }
 
 impl Dropout {
     /// Create a new dropout layer.
     pub fn new() -> Self {
-        Self { mask: Vec::new() }
+        Self { mask: Vec::new(), rng: rng_from_env() }
     }
 
     /// Forward pass for dropout.
@@ -31,7 +34,7 @@ impl Dropout {
             self.mask = vec![0.0; x.data.len()];
             let scale = if p < 1.0 { 1.0 / (1.0 - p) } else { 0.0 };
             for i in 0..x.data.len() {
-                if rand::random::<f32>() < p {
+                if self.rng.gen::<f32>() < p {
                     self.mask[i] = 0.0;
                     out.data[i] = 0.0;
                 } else {

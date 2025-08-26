@@ -1,5 +1,6 @@
 use crate::math::{self, Matrix};
 use rand::Rng;
+use crate::rng::rng_from_env;
 
 /// A very small convolutional network used for demonstration purposes.
 ///
@@ -18,7 +19,7 @@ impl SimpleCNN {
     pub fn new(num_classes: usize) -> Self {
         // 3x3 mean kernel
         let kernel = [[1.0 / 9.0; 3]; 3];
-        let mut rng = rand::thread_rng();
+        let mut rng = rng_from_env();
         let mut w = Vec::with_capacity(28 * 28 * num_classes);
         for _ in 0..(28 * 28 * num_classes) {
             w.push(rng.gen_range(-0.01..0.01));
