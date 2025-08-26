@@ -1,9 +1,10 @@
 use std::env;
 use vanillanoprop::optim::lr_scheduler::LrScheduleConfig;
+use vanillanoprop::config::Config;
 
 /// Parses common CLI arguments across training binaries.
 ///
-/// Returns a tuple `(model, optimizer, moe, num_experts, lr_schedule, resume, save_every, checkpoint_dir, positional_args)`.
+/// Returns a tuple `(model, optimizer, moe, num_experts, lr_schedule, resume, save_every, checkpoint_dir, config, positional_args)`.
 /// - `model` defaults to "transformer" if not specified.
 /// - `optimizer` defaults to "sgd" if not specified.
 /// - `moe` is true if `--moe` flag is present.
@@ -27,6 +28,7 @@ pub fn parse_cli<I>(
     Option<String>,
     Option<usize>,
     Option<String>,
+    Config,
     Vec<String>,
 )
 where
@@ -43,6 +45,9 @@ where
     let mut resume = None;
     let mut save_every = None;
     let mut checkpoint_dir = None;
+    let mut epochs = None;
+    let mut batch_size = None;
+    let mut config_path = None;
     let mut positional = Vec::new();
 
     while let Some(arg) = args.next() {
@@ -88,6 +93,21 @@ where
                     checkpoint_dir = Some(v);
                 }
             }
+            "--epochs" => {
+                if let Some(v) = args.next() {
+                    epochs = v.parse().ok();
+                }
+            }
+            "--batch-size" => {
+                if let Some(v) = args.next() {
+                    batch_size = v.parse().ok();
+                }
+            }
+            "--config" => {
+                if let Some(v) = args.next() {
+                    config_path = Some(v);
+                }
+            }
             _ => positional.push(arg),
         }
     }
@@ -105,6 +125,17 @@ where
         _ => LrScheduleConfig::Constant,
     };
 
+    let mut config = config_path
+        .as_deref()
+        .and_then(Config::from_path)
+        .unwrap_or_default();
+    if let Some(e) = epochs {
+        config.epochs = e;
+    }
+    if let Some(b) = batch_size {
+        config.batch_size = b;
+    }
+
     (
         model,
         opt,
@@ -114,6 +145,7 @@ where
         resume,
         save_every,
         checkpoint_dir,
+        config,
         positional,
     )
 }
@@ -130,6 +162,7 @@ pub fn parse_env(
     Option<String>,
     Option<usize>,
     Option<String>,
+    Config,
     Vec<String>,
 ) {
     let args = env::args().skip(1);

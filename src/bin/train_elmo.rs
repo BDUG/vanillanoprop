@@ -9,6 +9,7 @@ use vanillanoprop::metrics::f1_score;
 use vanillanoprop::models::EncoderT;
 use vanillanoprop::optim::Adam;
 use vanillanoprop::train_cnn;
+use vanillanoprop::config::Config;
 use vanillanoprop::weights::save_model;
 
 mod common;
@@ -23,17 +24,18 @@ fn main() {
         _resume,
         _save_every,
         _ckpt_dir,
+        config,
         _,
     ) = common::parse_cli(env::args().skip(1));
     if model == "cnn" {
-        train_cnn::run("sgd", moe, num_experts, lr_cfg, None, None, None);
+        train_cnn::run("sgd", moe, num_experts, lr_cfg, None, None, None, &config);
     } else {
-        run(moe, num_experts);
+        run(moe, num_experts, &config);
     }
 }
 
-fn run(moe: bool, num_experts: usize) {
-    let batches = load_batches(4);
+fn run(moe: bool, num_experts: usize, config: &Config) {
+    let batches = load_batches(config.batch_size);
     let vocab_size = 256;
 
     // With embedding → model_dim separate
@@ -55,7 +57,7 @@ fn run(moe: bool, num_experts: usize) {
     let mut optim = Adam::new(lr, beta1, beta2, eps, weight_decay);
 
     math::reset_matrix_ops();
-    let epochs = 5;
+    let epochs = config.epochs;
     let pb = ProgressBar::new(epochs as u64);
     let mut best_f1 = f32::NEG_INFINITY;
     for epoch in 0..epochs {

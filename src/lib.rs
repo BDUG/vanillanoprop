@@ -12,3 +12,4 @@ pub mod rng;
 pub mod weights;
 pub mod train_cnn;
 pub mod memory;
+pub mod config;

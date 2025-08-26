@@ -16,3 +16,26 @@ For example:
 ```
 The `--moe` flag enables mixture-of-experts layers and `--num-experts` sets
 how many experts to use.
+
+## Configuration
+
+Training parameters such as the number of epochs and batch size can be set via
+a configuration file in TOML or JSON format. CLI flags override values from the
+file. Example `config.toml`:
+
+```
+epochs = 10
+batch_size = 8
+```
+
+Run a training binary with a configuration file:
+
+```
+./run.sh train-noprop --config config.toml
+```
+
+Or override specific settings from the command line:
+
+```
+./run.sh train-noprop --config config.toml --epochs 20 --batch-size 16
+```

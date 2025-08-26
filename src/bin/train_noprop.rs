@@ -16,6 +16,7 @@ use vanillanoprop::optim::lr_scheduler::{
 };
 use vanillanoprop::rng::rng_from_env;
 use vanillanoprop::train_cnn;
+use vanillanoprop::config::Config;
 use vanillanoprop::weights::{
     save_model, save_checkpoint, load_checkpoint, ModelJson, tensor_to_vec2,
 };
@@ -32,12 +33,13 @@ fn main() {
         resume,
         save_every,
         checkpoint_dir,
+        config,
         _,
     ) = common::parse_cli(env::args().skip(1));
     if model == "cnn" {
-        train_cnn::run(&opt, moe, num_experts, lr_cfg, resume, save_every, checkpoint_dir);
+        train_cnn::run(&opt, moe, num_experts, lr_cfg, resume, save_every, checkpoint_dir, &config);
     } else {
-        run(moe, num_experts, lr_cfg, resume, save_every, checkpoint_dir);
+        run(moe, num_experts, lr_cfg, resume, save_every, checkpoint_dir, &config);
     }
 }
 
@@ -56,8 +58,9 @@ fn run(
     resume: Option<String>,
     save_every: Option<usize>,
     checkpoint_dir: Option<String>,
+    config: &Config,
 ) {
-    let batches = load_batches(4);
+    let batches = load_batches(config.batch_size);
     let mut rng = rng_from_env();
     let vocab_size = 256;
 
@@ -114,10 +117,9 @@ fn run(
     });
 
     math::reset_matrix_ops();
-    let epochs = 5;
-    let pb = ProgressBar::new(epochs as u64);
+    let pb = ProgressBar::new(config.epochs as u64);
     pb.set_position(start_epoch as u64);
-    for epoch in start_epoch..epochs {
+    for epoch in start_epoch..config.epochs {
         let mut last_loss = 0.0;
         let mut f1_sum = 0.0;
         let mut sample_cnt: f32 = 0.0;

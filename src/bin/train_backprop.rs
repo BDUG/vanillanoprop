@@ -9,6 +9,7 @@ use vanillanoprop::metrics::f1_score;
 use vanillanoprop::models::{DecoderT, EncoderT};
 use vanillanoprop::optim::{Adam, SGD};
 use vanillanoprop::train_cnn;
+use vanillanoprop::config::Config;
 use vanillanoprop::weights::save_model;
 
 mod common;
@@ -23,19 +24,20 @@ fn main() {
         _resume,
         _save_every,
         _ckpt_dir,
+        config,
         _,
     ) = common::parse_cli(env::args().skip(1));
     if model == "cnn" {
-        train_cnn::run(&opt, moe, num_experts, lr_cfg, None, None, None);
+        train_cnn::run(&opt, moe, num_experts, lr_cfg, None, None, None, &config);
     } else {
-        run(&opt, moe, num_experts);
+        run(&opt, moe, num_experts, &config);
     }
 }
 
 // Tensor Backprop Training (simplified Adam hook)
 // now using Embedding => model_dim independent of vocab_size
-fn run(opt: &str, moe: bool, num_experts: usize) {
-    let batches = load_batches(4);
+fn run(opt: &str, moe: bool, num_experts: usize, config: &Config) {
+    let batches = load_batches(config.batch_size);
     let vocab_size = 256;
 
     let model_dim = 64;
@@ -67,7 +69,7 @@ fn run(opt: &str, moe: bool, num_experts: usize) {
     let mut sgd = SGD::new(lr, weight_decay);
 
     math::reset_matrix_ops();
-    let epochs = 50;
+    let epochs = config.epochs;
     let pb = ProgressBar::new(epochs as u64);
     let mut best_f1 = f32::NEG_INFINITY;
     for epoch in 0..epochs {
