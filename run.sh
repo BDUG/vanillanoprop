@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 {download|predict|train-backprop|train-elmo|train-noprop} [model]" >&2
+  echo "Usage: $0 {download|predict|train-backprop|train-elmo|train-noprop} [model] [--moe] [--num-experts N]" >&2
   exit 1
 }
 
