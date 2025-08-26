@@ -12,23 +12,47 @@ use vanillanoprop::train_cnn;
 use vanillanoprop::weights::save_model;
 
 fn main() {
-    let model = env::args()
-        .nth(1)
-        .unwrap_or_else(|| "transformer".to_string());
+    let mut args = env::args().skip(1);
+    let mut model = "transformer".to_string();
+    let mut moe = false;
+    let mut num_experts = 1usize;
+    let mut positional = Vec::new();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--moe" => moe = true,
+            "--num-experts" => {
+                if let Some(n) = args.next() {
+                    num_experts = n.parse().unwrap_or(1);
+                }
+            }
+            _ => positional.push(arg),
+        }
+    }
+    if let Some(m) = positional.get(0) {
+        model = m.clone();
+    }
     if model == "cnn" {
-        train_cnn::run("sgd");
+        train_cnn::run("sgd", moe, num_experts);
     } else {
-        run();
+        run(moe, num_experts);
     }
 }
 
-fn run() {
+fn run(moe: bool, num_experts: usize) {
     let batches = load_batches(4);
     let vocab_size = 256;
 
     // With embedding → model_dim separate
     let model_dim = 64;
-    let mut encoder = EncoderT::new(6, vocab_size, model_dim, 128, Activation::ReLU);
+    let mut encoder = EncoderT::new(
+        6,
+        vocab_size,
+        model_dim,
+        128,
+        Activation::ReLU,
+        moe,
+        num_experts,
+    );
     let lr = 0.001;
     let beta1 = 0.9;
     let beta2 = 0.999;

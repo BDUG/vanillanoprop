@@ -2,16 +2,17 @@ use indicatif::ProgressBar;
 
 use crate::data::load_batches;
 use crate::math;
+use crate::memory;
 use crate::metrics::f1_score;
 use crate::models::SimpleCNN;
 use crate::weights::save_cnn;
-use crate::memory;
 
 /// Train a [`SimpleCNN`] on the MNIST data using a basic SGD loop.
 ///
 /// `opt` is kept for parity with other training binaries but currently only
-/// SGD is implemented.
-pub fn run(opt: &str) {
+/// SGD is implemented.  `moe` and `num_experts` are accepted for API
+/// compatibility but currently unused.
+pub fn run(opt: &str, _moe: bool, _num_experts: usize) {
     let _ = opt; // optimizer placeholder
 
     let batches = load_batches(4);
@@ -107,6 +108,9 @@ pub fn run(opt: &str) {
 
     println!("Total matrix ops: {}", math::matrix_ops_count());
     let peak = memory::peak_memory_bytes();
-    println!("Max memory usage: {:.2} MB", peak as f64 / (1024.0 * 1024.0));
+    println!(
+        "Max memory usage: {:.2} MB",
+        peak as f64 / (1024.0 * 1024.0)
+    );
     save_cnn("cnn.json", &cnn);
 }

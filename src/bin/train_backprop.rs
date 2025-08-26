@@ -12,26 +12,61 @@ use vanillanoprop::train_cnn;
 use vanillanoprop::weights::save_model;
 
 fn main() {
-    let model = env::args()
-        .nth(1)
-        .unwrap_or_else(|| "transformer".to_string());
-    let opt = env::args().nth(2).unwrap_or_else(|| "sgd".to_string());
+    let mut args = env::args().skip(1);
+    let mut model = "transformer".to_string();
+    let mut opt = "sgd".to_string();
+    let mut moe = false;
+    let mut num_experts = 1usize;
+    let mut positional = Vec::new();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--moe" => moe = true,
+            "--num-experts" => {
+                if let Some(n) = args.next() {
+                    num_experts = n.parse().unwrap_or(1);
+                }
+            }
+            _ => positional.push(arg),
+        }
+    }
+    if let Some(m) = positional.get(0) {
+        model = m.clone();
+    }
+    if let Some(o) = positional.get(1) {
+        opt = o.clone();
+    }
     if model == "cnn" {
-        train_cnn::run(&opt);
+        train_cnn::run(&opt, moe, num_experts);
     } else {
-        run(&opt);
+        run(&opt, moe, num_experts);
     }
 }
 
 // Tensor Backprop Training (simplified Adam hook)
 // now using Embedding => model_dim independent of vocab_size
-fn run(opt: &str) {
+fn run(opt: &str, moe: bool, num_experts: usize) {
     let batches = load_batches(4);
     let vocab_size = 256;
 
     let model_dim = 64;
-    let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256, Activation::ReLU);
-    let mut decoder = DecoderT::new(6, vocab_size, model_dim, 256, Activation::ReLU);
+    let mut encoder = EncoderT::new(
+        6,
+        vocab_size,
+        model_dim,
+        256,
+        Activation::ReLU,
+        moe,
+        num_experts,
+    );
+    let mut decoder = DecoderT::new(
+        6,
+        vocab_size,
+        model_dim,
+        256,
+        Activation::ReLU,
+        moe,
+        num_experts,
+    );
 
     let lr = 0.001;
     let beta1 = 0.9;

@@ -14,7 +14,7 @@ fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
     m
 }
 
-pub fn run(model: Option<&str>) {
+pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
     // pick a random image from the MNIST training pairs
     let pairs = load_pairs();
     let mut rng = rand::thread_rng();
@@ -25,8 +25,24 @@ pub fn run(model: Option<&str>) {
         "transformer" => {
             let vocab_size = 256;
             let model_dim = 64;
-            let mut encoder = EncoderT::new(6, vocab_size, model_dim, 256, Activation::ReLU);
-            let mut decoder = DecoderT::new(6, vocab_size, model_dim, 256, Activation::ReLU);
+            let mut encoder = EncoderT::new(
+                6,
+                vocab_size,
+                model_dim,
+                256,
+                Activation::ReLU,
+                moe,
+                num_experts,
+            );
+            let mut decoder = DecoderT::new(
+                6,
+                vocab_size,
+                model_dim,
+                256,
+                Activation::ReLU,
+                moe,
+                num_experts,
+            );
 
             load_model("model.json", &mut encoder, &mut decoder);
 
