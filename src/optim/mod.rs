@@ -1,7 +1,7 @@
 pub mod adam;
-pub mod paper_algo;
+pub mod hrm;
 pub mod sgd;
 
 pub use adam::Adam;
-pub use paper_algo::PaperAlgo;
+pub use hrm::Hrm;
 pub use sgd::SGD;

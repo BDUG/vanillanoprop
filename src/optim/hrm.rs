@@ -5,13 +5,13 @@ use crate::math::{self, Matrix};
 /// The algorithm uses a simple decaying learning rate to update a linear layer
 /// given the feature vector and gradient on the output logits.  This is merely
 /// a lightweight placeholder capturing the core idea.
-pub struct PaperAlgo {
+pub struct Hrm {
     pub lr: f32,
     pub decay: f32,
     step: usize,
 }
 
-impl PaperAlgo {
+impl Hrm {
     /// Create a new instance with the provided learning rate and decay factor.
     pub fn new(lr: f32, decay: f32) -> Self {
         Self { lr, decay, step: 0 }
