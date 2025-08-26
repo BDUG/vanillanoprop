@@ -12,7 +12,7 @@ pub struct EncoderLayerT {
 impl EncoderLayerT {
     pub fn new(dim: usize, hidden: usize, activation: Activation) -> Self {
         Self {
-            attn: Box::new(MultiHeadAttentionT::new(dim)),
+            attn: Box::new(MultiHeadAttentionT::new(dim, 1)),
             ff: Box::new(FeedForwardT::new(dim, hidden, activation)),
             attn_out: Matrix::zeros(0, 0),
         }

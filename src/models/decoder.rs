@@ -13,8 +13,8 @@ pub struct DecoderLayerT {
 impl DecoderLayerT {
     pub fn new(dim: usize, hidden: usize, activation: Activation) -> Self {
         Self {
-            self_attn: Box::new(MultiHeadAttentionT::new(dim)),
-            enc_dec_attn: Box::new(MultiHeadAttentionT::new(dim)),
+            self_attn: Box::new(MultiHeadAttentionT::new(dim, 1)),
+            enc_dec_attn: Box::new(MultiHeadAttentionT::new(dim, 1)),
             ff: Box::new(FeedForwardT::new(dim, hidden, activation)),
             h1: Matrix::zeros(0, 0),
             ctx: Matrix::zeros(0, 0),
