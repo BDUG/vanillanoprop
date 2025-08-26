@@ -1,3 +1,4 @@
+pub mod dropout;
 pub mod embedding;
 pub mod feed_forward;
 pub mod layer;
@@ -10,6 +11,7 @@ pub mod sigmoid;
 pub mod softmax;
 pub mod tanh;
 
+pub use dropout::Dropout;
 pub use embedding::EmbeddingT;
 pub use feed_forward::{Activation, FeedForwardT};
 pub use layer::Layer;
