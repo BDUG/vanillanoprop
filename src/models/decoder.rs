@@ -1,4 +1,4 @@
-use crate::layers::{EmbeddingT, FeedForwardT, Layer, LinearT, MultiHeadAttentionT};
+use crate::layers::{Activation, EmbeddingT, FeedForwardT, Layer, LinearT, MultiHeadAttentionT};
 use crate::math::Matrix;
 use crate::tensor::Tensor;
 
@@ -15,7 +15,7 @@ impl DecoderLayerT {
         Self {
             self_attn: Box::new(MultiHeadAttentionT::new(dim)),
             enc_dec_attn: Box::new(MultiHeadAttentionT::new(dim)),
-            ff: Box::new(FeedForwardT::new(dim, hidden, true)),
+            ff: Box::new(FeedForwardT::new(dim, hidden, Activation::ReLU)),
             h1: Matrix::zeros(0, 0),
             ctx: Matrix::zeros(0, 0),
         }

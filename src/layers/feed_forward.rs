@@ -1,23 +1,31 @@
 use super::layer::Layer;
 use super::linear::LinearT;
+use super::{relu, sigmoid};
 use crate::math::Matrix;
 use crate::tensor::Tensor;
+
+#[derive(Clone, Copy)]
+pub enum Activation {
+    None,
+    ReLU,
+    Sigmoid,
+}
 
 pub struct FeedForwardT {
     pub w1: LinearT,
     pub w2: LinearT,
-    pub use_relu: bool,
+    pub activation: Activation,
     // caches for backward
     mask: Vec<f32>,
     h1: Matrix,
 }
 
 impl FeedForwardT {
-    pub fn new(dim: usize, hidden: usize, use_relu: bool) -> Self {
+    pub fn new(dim: usize, hidden: usize, activation: Activation) -> Self {
         Self {
             w1: LinearT::new(dim, hidden),
             w2: LinearT::new(hidden, dim),
-            use_relu,
+            activation,
             mask: Vec::new(),
             h1: Matrix::zeros(0, 0),
         }
@@ -25,30 +33,28 @@ impl FeedForwardT {
 
     pub fn forward(&self, x: &Tensor) -> Tensor {
         let mut h = self.w1.forward(x);
-        if self.use_relu {
-            for v in h.data.data.iter_mut() {
-                if *v < 0.0 {
-                    *v = 0.0;
-                }
-            }
+        match self.activation {
+            Activation::ReLU => relu::forward_tensor(&mut h),
+            Activation::Sigmoid => sigmoid::forward_tensor(&mut h),
+            Activation::None => {}
         }
         self.w2.forward(&h)
     }
 
     pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
         let mut h1 = self.w1.forward_local(x);
-        if self.use_relu {
-            let mut mask = vec![0.0; h1.data.len()];
-            for (i, v) in h1.data.iter_mut().enumerate() {
-                if *v < 0.0 {
-                    *v = 0.0;
-                } else {
-                    mask[i] = 1.0;
-                }
+        match self.activation {
+            Activation::ReLU => {
+                let mask = relu::forward_matrix(&mut h1);
+                self.mask = mask;
             }
-            self.mask = mask;
-        } else {
-            self.mask = vec![1.0; h1.data.len()];
+            Activation::Sigmoid => {
+                sigmoid::forward_matrix(&mut h1);
+                self.mask = vec![1.0; h1.data.len()];
+            }
+            Activation::None => {
+                self.mask = vec![1.0; h1.data.len()];
+            }
         }
         let out = self.w2.forward_local(&h1);
         self.h1 = h1;
@@ -58,8 +64,18 @@ impl FeedForwardT {
     pub fn fa_update(&mut self, grad_out: &Matrix, lr: f32) -> Matrix {
         let grad_h1 = self.w2.fa_update(grad_out, lr);
         let mut g = grad_h1.clone();
-        for (i, v) in g.data.iter_mut().enumerate() {
-            *v *= self.mask[i];
+        match self.activation {
+            Activation::ReLU => {
+                for (i, v) in g.data.iter_mut().enumerate() {
+                    *v *= self.mask[i];
+                }
+            }
+            Activation::Sigmoid => {
+                for (v, &h) in g.data.iter_mut().zip(self.h1.data.iter()) {
+                    *v *= h * (1.0 - h);
+                }
+            }
+            Activation::None => {}
         }
         self.w1.fa_update(&g, lr)
     }
@@ -71,8 +87,18 @@ impl FeedForwardT {
     pub fn backward(&mut self, grad_out: &Matrix) -> Matrix {
         let grad_h1 = self.w2.backward(grad_out);
         let mut g = grad_h1.clone();
-        for (i, v) in g.data.iter_mut().enumerate() {
-            *v *= self.mask[i];
+        match self.activation {
+            Activation::ReLU => {
+                for (i, v) in g.data.iter_mut().enumerate() {
+                    *v *= self.mask[i];
+                }
+            }
+            Activation::Sigmoid => {
+                for (v, &h) in g.data.iter_mut().zip(self.h1.data.iter()) {
+                    *v *= h * (1.0 - h);
+                }
+            }
+            Activation::None => {}
         }
         self.w1.backward(&g)
     }
