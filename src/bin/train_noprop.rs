@@ -13,6 +13,7 @@ use vanillanoprop::weights::save_model;
 fn main() {
     let mut args = env::args().skip(1);
     let mut model = "transformer".to_string();
+    let mut opt = "sgd".to_string();
     let mut moe = false;
     let mut num_experts = 1usize;
     let mut positional = Vec::new();
@@ -30,8 +31,11 @@ fn main() {
     if let Some(m) = positional.get(0) {
         model = m.clone();
     }
+    if let Some(o) = positional.get(1) {
+        opt = o.clone();
+    }
     if model == "cnn" {
-        train_cnn::run("sgd", moe, num_experts);
+        train_cnn::run(&opt, moe, num_experts);
     } else {
         run(moe, num_experts);
     }
