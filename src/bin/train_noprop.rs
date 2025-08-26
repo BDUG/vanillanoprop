@@ -2,31 +2,61 @@ use std::env;
 
 use indicatif::ProgressBar;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
+use std::time::{SystemTime, UNIX_EPOCH};
 use vanillanoprop::data::load_batches;
 use vanillanoprop::layers::Activation;
 use vanillanoprop::math::{self, Matrix};
 use vanillanoprop::memory;
 use vanillanoprop::metrics::f1_score;
 use vanillanoprop::models::EncoderT;
+use vanillanoprop::tensor::Tensor;
 use vanillanoprop::optim::lr_scheduler::{
     ConstantLr, CosineLr, LearningRateSchedule, LrScheduleConfig, StepLr,
 };
 use vanillanoprop::rng::rng_from_env;
 use vanillanoprop::train_cnn;
-use vanillanoprop::weights::save_model;
+use vanillanoprop::weights::{
+    save_model, save_checkpoint, load_checkpoint, ModelJson, tensor_to_vec2,
+};
 
 mod common;
 
 fn main() {
-    let (model, opt, moe, num_experts, lr_cfg, _) = common::parse_cli(env::args().skip(1));
+    let (
+        model,
+        opt,
+        moe,
+        num_experts,
+        lr_cfg,
+        resume,
+        save_every,
+        checkpoint_dir,
+        _,
+    ) = common::parse_cli(env::args().skip(1));
     if model == "cnn" {
-        train_cnn::run(&opt, moe, num_experts, lr_cfg);
+        train_cnn::run(&opt, moe, num_experts, lr_cfg, resume, save_every, checkpoint_dir);
     } else {
-        run(moe, num_experts, lr_cfg);
+        run(moe, num_experts, lr_cfg, resume, save_every, checkpoint_dir);
     }
 }
 
-fn run(moe: bool, num_experts: usize, lr_cfg: LrScheduleConfig) {
+#[derive(Serialize, Deserialize)]
+struct NopropCheckpoint {
+    epoch: usize,
+    step: usize,
+    best_f1: f32,
+    model: ModelJson,
+}
+
+fn run(
+    moe: bool,
+    num_experts: usize,
+    lr_cfg: LrScheduleConfig,
+    resume: Option<String>,
+    save_every: Option<usize>,
+    checkpoint_dir: Option<String>,
+) {
     let batches = load_batches(4);
     let mut rng = rng_from_env();
     let vocab_size = 256;
@@ -50,12 +80,44 @@ fn run(moe: bool, num_experts: usize, lr_cfg: LrScheduleConfig) {
         LrScheduleConfig::Constant => Box::new(ConstantLr::new(base_lr)),
     };
     let mut step = 0usize;
+    let mut start_epoch = 0usize;
+    let mut best_f1 = f32::NEG_INFINITY;
+
+    if let Some(path) = &resume {
+        if let Ok(cp) = load_checkpoint::<NopropCheckpoint>(path) {
+            if !cp.model.encoder_embedding.is_empty() {
+                let e_rows = cp.model.encoder_embedding.len();
+                let e_cols = cp.model.encoder_embedding[0].len();
+                let mut params = encoder.embedding.parameters();
+                let exp_rows = params[0].w.data.rows;
+                let exp_cols = params[0].w.data.cols;
+                let mut mat = Matrix::zeros(exp_rows, exp_cols);
+                for r in 0..e_rows.min(exp_rows) {
+                    for c in 0..e_cols.min(exp_cols) {
+                        mat.set(r, c, cp.model.encoder_embedding[r][c]);
+                    }
+                }
+                params[0].w = Tensor::from_matrix(mat);
+            }
+            step = cp.step;
+            start_epoch = cp.epoch + 1;
+            best_f1 = cp.best_f1;
+        }
+    }
+
+    let ckpt_dir = checkpoint_dir.unwrap_or_else(|| {
+        let ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        format!("runs/{ts}")
+    });
 
     math::reset_matrix_ops();
     let epochs = 5;
     let pb = ProgressBar::new(epochs as u64);
-    let mut best_f1 = f32::NEG_INFINITY;
-    for epoch in 0..epochs {
+    pb.set_position(start_epoch as u64);
+    for epoch in start_epoch..epochs {
         let mut last_loss = 0.0;
         let mut f1_sum = 0.0;
         let mut sample_cnt: f32 = 0.0;
@@ -117,10 +179,34 @@ fn run(moe: bool, num_experts: usize, lr_cfg: LrScheduleConfig) {
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
         pb.inc(1);
 
+        let mut should_save = false;
         if avg_f1 > best_f1 {
-            println!("Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}");
+            println!(
+                "Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}"
+            );
             best_f1 = avg_f1;
-            if let Err(e) = save_model("checkpoint.json", &mut encoder, None) {
+            should_save = true;
+        }
+        if let Some(n) = save_every {
+            if (epoch + 1) % n == 0 {
+                should_save = true;
+            }
+        }
+        if should_save {
+            let params = encoder.embedding.parameters();
+            let enc_emb = tensor_to_vec2(&params[0].w);
+            let model = ModelJson {
+                encoder_embedding: enc_emb,
+                decoder_embedding: Vec::new(),
+            };
+            let cp = NopropCheckpoint {
+                epoch,
+                step,
+                best_f1,
+                model,
+            };
+            let path = format!("{}/epoch_{}.json", ckpt_dir, epoch);
+            if let Err(e) = save_checkpoint(&path, &cp) {
                 eprintln!("Failed to save checkpoint: {e}");
             }
         }
@@ -134,7 +220,7 @@ fn run(moe: bool, num_experts: usize, lr_cfg: LrScheduleConfig) {
         peak as f64 / (1024.0 * 1024.0)
     );
 
-    if let Err(e) = save_model("model.json", &mut encoder, None) {
+    if let Err(e) = save_model(&format!("{}/model.json", ckpt_dir), &mut encoder, None) {
         eprintln!("Failed to save model: {e}");
     }
 }

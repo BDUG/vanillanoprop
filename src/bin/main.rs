@@ -13,8 +13,17 @@ fn main() {
 
     match args[1].as_str() {
         "predict" => {
-            let (model, _opt, moe, num_experts, _lr_cfg, positional) =
-                common::parse_cli(args[2..].iter().cloned());
+            let (
+                model,
+                _opt,
+                moe,
+                num_experts,
+                _lr_cfg,
+                _resume,
+                _save_every,
+                _ckpt_dir,
+                positional,
+            ) = common::parse_cli(args[2..].iter().cloned());
             let model_opt = if positional.is_empty() {
                 None
             } else {
