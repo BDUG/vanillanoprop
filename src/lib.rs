@@ -2,6 +2,7 @@ pub mod tensor;
 pub mod data;
 pub mod layers;
 pub mod math;
+pub mod device;
 pub mod metrics;
 pub mod models;
 pub mod optim;
