@@ -51,7 +51,7 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
 
             math::reset_matrix_ops();
             let enc_x = to_matrix(src, vocab_size);
-            let enc_out = encoder.forward(&enc_x);
+            let enc_out = encoder.forward(enc_x);
 
             // Average encoder activations across the sequence
             let mut avg = Matrix::zeros(1, enc_out.data.cols);

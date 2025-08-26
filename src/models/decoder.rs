@@ -43,7 +43,7 @@ impl DecoderLayerT {
         let ctx = if h1.data.rows == enc_out.data.rows && h1.data.cols == enc_out.data.cols {
             Tensor::add(&h1, enc_out)
         } else {
-            h1.clone()
+            h1
         };
         let h2 = self.enc_dec_attn.forward(&ctx);
         self.ff.forward(&h2)

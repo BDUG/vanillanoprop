@@ -65,7 +65,7 @@ fn run(moe: bool, num_experts: usize) {
                 // encode target without affecting gradients and add noise
                 let mut tgt_mat = Matrix::zeros(1, vocab_size);
                 tgt_mat.set(0, tgt as usize, 1.0);
-                let mut noisy = encoder.forward(&tgt_mat);
+                let mut noisy = encoder.forward(tgt_mat);
                 for v in &mut noisy.data.data {
                     *v += (rng.gen::<f32>() - 0.5) * 0.1;
                 }
