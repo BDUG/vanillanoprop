@@ -11,6 +11,7 @@ use vanillanoprop::optim::Adam;
 use vanillanoprop::train_cnn;
 use vanillanoprop::config::Config;
 use vanillanoprop::weights::save_model;
+use vanillanoprop::logging::{Logger, MetricRecord};
 
 mod common;
 
@@ -24,17 +25,19 @@ fn main() {
         _resume,
         _save_every,
         _ckpt_dir,
+        log_dir,
+        experiment,
         config,
         _,
     ) = common::parse_cli(env::args().skip(1));
     if model == "cnn" {
-        train_cnn::run("sgd", moe, num_experts, lr_cfg, None, None, None, &config);
+        train_cnn::run("sgd", moe, num_experts, lr_cfg, None, None, None, log_dir, experiment, &config);
     } else {
-        run(moe, num_experts, &config);
+        run(moe, num_experts, log_dir, experiment, &config);
     }
 }
 
-fn run(moe: bool, num_experts: usize, config: &Config) {
+fn run(moe: bool, num_experts: usize, log_dir: Option<String>, experiment: Option<String>, config: &Config) {
     let batches = load_batches(config.batch_size);
     let vocab_size = 256;
 
@@ -56,10 +59,12 @@ fn run(moe: bool, num_experts: usize, config: &Config) {
     let weight_decay = 0.0;
     let mut optim = Adam::new(lr, beta1, beta2, eps, weight_decay);
 
+    let mut logger = Logger::new(log_dir, experiment).ok();
     math::reset_matrix_ops();
     let epochs = config.epochs;
     let pb = ProgressBar::new(epochs as u64);
     let mut best_f1 = f32::NEG_INFINITY;
+    let mut step = 0usize;
     for epoch in 0..epochs {
         let mut last_loss = 0.0;
         let mut f1_sum = 0.0;
@@ -91,9 +96,16 @@ fn run(moe: bool, num_experts: usize, config: &Config) {
             let mut params = encoder.parameters();
             optim.step(&mut params);
             println!("loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
+            if let Some(l) = &mut logger {
+                l.log(&MetricRecord { epoch, step, loss: batch_loss, f1: batch_f1_avg, lr, kind: "batch" });
+            }
+            step += 1;
         }
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
+        if let Some(l) = &mut logger {
+            l.log(&MetricRecord { epoch, step, loss: last_loss, f1: avg_f1, lr, kind: "epoch" });
+        }
         pb.inc(1);
 
         if avg_f1 > best_f1 {

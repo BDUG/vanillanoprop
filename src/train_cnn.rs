@@ -13,6 +13,7 @@ use crate::optim::Hrm;
 use crate::weights::{
     matrix_to_vec2, save_cnn, save_checkpoint, load_checkpoint, CnnJson,
 };
+use crate::logging::{Logger, MetricRecord};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -37,6 +38,8 @@ pub fn run(
     resume: Option<String>,
     save_every: Option<usize>,
     checkpoint_dir: Option<String>,
+    log_dir: Option<String>,
+    experiment_name: Option<String>,
     config: &Config,
 ) {
     let batches = load_batches(config.batch_size);
@@ -90,6 +93,9 @@ pub fn run(
         format!("runs/{ts}")
     });
 
+    let mut logger = Logger::new(log_dir, experiment_name).ok();
+    let mut last_lr = base_lr;
+
     math::reset_matrix_ops();
     let pb = ProgressBar::new(epochs as u64);
     pb.set_position(start_epoch as u64);
@@ -115,6 +121,7 @@ pub fn run(
                 // Update weights
                 let (fc, bias) = cnn.parameters_mut();
                 let lr = scheduler.next_lr(step);
+                last_lr = lr;
                 if opt == "hrm" {
                     hrm.lr = lr;
                     hrm.update(fc, bias, &grad_logits, &feat);
@@ -156,10 +163,16 @@ pub fn run(
             f1_sum += batch_f1;
             sample_cnt += bsz;
             println!("loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
+            if let Some(l) = &mut logger {
+                l.log(&MetricRecord { epoch, step, loss: batch_loss, f1: batch_f1_avg, lr: last_lr, kind: "batch" });
+            }
         }
 
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
+        if let Some(l) = &mut logger {
+            l.log(&MetricRecord { epoch, step, loss: last_loss, f1: avg_f1, lr: last_lr, kind: "epoch" });
+        }
         pb.inc(1);
 
         let mut should_save = false;

@@ -12,6 +12,7 @@ mnist = { version = "0.6", features = ["download"] }
 libc = "0.2"
 rayon = "1.8"
 toml = "0.8"
+csv = "1"
 
 [lib]
 name = "vanillanoprop"
@@ -37,6 +38,10 @@ path = "src/bin/train_noprop.rs"
 [[bin]]
 name = "compare"
 path = "src/bin/compare.rs"
+
+[[bin]]
+name = "plot_metrics"
+path = "scripts/plot_metrics.rs"
 
 [dev-dependencies]
 criterion = "0.5"

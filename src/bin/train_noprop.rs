@@ -20,6 +20,7 @@ use vanillanoprop::config::Config;
 use vanillanoprop::weights::{
     save_model, save_checkpoint, load_checkpoint, ModelJson, tensor_to_vec2,
 };
+use vanillanoprop::logging::{Logger, MetricRecord};
 
 mod common;
 
@@ -33,13 +34,15 @@ fn main() {
         resume,
         save_every,
         checkpoint_dir,
+        log_dir,
+        experiment,
         config,
         _,
     ) = common::parse_cli(env::args().skip(1));
     if model == "cnn" {
-        train_cnn::run(&opt, moe, num_experts, lr_cfg, resume, save_every, checkpoint_dir, &config);
+        train_cnn::run(&opt, moe, num_experts, lr_cfg, resume, save_every, checkpoint_dir, log_dir, experiment, &config);
     } else {
-        run(moe, num_experts, lr_cfg, resume, save_every, checkpoint_dir, &config);
+        run(moe, num_experts, lr_cfg, resume, save_every, checkpoint_dir, log_dir, experiment, &config);
     }
 }
 
@@ -58,6 +61,8 @@ fn run(
     resume: Option<String>,
     save_every: Option<usize>,
     checkpoint_dir: Option<String>,
+    log_dir: Option<String>,
+    experiment_name: Option<String>,
     config: &Config,
 ) {
     let batches = load_batches(config.batch_size);
@@ -116,6 +121,9 @@ fn run(
         format!("runs/{ts}")
     });
 
+    let mut logger = Logger::new(log_dir, experiment_name).ok();
+    let mut last_lr = base_lr;
+
     math::reset_matrix_ops();
     let pb = ProgressBar::new(config.epochs as u64);
     pb.set_position(start_epoch as u64);
@@ -163,6 +171,7 @@ fn run(
 
                 batch_loss += loss;
                 let lr = scheduler.next_lr(step);
+                last_lr = lr;
                 encoder.fa_update(&delta, lr);
                 step += 1;
                 let src_slice: Vec<usize> = src[..len].iter().map(|&v| v as usize).collect();
@@ -176,9 +185,15 @@ fn run(
             f1_sum += batch_f1;
             sample_cnt += bsz;
             println!("loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
+            if let Some(l) = &mut logger {
+                l.log(&MetricRecord { epoch, step, loss: batch_loss, f1: batch_f1_avg, lr: last_lr, kind: "batch" });
+            }
         }
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
+        if let Some(l) = &mut logger {
+            l.log(&MetricRecord { epoch, step, loss: last_loss, f1: avg_f1, lr: last_lr, kind: "epoch" });
+        }
         pb.inc(1);
 
         let mut should_save = false;
