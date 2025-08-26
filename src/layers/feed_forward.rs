@@ -1,6 +1,6 @@
 use super::layer::Layer;
 use super::linear::LinearT;
-use super::{relu, sigmoid};
+use super::{leaky_relu, relu, sigmoid, tanh};
 use crate::math::Matrix;
 use crate::tensor::Tensor;
 
@@ -9,6 +9,8 @@ pub enum Activation {
     None,
     ReLU,
     Sigmoid,
+    Tanh,
+    LeakyReLU,
 }
 
 pub struct FeedForwardT {
@@ -36,6 +38,8 @@ impl FeedForwardT {
         match self.activation {
             Activation::ReLU => relu::forward_tensor(&mut h),
             Activation::Sigmoid => sigmoid::forward_tensor(&mut h),
+            Activation::Tanh => tanh::forward_tensor(&mut h),
+            Activation::LeakyReLU => leaky_relu::forward_tensor(&mut h),
             Activation::None => {}
         }
         self.w2.forward(&h)
@@ -51,6 +55,14 @@ impl FeedForwardT {
             Activation::Sigmoid => {
                 sigmoid::forward_matrix(&mut h1);
                 self.mask = vec![1.0; h1.data.len()];
+            }
+            Activation::Tanh => {
+                tanh::forward_matrix(&mut h1);
+                self.mask = vec![1.0; h1.data.len()];
+            }
+            Activation::LeakyReLU => {
+                let mask = leaky_relu::forward_matrix(&mut h1);
+                self.mask = mask;
             }
             Activation::None => {
                 self.mask = vec![1.0; h1.data.len()];
@@ -75,6 +87,16 @@ impl FeedForwardT {
                     *v *= h * (1.0 - h);
                 }
             }
+            Activation::Tanh => {
+                for (v, &h) in g.data.iter_mut().zip(self.h1.data.iter()) {
+                    *v *= 1.0 - h * h;
+                }
+            }
+            Activation::LeakyReLU => {
+                for (i, v) in g.data.iter_mut().enumerate() {
+                    *v *= self.mask[i];
+                }
+            }
             Activation::None => {}
         }
         self.w1.fa_update(&g, lr)
@@ -96,6 +118,16 @@ impl FeedForwardT {
             Activation::Sigmoid => {
                 for (v, &h) in g.data.iter_mut().zip(self.h1.data.iter()) {
                     *v *= h * (1.0 - h);
+                }
+            }
+            Activation::Tanh => {
+                for (v, &h) in g.data.iter_mut().zip(self.h1.data.iter()) {
+                    *v *= 1.0 - h * h;
+                }
+            }
+            Activation::LeakyReLU => {
+                for (i, v) in g.data.iter_mut().enumerate() {
+                    *v *= self.mask[i];
                 }
             }
             Activation::None => {}

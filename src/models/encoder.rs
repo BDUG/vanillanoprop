@@ -10,10 +10,10 @@ pub struct EncoderLayerT {
 }
 
 impl EncoderLayerT {
-    pub fn new(dim: usize, hidden: usize) -> Self {
+    pub fn new(dim: usize, hidden: usize, activation: Activation) -> Self {
         Self {
             attn: Box::new(MultiHeadAttentionT::new(dim)),
-            ff: Box::new(FeedForwardT::new(dim, hidden, Activation::ReLU)),
+            ff: Box::new(FeedForwardT::new(dim, hidden, activation)),
             attn_out: Matrix::zeros(0, 0),
         }
     }
@@ -66,10 +66,16 @@ pub struct EncoderT {
 }
 
 impl EncoderT {
-    pub fn new(n: usize, vocab_size: usize, model_dim: usize, hidden: usize) -> Self {
+    pub fn new(
+        n: usize,
+        vocab_size: usize,
+        model_dim: usize,
+        hidden: usize,
+        activation: Activation,
+    ) -> Self {
         let mut v = Vec::new();
         for _ in 0..n {
-            v.push(EncoderLayerT::new(model_dim, hidden));
+            v.push(EncoderLayerT::new(model_dim, hidden, activation));
         }
         Self {
             layers: v,
