@@ -5,20 +5,19 @@ use crate::math;
 use crate::memory;
 use crate::metrics::f1_score;
 use crate::models::SimpleCNN;
+use crate::optim::PaperAlgo;
 use crate::weights::save_cnn;
 
 /// Train a [`SimpleCNN`] on the MNIST data using a basic SGD loop.
 ///
-/// `opt` is kept for parity with other training binaries but currently only
-/// SGD is implemented.  `moe` and `num_experts` are accepted for API
-/// compatibility but currently unused.
+/// `opt` selects the optimisation algorithm.  `moe` and `num_experts` are
+/// accepted for API compatibility but currently unused.
 pub fn run(opt: &str, _moe: bool, _num_experts: usize) {
-    let _ = opt; // optimizer placeholder
-
     let batches = load_batches(4);
     let mut cnn = SimpleCNN::new(10);
 
     let lr = 0.01f32;
+    let mut paper = PaperAlgo::new(lr, 0.0);
     let epochs = 5;
 
     math::reset_matrix_ops();
@@ -59,18 +58,22 @@ pub fn run(opt: &str, _moe: bool, _num_experts: usize) {
 
                 // Update weights
                 let (fc, bias) = cnn.parameters_mut();
-                let rows = fc.rows;
-                let cols = fc.cols;
-                for c in 0..cols {
-                    let g = grad_logits[c];
-                    bias[c] -= lr * g; // mul + add
-                    for r in 0..rows {
-                        let val = fc.get(r, c) - lr * g * feat[r]; // 2 mul + add
-                        fc.set(r, c, val);
+                if opt == "paper" {
+                    paper.update(fc, bias, &grad_logits, &feat);
+                } else {
+                    let rows = fc.rows;
+                    let cols = fc.cols;
+                    for c in 0..cols {
+                        let g = grad_logits[c];
+                        bias[c] -= lr * g; // mul + add
+                        for r in 0..rows {
+                            let val = fc.get(r, c) - lr * g * feat[r]; // 2 mul + add
+                            fc.set(r, c, val);
+                        }
                     }
+                    let ops = cols * (2 + rows * 3); // bias update + weight update
+                    math::inc_ops_by(ops);
                 }
-                let ops = cols * (2 + rows * 3); // bias update + weight update
-                math::inc_ops_by(ops);
 
                 // Prediction for metrics
                 let mut best = 0usize;

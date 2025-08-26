@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 {download|predict|train-backprop|train-elmo|train-noprop} [model] [--moe] [--num-experts N]" >&2
+  echo "Usage: $0 {download|predict|train-backprop|train-elmo|train-noprop} [model] [opt] [--moe] [--num-experts N]" >&2
   exit 1
 }
 
@@ -18,18 +18,18 @@ case "$1" in
     shift
     cargo run --bin main -- predict "$@"
     ;;
-    train-backprop)
-      shift
-      cargo run --bin train_backprop "$@"
-      ;;
-    train-elmo)
-      shift
-      cargo run --bin train_elmo "$@"
-      ;;
-    train-noprop)
-      shift
-      cargo run --bin train_noprop "$@"
-      ;;
+  train-backprop)
+    shift
+    cargo run --bin main -- train-backprop "$@"
+    ;;
+  train-elmo)
+    shift
+    cargo run --bin main -- train-elmo "$@"
+    ;;
+  train-noprop)
+    shift
+    cargo run --bin main -- train-noprop "$@"
+    ;;
   *)
     usage
     ;;
