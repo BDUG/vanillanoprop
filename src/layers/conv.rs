@@ -48,8 +48,17 @@ impl Conv2d {
 
     fn compute_shapes(&self, x: &Matrix) -> (usize, usize, usize, usize, usize) {
         let batch = x.rows;
+        if x.cols % self.in_channels != 0 {
+            panic!(
+                "Input feature count {} is not divisible by in_channels {}",
+                x.cols, self.in_channels
+            );
+        }
         let in_hw = x.cols / self.in_channels;
         let in_h = (in_hw as f32).sqrt() as usize;
+        if in_h * in_h != in_hw {
+            panic!("Input spatial size {} is not a perfect square", in_hw);
+        }
         let in_w = in_h; // assume square inputs
         let out_h = (in_h + 2 * self.padding - self.kernel_size) / self.stride + 1;
         let out_w = (in_w + 2 * self.padding - self.kernel_size) / self.stride + 1;
