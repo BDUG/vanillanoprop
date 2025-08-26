@@ -116,7 +116,9 @@ fn run(opt: &str, moe: bool, num_experts: usize) {
         if avg_f1 > best_f1 {
             println!("Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}");
             best_f1 = avg_f1;
-            save_model("checkpoint.json", &mut encoder, Some(&mut decoder));
+            if let Err(e) = save_model("checkpoint.json", &mut encoder, Some(&mut decoder)) {
+                eprintln!("Failed to save checkpoint: {e}");
+            }
         }
     }
     pb.finish_with_message("training done");
@@ -129,5 +131,7 @@ fn run(opt: &str, moe: bool, num_experts: usize) {
     );
 
     // Save trained weights
-    save_model("model.json", &mut encoder, Some(&mut decoder));
+    if let Err(e) = save_model("model.json", &mut encoder, Some(&mut decoder)) {
+        eprintln!("Failed to save model: {e}");
+    }
 }

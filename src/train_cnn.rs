@@ -80,7 +80,9 @@ pub fn run(opt: &str, _moe: bool, _num_experts: usize) {
         if avg_f1 > best_f1 {
             println!("Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}");
             best_f1 = avg_f1;
-            save_cnn("checkpoint_cnn.json", &cnn);
+            if let Err(e) = save_cnn("checkpoint_cnn.json", &cnn) {
+                eprintln!("Failed to save checkpoint: {e}");
+            }
         }
     }
 
@@ -92,5 +94,7 @@ pub fn run(opt: &str, _moe: bool, _num_experts: usize) {
         "Max memory usage: {:.2} MB",
         peak as f64 / (1024.0 * 1024.0)
     );
-    save_cnn("cnn.json", &cnn);
+    if let Err(e) = save_cnn("cnn.json", &cnn) {
+        eprintln!("Failed to save model: {e}");
+    }
 }
