@@ -44,7 +44,7 @@ impl MixtureOfExpertsT {
         for r in 0..logits.rows {
             let row_start = r * logits.cols;
             let mut indices: Vec<usize> = (0..logits.cols).collect();
-            indices.sort_by(|&a, &b| {
+            indices.select_nth_unstable_by(self.top_k, |&a, &b| {
                 logits.data[row_start + b]
                     .partial_cmp(&logits.data[row_start + a])
                     .unwrap()
@@ -236,6 +236,45 @@ impl Layer for MixtureOfExpertsT {
 
     fn parameters(&mut self) -> Vec<&mut LinearT> {
         MixtureOfExpertsT::parameters(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn build_moe(top_k: usize) -> MixtureOfExpertsT {
+        MixtureOfExpertsT {
+            gate: LinearT::new(0, 0),
+            softmax: SoftmaxT::new(),
+            experts: vec![],
+            top_k,
+            probs: Matrix::zeros(0, 0),
+            expert_outs: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn masks_all_but_topk() {
+        let moe = build_moe(2);
+        let mut logits = Matrix::from_vec(1, 5, vec![1.0, 3.0, 2.0, 5.0, 4.0]);
+        moe.mask_topk(&mut logits);
+        let row = &logits.data;
+        assert!(row[0].is_infinite() && row[0].is_sign_negative());
+        assert!(row[1].is_infinite() && row[1].is_sign_negative());
+        assert!(row[2].is_infinite() && row[2].is_sign_negative());
+        assert_eq!(row[3], 5.0);
+        assert_eq!(row[4], 4.0);
+    }
+
+    #[test]
+    fn no_mask_when_topk_covers_all() {
+        let moe = build_moe(5);
+        let mut logits = Matrix::from_vec(1, 5, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+        moe.mask_topk(&mut logits);
+        for &v in &logits.data {
+            assert!(!v.is_infinite());
+        }
     }
 }
 
