@@ -14,9 +14,9 @@ use vanillanoprop::weights::save_model;
 mod common;
 
 fn main() {
-    let (model, _opt, moe, num_experts, _) = common::parse_cli(env::args().skip(1));
+    let (model, _opt, moe, num_experts, lr_cfg, _) = common::parse_cli(env::args().skip(1));
     if model == "cnn" {
-        train_cnn::run("sgd", moe, num_experts);
+        train_cnn::run("sgd", moe, num_experts, lr_cfg);
     } else {
         run(moe, num_experts);
     }
