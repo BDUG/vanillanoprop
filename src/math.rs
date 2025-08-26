@@ -192,3 +192,16 @@ pub fn softmax_cross_entropy(
 
     (loss, grad, preds)
 }
+
+/// Return the index of the maximum value in `v`.
+pub fn argmax(v: &[f32]) -> usize {
+    let mut best_idx = 0usize;
+    let mut best_val = f32::NEG_INFINITY;
+    for (i, &val) in v.iter().enumerate() {
+        if val > best_val {
+            best_val = val;
+            best_idx = i;
+        }
+    }
+    best_idx
+}
