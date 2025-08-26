@@ -16,7 +16,8 @@ pub struct CnnJson {
     pub bias: Vec<f32>,
 }
 
-fn tensor_to_vec2(t: &Tensor) -> Vec<Vec<f32>> {
+/// Convert a [`Tensor`] into a 2-D `Vec` for serialisation.
+pub fn tensor_to_vec2(t: &Tensor) -> Vec<Vec<f32>> {
     let m = &t.data;
     (0..m.rows)
         .map(|r| (0..m.cols).map(|c| m.get(r, c)).collect())
@@ -89,7 +90,8 @@ pub fn load_model(
     Ok(())
 }
 
-fn matrix_to_vec2(m: &Matrix) -> Vec<Vec<f32>> {
+/// Convert a [`Matrix`] into a 2-D `Vec` for serialisation.
+pub fn matrix_to_vec2(m: &Matrix) -> Vec<Vec<f32>> {
     (0..m.rows)
         .map(|r| (0..m.cols).map(|c| m.get(r, c)).collect())
         .collect()
@@ -130,4 +132,25 @@ pub fn load_cnn(path: &str, num_classes: usize) -> Result<SimpleCNN, io::Error> 
     }
     println!("Loaded CNN weights from {}", path);
     Ok(cnn)
+}
+
+/// Save an arbitrary checkpoint structure to `path` using JSON serialisation.
+pub fn save_checkpoint<T: Serialize>(path: &str, state: &T) -> Result<(), io::Error> {
+    let txt = serde_json::to_string(state)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    if let Some(parent) = std::path::Path::new(path).parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, txt)?;
+    println!("Saved checkpoint to {}", path);
+    Ok(())
+}
+
+/// Load a checkpoint from `path` that was saved with [`save_checkpoint`].
+pub fn load_checkpoint<T: for<'de> Deserialize<'de>>(path: &str) -> Result<T, io::Error> {
+    let txt = fs::read_to_string(path)?;
+    let state = serde_json::from_str(&txt)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    println!("Loaded checkpoint from {}", path);
+    Ok(state)
 }

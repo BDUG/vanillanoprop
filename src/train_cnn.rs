@@ -9,13 +9,34 @@ use crate::optim::lr_scheduler::{
     ConstantLr, CosineLr, LearningRateSchedule, LrScheduleConfig, StepLr,
 };
 use crate::optim::Hrm;
-use crate::weights::save_cnn;
+use crate::weights::{
+    matrix_to_vec2, save_cnn, save_checkpoint, load_checkpoint, CnnJson,
+};
+use serde::{Deserialize, Serialize};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Train a [`SimpleCNN`] on the MNIST data using a basic SGD loop.
 ///
 /// `opt` selects the optimisation algorithm.  `moe` and `num_experts` are
 /// accepted for API compatibility but currently unused.
-pub fn run(opt: &str, _moe: bool, _num_experts: usize, lr_cfg: LrScheduleConfig) {
+#[derive(Serialize, Deserialize)]
+struct CnnCheckpoint {
+    epoch: usize,
+    step: usize,
+    best_f1: f32,
+    model: CnnJson,
+    hrm: Option<Hrm>,
+}
+
+pub fn run(
+    opt: &str,
+    _moe: bool,
+    _num_experts: usize,
+    lr_cfg: LrScheduleConfig,
+    resume: Option<String>,
+    save_every: Option<usize>,
+    checkpoint_dir: Option<String>,
+) {
     let batches = load_batches(4);
     let mut cnn = SimpleCNN::new(10);
 
@@ -30,12 +51,48 @@ pub fn run(opt: &str, _moe: bool, _num_experts: usize, lr_cfg: LrScheduleConfig)
     };
     let epochs = 5;
     let mut step = 0usize;
+    let mut start_epoch = 0usize;
+    let mut best_f1 = f32::NEG_INFINITY;
+
+    if let Some(path) = &resume {
+        if let Ok(cp) = load_checkpoint::<CnnCheckpoint>(path) {
+            let (fc, bias) = cnn.parameters_mut();
+            if !cp.model.fc.is_empty() {
+                let rows = cp.model.fc.len();
+                let cols = cp.model.fc[0].len();
+                let mut mat = Matrix::zeros(rows, cols);
+                for r in 0..rows {
+                    for c in 0..cols {
+                        mat.set(r, c, cp.model.fc[r][c]);
+                    }
+                }
+                *fc = mat;
+            }
+            if !cp.model.bias.is_empty() {
+                *bias = cp.model.bias.clone();
+            }
+            if let Some(h) = cp.hrm {
+                hrm = h;
+            }
+            step = cp.step;
+            start_epoch = cp.epoch + 1;
+            best_f1 = cp.best_f1;
+        }
+    }
+
+    let ckpt_dir = checkpoint_dir.unwrap_or_else(|| {
+        let ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        format!("runs/{ts}")
+    });
 
     math::reset_matrix_ops();
     let pb = ProgressBar::new(epochs as u64);
-    let mut best_f1 = f32::NEG_INFINITY;
+    pb.set_position(start_epoch as u64);
 
-    for epoch in 0..epochs {
+    for epoch in start_epoch..epochs {
         let mut last_loss = 0.0f32;
         let mut f1_sum = 0.0f32;
         let mut sample_cnt = 0.0f32;
@@ -103,10 +160,34 @@ pub fn run(opt: &str, _moe: bool, _num_experts: usize, lr_cfg: LrScheduleConfig)
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
         pb.inc(1);
 
+        let mut should_save = false;
         if avg_f1 > best_f1 {
-            println!("Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}");
+            println!(
+                "Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}"
+            );
             best_f1 = avg_f1;
-            if let Err(e) = save_cnn("checkpoint_cnn.json", &cnn) {
+            should_save = true;
+        }
+        if let Some(n) = save_every {
+            if (epoch + 1) % n == 0 {
+                should_save = true;
+            }
+        }
+        if should_save {
+            let (fc, bias) = cnn.parameters();
+            let model = CnnJson {
+                fc: matrix_to_vec2(fc),
+                bias: bias.clone(),
+            };
+            let cp = CnnCheckpoint {
+                epoch,
+                step,
+                best_f1,
+                model,
+                hrm: if opt == "hrm" { Some(hrm.clone()) } else { None },
+            };
+            let path = format!("{}/epoch_{}.json", ckpt_dir, epoch);
+            if let Err(e) = save_checkpoint(&path, &cp) {
                 eprintln!("Failed to save checkpoint: {e}");
             }
         }
@@ -120,7 +201,7 @@ pub fn run(opt: &str, _moe: bool, _num_experts: usize, lr_cfg: LrScheduleConfig)
         "Max memory usage: {:.2} MB",
         peak as f64 / (1024.0 * 1024.0)
     );
-    if let Err(e) = save_cnn("cnn.json", &cnn) {
+    if let Err(e) = save_cnn(&format!("{}/cnn.json", ckpt_dir), &cnn) {
         eprintln!("Failed to save model: {e}");
     }
 }

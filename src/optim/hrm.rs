@@ -1,10 +1,12 @@
 use crate::math::{self, Matrix};
+use serde::{Deserialize, Serialize};
 
 /// Optimizer implementing the https://arxiv.org/abs/2506.21734 "Hierarchical Reasoning Model" algorithm.
 ///
 /// The algorithm uses a simple decaying learning rate to update a linear layer
 /// given the feature vector and gradient on the output logits.  This is merely
 /// a lightweight placeholder capturing the core idea.
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Hrm {
     pub lr: f32,
     pub decay: f32,
