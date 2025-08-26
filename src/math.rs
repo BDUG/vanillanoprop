@@ -201,9 +201,7 @@ pub fn softmax_cross_entropy(
     targets: &[usize],
     row_offset: usize,
 ) -> (f32, Matrix, Vec<usize>) {
-    // compute softmax probabilities
-    let probs = logits.softmax();
-    let mut grad = probs.clone();
+    let mut grad = Matrix::zeros(logits.rows, logits.cols);
     let mut loss = 0.0f32;
     let mut preds = Vec::new();
     let mut cnt = 0.0f32;
@@ -214,20 +212,41 @@ pub fn softmax_cross_entropy(
             break;
         }
 
-        // determine prediction via argmax
+        // Slice for the current row to avoid repeated index calculations
+        let row_slice = &logits.data[row * logits.cols..(row + 1) * logits.cols];
+        let grad_row = &mut grad.data[row * logits.cols..(row + 1) * logits.cols];
+
+        // First pass: determine maximum logit for numerical stability and
+        // simultaneously compute the argmax for predictions.
+        let mut max_val = f32::NEG_INFINITY;
         let mut best_tok = 0usize;
-        let mut best_val = f32::NEG_INFINITY;
-        for t in 0..logits.cols {
-            let p = probs.get(row, t);
-            if p > best_val {
-                best_val = p;
+        for (t, &v) in row_slice.iter().enumerate() {
+            if v > max_val {
+                max_val = v;
                 best_tok = t;
             }
         }
 
-        let p = probs.get(row, tok);
-        loss += -(p + 1e-9).ln();
-        grad.set(row, tok, grad.get(row, tok) - 1.0);
+        // Second pass: compute exponentials and their sum while storing them
+        // directly into the gradient buffer.
+        let mut sum = 0.0f32;
+        for (g, &v) in grad_row.iter_mut().zip(row_slice.iter()) {
+            let e = (v - max_val).exp();
+            *g = e;
+            sum += e;
+        }
+
+        // Normalize to obtain probabilities, accumulate loss and finalize
+        // gradient in-place.
+        let mut target_prob = 0.0f32;
+        for (t, g) in grad_row.iter_mut().enumerate() {
+            *g /= sum;
+            if t == tok {
+                target_prob = *g;
+                *g -= 1.0;
+            }
+        }
+        loss += -(target_prob + 1e-9).ln();
         preds.push(best_tok);
         cnt += 1.0;
     }
