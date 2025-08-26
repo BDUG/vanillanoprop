@@ -1,4 +1,5 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
+use crate::device::{Device, Cpu};
 
 // Separate counters for addition and multiplication operations.
 static ADD_OPS: AtomicUsize = AtomicUsize::new(0);
@@ -48,6 +49,29 @@ pub struct Matrix {
     pub data: Vec<f32>,
 }
 
+/// CPU implementation of matrix multiplication. This is used by the default
+/// [`Cpu`](crate::device::Cpu) device but exposed for other backends to reuse.
+pub(crate) fn matmul_cpu(a: &Matrix, b: &Matrix) -> Matrix {
+    // Each output element requires a.cols multiplications and additions
+    let muls = a.rows * a.cols * b.cols;
+    let adds = muls;
+    inc_mul_ops_by(muls);
+    inc_add_ops_by(adds);
+    assert_eq!(a.cols, b.rows);
+    let mut out = vec![0.0; a.rows * b.cols];
+    for i in 0..a.rows {
+        let a_row = &a.data[i * a.cols..(i + 1) * a.cols];
+        for k in 0..a.cols {
+            let a_val = a_row[k];
+            let b_row = &b.data[k * b.cols..(k + 1) * b.cols];
+            for j in 0..b.cols {
+                out[i * b.cols + j] += a_val * b_row[j];
+            }
+        }
+    }
+    Matrix::from_vec(a.rows, b.cols, out)
+}
+
 impl Matrix {
     pub fn zeros(r: usize, c: usize) -> Self {
         Matrix {
@@ -74,25 +98,14 @@ impl Matrix {
         self.data[r * self.cols + c] = v;
     }
 
+    /// Multiply `a` and `b` using the default [`Cpu`] device.
     pub fn matmul(a: &Matrix, b: &Matrix) -> Matrix {
-        // Each output element requires a.cols multiplications and additions
-        let muls = a.rows * a.cols * b.cols;
-        let adds = muls;
-        inc_mul_ops_by(muls);
-        inc_add_ops_by(adds);
-        assert_eq!(a.cols, b.rows);
-        let mut out = vec![0.0; a.rows * b.cols];
-        for i in 0..a.rows {
-            let a_row = &a.data[i * a.cols..(i + 1) * a.cols];
-            for k in 0..a.cols {
-                let a_val = a_row[k];
-                let b_row = &b.data[k * b.cols..(k + 1) * b.cols];
-                for j in 0..b.cols {
-                    out[i * b.cols + j] += a_val * b_row[j];
-                }
-            }
-        }
-        Matrix::from_vec(a.rows, b.cols, out)
+        Cpu.matmul(a, b)
+    }
+
+    /// Multiply `a` and `b` using the provided device implementation.
+    pub fn matmul_with<D: Device>(a: &Matrix, b: &Matrix, device: &D) -> Matrix {
+        device.matmul(a, b)
     }
 
     pub fn add(&self, other: &Matrix) -> Matrix {
