@@ -35,3 +35,10 @@ path = "src/bin/train_noprop.rs"
 [[bin]]
 name = "compare"
 path = "src/bin/compare.rs"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "mask_topk"
+harness = false
