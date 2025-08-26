@@ -1,9 +1,9 @@
 use crate::data::load_pairs;
 use crate::layers::Activation;
 use crate::math::{self, Matrix};
-use crate::models::{DecoderT, EncoderT, SimpleCNN};
+use crate::models::{DecoderT, EncoderT, LargeConceptModel, SimpleCNN};
 use crate::tensor::Tensor;
-use crate::weights::{load_cnn, load_model};
+use crate::weights::{load_cnn, load_lcm, load_model};
 use rand::{thread_rng, Rng};
 
 fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
@@ -76,6 +76,17 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
 
             println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
             println!("Total matrix ops: {}", math::matrix_ops_count());
+        }
+        "lcm" => {
+            let model = match load_lcm("lcm.json", 28 * 28, 128, 10) {
+                Ok(m) => m,
+                Err(e) => {
+                    eprintln!("Using random LCM weights; failed to load lcm.json: {e}");
+                    LargeConceptModel::new(28 * 28, 128, 10)
+                }
+            };
+            let pred = model.predict(src);
+            println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
         }
         _ => {
             // default CNN

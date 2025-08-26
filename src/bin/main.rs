@@ -7,7 +7,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         eprintln!("Usage: {} <mode>", args[0]);
-        eprintln!("Modes: predict | download | train-backprop | train-elmo | train-noprop");
+        eprintln!("Modes: predict | download | train-backprop | train-elmo | train-noprop | train-lcm");
         return;
     }
 
@@ -35,10 +35,11 @@ fn main() {
             predict::run(model_opt, moe, num_experts);
         }
         "download" => data::download_mnist(),
-        "train-backprop" | "train-elmo" | "train-noprop" => {
+        "train-backprop" | "train-elmo" | "train-noprop" | "train-lcm" => {
             let bin = match args[1].as_str() {
                 "train-backprop" => "train_backprop",
                 "train-elmo" => "train_elmo",
+                "train-lcm" => "train_lcm",
                 _ => "train_noprop",
             };
             let status = Command::new("cargo")
