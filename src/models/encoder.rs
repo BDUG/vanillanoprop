@@ -109,9 +109,9 @@ impl EncoderT {
         }
     }
 
-    pub fn forward(&self, x: &Matrix) -> Tensor {
+    pub fn forward(&self, x: Matrix) -> Tensor {
         // existing inference path
-        let mut h = Tensor::from_matrix(x.clone());
+        let mut h = Tensor::from_matrix(x);
         h = self.embedding.forward(&h);
         let pos = positional_encoding(h.data.rows, h.data.cols);
         let p = Tensor::from_matrix(pos);
