@@ -1,9 +1,9 @@
 use crate::data::load_pairs;
 use crate::layers::Activation;
 use crate::math::{self, Matrix};
-use crate::models::{DecoderT, EncoderT, LargeConceptModel, SimpleCNN};
+use crate::models::{DecoderT, EncoderT, LargeConceptModel, RNN, SimpleCNN};
 use crate::tensor::Tensor;
-use crate::weights::{load_cnn, load_lcm, load_model};
+use crate::weights::{load_cnn, load_lcm, load_model, load_rnn};
 use rand::{thread_rng, Rng};
 
 fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
@@ -87,6 +87,31 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
             };
             let pred = model.predict(src);
             println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
+        }
+        "rnn" => {
+            let vocab_size = 256;
+            let hidden_dim = 64;
+            let num_classes = 10;
+            let model = match load_rnn("rnn.json", vocab_size, hidden_dim, num_classes) {
+                Ok(m) => m,
+                Err(e) => {
+                    eprintln!("Using random RNN weights; failed to load rnn.json: {e}");
+                    RNN::new_gru(vocab_size, hidden_dim, num_classes)
+                }
+            };
+            let enc_x = to_matrix(src, vocab_size);
+            let logits = model.forward(&Tensor::from_matrix(enc_x));
+            let probs = Tensor::softmax(&logits);
+            let mut best_tok = 0usize;
+            let mut best_val = f32::NEG_INFINITY;
+            for t in 0..probs.data.cols {
+                let p = probs.data.get(0, t);
+                if p > best_val {
+                    best_val = p;
+                    best_tok = t;
+                }
+            }
+            println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
         }
         _ => {
             // default CNN

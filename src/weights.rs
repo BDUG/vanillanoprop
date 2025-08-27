@@ -1,6 +1,6 @@
 use crate::tensor::Tensor;
 use crate::math::Matrix;
-use crate::models::{DecoderT, EncoderT, LargeConceptModel, SimpleCNN, VAE};
+use crate::models::{DecoderT, EncoderT, LargeConceptModel, SimpleCNN, VAE, RNN};
 use serde::{Deserialize, Serialize};
 use std::{fs, io};
 
@@ -22,6 +22,11 @@ pub struct LcmJson {
     pub b1: Vec<f32>,
     pub w2: Vec<Vec<f32>>,
     pub b2: Vec<f32>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct RnnJson {
+    pub params: Vec<Vec<Vec<f32>>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -206,6 +211,45 @@ pub fn load_lcm(
         *b2 = json.b2.clone();
     }
     println!("Loaded LCM weights from {}", path);
+    Ok(model)
+}
+
+pub fn save_rnn(path: &str, model: &mut RNN) -> Result<(), io::Error> {
+    let mut params = Vec::new();
+    for p in model.parameters() {
+        params.push(tensor_to_vec2(&p.w));
+    }
+    let json = RnnJson { params };
+    let txt = serde_json::to_string(&json)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    fs::write(path, txt)?;
+    println!("Saved RNN weights to {}", path);
+    Ok(())
+}
+
+pub fn load_rnn(
+    path: &str,
+    input_dim: usize,
+    hidden_dim: usize,
+    output_dim: usize,
+) -> Result<RNN, io::Error> {
+    let txt = fs::read_to_string(path)?;
+    let json: RnnJson = serde_json::from_str(&txt)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let mut model = RNN::new_gru(input_dim, hidden_dim, output_dim);
+    let mut params = model.parameters();
+    for (p, data) in params.iter_mut().zip(json.params.iter()) {
+        let rows = data.len();
+        let cols = if rows > 0 { data[0].len() } else { 0 };
+        let mut mat = Matrix::zeros(rows, cols);
+        for r in 0..rows {
+            for c in 0..cols {
+                mat.set(r, c, data[r][c]);
+            }
+        }
+        p.w = Tensor::from_matrix(mat);
+    }
+    println!("Loaded RNN weights from {}", path);
     Ok(model)
 }
 
