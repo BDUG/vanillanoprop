@@ -1,6 +1,6 @@
 use crate::tensor::Tensor;
 use crate::math::Matrix;
-use crate::models::{DecoderT, EncoderT, LargeConceptModel, SimpleCNN};
+use crate::models::{DecoderT, EncoderT, LargeConceptModel, SimpleCNN, VAE};
 use serde::{Deserialize, Serialize};
 use std::{fs, io};
 
@@ -22,6 +22,15 @@ pub struct LcmJson {
     pub b1: Vec<f32>,
     pub w2: Vec<Vec<f32>>,
     pub b2: Vec<f32>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct VaeJson {
+    pub enc_fc1: Vec<Vec<f32>>,
+    pub enc_mu: Vec<Vec<f32>>,
+    pub enc_logvar: Vec<Vec<f32>>,
+    pub dec_fc1: Vec<Vec<f32>>,
+    pub dec_fc2: Vec<Vec<f32>>,
 }
 
 /// Convert a [`Tensor`] into a 2-D `Vec` for serialisation.
@@ -219,4 +228,78 @@ pub fn load_checkpoint<T: for<'de> Deserialize<'de>>(path: &str) -> Result<T, io
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     println!("Loaded checkpoint from {}", path);
     Ok(state)
+}
+
+pub fn save_vae(path: &str, vae: &VAE) -> Result<(), io::Error> {
+    let json = VaeJson {
+        enc_fc1: tensor_to_vec2(&vae.enc_fc1.w),
+        enc_mu: tensor_to_vec2(&vae.enc_mu.w),
+        enc_logvar: tensor_to_vec2(&vae.enc_logvar.w),
+        dec_fc1: tensor_to_vec2(&vae.dec_fc1.w),
+        dec_fc2: tensor_to_vec2(&vae.dec_fc2.w),
+    };
+    let txt = serde_json::to_string(&json)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    fs::write(path, txt)?;
+    println!("Saved VAE weights to {}", path);
+    Ok(())
+}
+
+pub fn load_vae(
+    path: &str,
+    input_dim: usize,
+    hidden_dim: usize,
+    latent_dim: usize,
+) -> Result<VAE, io::Error> {
+    let txt = fs::read_to_string(path)?;
+    let json: VaeJson = serde_json::from_str(&txt)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let mut vae = VAE::new(input_dim, hidden_dim, latent_dim);
+    if !json.enc_fc1.is_empty() {
+        let mut mat = Matrix::zeros(json.enc_fc1.len(), json.enc_fc1[0].len());
+        for r in 0..mat.rows {
+            for c in 0..mat.cols {
+                mat.set(r, c, json.enc_fc1[r][c]);
+            }
+        }
+        vae.enc_fc1.w = Tensor::from_matrix(mat);
+    }
+    if !json.enc_mu.is_empty() {
+        let mut mat = Matrix::zeros(json.enc_mu.len(), json.enc_mu[0].len());
+        for r in 0..mat.rows {
+            for c in 0..mat.cols {
+                mat.set(r, c, json.enc_mu[r][c]);
+            }
+        }
+        vae.enc_mu.w = Tensor::from_matrix(mat);
+    }
+    if !json.enc_logvar.is_empty() {
+        let mut mat = Matrix::zeros(json.enc_logvar.len(), json.enc_logvar[0].len());
+        for r in 0..mat.rows {
+            for c in 0..mat.cols {
+                mat.set(r, c, json.enc_logvar[r][c]);
+            }
+        }
+        vae.enc_logvar.w = Tensor::from_matrix(mat);
+    }
+    if !json.dec_fc1.is_empty() {
+        let mut mat = Matrix::zeros(json.dec_fc1.len(), json.dec_fc1[0].len());
+        for r in 0..mat.rows {
+            for c in 0..mat.cols {
+                mat.set(r, c, json.dec_fc1[r][c]);
+            }
+        }
+        vae.dec_fc1.w = Tensor::from_matrix(mat);
+    }
+    if !json.dec_fc2.is_empty() {
+        let mut mat = Matrix::zeros(json.dec_fc2.len(), json.dec_fc2[0].len());
+        for r in 0..mat.rows {
+            for c in 0..mat.cols {
+                mat.set(r, c, json.dec_fc2[r][c]);
+            }
+        }
+        vae.dec_fc2.w = Tensor::from_matrix(mat);
+    }
+    println!("Loaded VAE weights from {}", path);
+    Ok(vae)
 }
