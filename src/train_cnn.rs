@@ -1,7 +1,8 @@
 use indicatif::ProgressBar;
 
-use crate::data::load_batches;
 use crate::config::Config;
+use crate::data::load_batches;
+use crate::logging::{Logger, MetricRecord};
 use crate::math::{self, Matrix};
 use crate::memory;
 use crate::metrics::f1_score;
@@ -11,9 +12,8 @@ use crate::optim::lr_scheduler::{
 };
 use crate::optim::Hrm;
 use crate::weights::{
-    matrix_to_vec2, save_cnn, save_checkpoint, load_checkpoint, CnnJson,
+    load_checkpoint, matrix_to_vec2, save_checkpoint, save_cnn, vec2_to_matrix, CnnJson,
 };
-use crate::logging::{Logger, MetricRecord};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -63,15 +63,7 @@ pub fn run(
         if let Ok(cp) = load_checkpoint::<CnnCheckpoint>(path) {
             let (fc, bias) = cnn.parameters_mut();
             if !cp.model.fc.is_empty() {
-                let rows = cp.model.fc.len();
-                let cols = cp.model.fc[0].len();
-                let mut mat = Matrix::zeros(rows, cols);
-                for r in 0..rows {
-                    for c in 0..cols {
-                        mat.set(r, c, cp.model.fc[r][c]);
-                    }
-                }
-                *fc = mat;
+                *fc = vec2_to_matrix(&cp.model.fc);
             }
             if !cp.model.bias.is_empty() {
                 *bias = cp.model.bias.clone();
@@ -164,22 +156,34 @@ pub fn run(
             sample_cnt += bsz;
             println!("loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
             if let Some(l) = &mut logger {
-                l.log(&MetricRecord { epoch, step, loss: batch_loss, f1: batch_f1_avg, lr: last_lr, kind: "batch" });
+                l.log(&MetricRecord {
+                    epoch,
+                    step,
+                    loss: batch_loss,
+                    f1: batch_f1_avg,
+                    lr: last_lr,
+                    kind: "batch",
+                });
             }
         }
 
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
         if let Some(l) = &mut logger {
-            l.log(&MetricRecord { epoch, step, loss: last_loss, f1: avg_f1, lr: last_lr, kind: "epoch" });
+            l.log(&MetricRecord {
+                epoch,
+                step,
+                loss: last_loss,
+                f1: avg_f1,
+                lr: last_lr,
+                kind: "epoch",
+            });
         }
         pb.inc(1);
 
         let mut should_save = false;
         if avg_f1 > best_f1 {
-            println!(
-                "Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}"
-            );
+            println!("Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}");
             best_f1 = avg_f1;
             should_save = true;
         }
@@ -199,7 +203,11 @@ pub fn run(
                 step,
                 best_f1,
                 model,
-                hrm: if opt == "hrm" { Some(hrm.clone()) } else { None },
+                hrm: if opt == "hrm" {
+                    Some(hrm.clone())
+                } else {
+                    None
+                },
             };
             let path = format!("{}/epoch_{}.json", ckpt_dir, epoch);
             if let Err(e) = save_checkpoint(&path, &cp) {
