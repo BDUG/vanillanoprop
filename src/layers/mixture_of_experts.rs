@@ -3,6 +3,7 @@ use super::linear::LinearT;
 use super::softmax::SoftmaxT;
 use crate::math::Matrix;
 use crate::tensor::Tensor;
+use std::cmp::Ordering;
 
 /// Mixture of Experts layer with a simple gating network selecting between
 /// multiple expert sub-networks.
@@ -47,7 +48,7 @@ impl MixtureOfExpertsT {
             indices.select_nth_unstable_by(self.top_k, |&a, &b| {
                 logits.data[row_start + b]
                     .partial_cmp(&logits.data[row_start + a])
-                    .unwrap()
+                    .unwrap_or(Ordering::Equal)
             });
             for &idx in indices[self.top_k..].iter() {
                 logits.data[row_start + idx] = f32::NEG_INFINITY;
