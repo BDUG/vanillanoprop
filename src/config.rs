@@ -5,14 +5,59 @@ use std::fs;
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     /// Number of training epochs.
+    #[serde(default = "default_epochs")]
     pub epochs: usize,
     /// Batch size used when loading data.
+    #[serde(default = "default_batch_size")]
     pub batch_size: usize,
+    /// Discount factor for reinforcement learning agents.
+    #[serde(default = "default_gamma")]
+    pub gamma: f32,
+    /// Lambda parameter used by certain advantage estimators.
+    #[serde(default = "default_lam")]
+    pub lam: f32,
+    /// Maximum search depth for tree‑based agents.
+    #[serde(default = "default_max_depth")]
+    pub max_depth: usize,
+    /// Number of rollout steps taken during planning.
+    #[serde(default = "default_rollout_steps")]
+    pub rollout_steps: usize,
+}
+
+fn default_epochs() -> usize {
+    5
+}
+
+fn default_batch_size() -> usize {
+    4
+}
+
+fn default_gamma() -> f32 {
+    0.99
+}
+
+fn default_lam() -> f32 {
+    0.95
+}
+
+fn default_max_depth() -> usize {
+    10
+}
+
+fn default_rollout_steps() -> usize {
+    10
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { epochs: 5, batch_size: 4 }
+        Self {
+            epochs: default_epochs(),
+            batch_size: default_batch_size(),
+            gamma: default_gamma(),
+            lam: default_lam(),
+            max_depth: default_max_depth(),
+            rollout_steps: default_rollout_steps(),
+        }
     }
 }
 

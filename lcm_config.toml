@@ -1,2 +1,6 @@
 epochs = 5
 batch_size = 4
+gamma = 0.99
+lam = 0.95
+max_depth = 10
+rollout_steps = 10

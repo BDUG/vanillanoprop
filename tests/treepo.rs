@@ -38,7 +38,7 @@ impl Env for TwoStateEnv {
 #[test]
 fn tree_expansion_selects_optimal_action() {
     let env = TwoStateEnv::new();
-    let mut agent = TreePoAgent::new(env, 1.0);
+    let mut agent = TreePoAgent::new(env, 1.0, 1.0, 1, 1);
 
     // Expand both actions from the root and backup their rewards.
     agent.env.reset();
@@ -61,7 +61,7 @@ fn tree_expansion_selects_optimal_action() {
 #[test]
 fn policy_update_improves_over_random() {
     let env = TwoStateEnv::new();
-    let mut agent = TreePoAgent::new(env, 1.0);
+    let mut agent = TreePoAgent::new(env, 1.0, 1.0, 1, 1);
 
     // Collect data for both actions.
     agent.env.reset();
@@ -92,6 +92,8 @@ fn policy_update_improves_over_random() {
 
     // Random policy would yield 0.5 expected reward.
     assert!(p_best > 0.5, "policy should favour the better action");
-    assert!(expected_return > 0.5, "policy update should improve expected return");
+    assert!(
+        expected_return > 0.5,
+        "policy update should improve expected return"
+    );
 }
-

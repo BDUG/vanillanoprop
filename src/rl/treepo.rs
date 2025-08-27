@@ -53,16 +53,22 @@ pub struct TreePoAgent<E: Env> {
     pub env: E,
     pub root: TreeNode<E::State, E::Action>,
     pub gamma: f32,
+    pub lam: f32,
+    pub max_depth: usize,
+    pub rollout_steps: usize,
 }
 
 impl<E: Env> TreePoAgent<E> {
-    /// Create a new agent with the given environment and discount factor.
-    pub fn new(mut env: E, gamma: f32) -> Self {
+    /// Create a new agent with the given environment and hyperparameters.
+    pub fn new(mut env: E, gamma: f32, lam: f32, max_depth: usize, rollout_steps: usize) -> Self {
         let state = env.reset();
         Self {
             env,
             root: TreeNode::new(state),
             gamma,
+            lam,
+            max_depth,
+            rollout_steps,
         }
     }
 
