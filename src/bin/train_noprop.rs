@@ -4,23 +4,23 @@ use indicatif::ProgressBar;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
+use vanillanoprop::config::Config;
 use vanillanoprop::data::load_batches;
 use vanillanoprop::layers::Activation;
+use vanillanoprop::logging::{Logger, MetricRecord};
 use vanillanoprop::math::{self, Matrix};
 use vanillanoprop::memory;
 use vanillanoprop::metrics::f1_score;
 use vanillanoprop::models::EncoderT;
-use vanillanoprop::tensor::Tensor;
 use vanillanoprop::optim::lr_scheduler::{
     ConstantLr, CosineLr, LearningRateSchedule, LrScheduleConfig, StepLr,
 };
 use vanillanoprop::rng::rng_from_env;
+use vanillanoprop::tensor::Tensor;
 use vanillanoprop::train_cnn;
-use vanillanoprop::config::Config;
 use vanillanoprop::weights::{
-    save_model, save_checkpoint, load_checkpoint, ModelJson, tensor_to_vec2,
+    load_checkpoint, save_checkpoint, save_model, tensor_to_vec2, vec2_to_matrix, ModelJson,
 };
-use vanillanoprop::logging::{Logger, MetricRecord};
 
 mod common;
 
@@ -40,9 +40,30 @@ fn main() {
         _,
     ) = common::parse_cli(env::args().skip(1));
     if model == "cnn" {
-        train_cnn::run(&opt, moe, num_experts, lr_cfg, resume, save_every, checkpoint_dir, log_dir, experiment, &config);
+        train_cnn::run(
+            &opt,
+            moe,
+            num_experts,
+            lr_cfg,
+            resume,
+            save_every,
+            checkpoint_dir,
+            log_dir,
+            experiment,
+            &config,
+        );
     } else {
-        run(moe, num_experts, lr_cfg, resume, save_every, checkpoint_dir, log_dir, experiment, &config);
+        run(
+            moe,
+            num_experts,
+            lr_cfg,
+            resume,
+            save_every,
+            checkpoint_dir,
+            log_dir,
+            experiment,
+            &config,
+        );
     }
 }
 
@@ -94,15 +115,14 @@ fn run(
     if let Some(path) = &resume {
         if let Ok(cp) = load_checkpoint::<NopropCheckpoint>(path) {
             if !cp.model.encoder_embedding.is_empty() {
-                let e_rows = cp.model.encoder_embedding.len();
-                let e_cols = cp.model.encoder_embedding[0].len();
                 let mut params = encoder.embedding.parameters();
                 let exp_rows = params[0].w.data.rows;
                 let exp_cols = params[0].w.data.cols;
+                let loaded = vec2_to_matrix(&cp.model.encoder_embedding);
                 let mut mat = Matrix::zeros(exp_rows, exp_cols);
-                for r in 0..e_rows.min(exp_rows) {
-                    for c in 0..e_cols.min(exp_cols) {
-                        mat.set(r, c, cp.model.encoder_embedding[r][c]);
+                for r in 0..loaded.rows.min(exp_rows) {
+                    for c in 0..loaded.cols.min(exp_cols) {
+                        mat.set(r, c, loaded.get(r, c));
                     }
                 }
                 params[0].w = Tensor::from_matrix(mat);
@@ -186,21 +206,33 @@ fn run(
             sample_cnt += bsz;
             println!("loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
             if let Some(l) = &mut logger {
-                l.log(&MetricRecord { epoch, step, loss: batch_loss, f1: batch_f1_avg, lr: last_lr, kind: "batch" });
+                l.log(&MetricRecord {
+                    epoch,
+                    step,
+                    loss: batch_loss,
+                    f1: batch_f1_avg,
+                    lr: last_lr,
+                    kind: "batch",
+                });
             }
         }
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
         if let Some(l) = &mut logger {
-            l.log(&MetricRecord { epoch, step, loss: last_loss, f1: avg_f1, lr: last_lr, kind: "epoch" });
+            l.log(&MetricRecord {
+                epoch,
+                step,
+                loss: last_loss,
+                f1: avg_f1,
+                lr: last_lr,
+                kind: "epoch",
+            });
         }
         pb.inc(1);
 
         let mut should_save = false;
         if avg_f1 > best_f1 {
-            println!(
-                "Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}"
-            );
+            println!("Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}");
             best_f1 = avg_f1;
             should_save = true;
         }

@@ -1,6 +1,6 @@
-use crate::tensor::Tensor;
 use crate::math::Matrix;
-use crate::models::{DecoderT, EncoderT, LargeConceptModel, SimpleCNN, VAE, RNN};
+use crate::models::{DecoderT, EncoderT, LargeConceptModel, SimpleCNN, RNN, VAE};
+use crate::tensor::Tensor;
 use serde::{Deserialize, Serialize};
 use std::{fs, io};
 
@@ -46,6 +46,22 @@ pub fn tensor_to_vec2(t: &Tensor) -> Vec<Vec<f32>> {
         .collect()
 }
 
+/// Convert a 2-D `Vec` into a [`Matrix`].
+pub fn vec2_to_matrix(rows: &[Vec<f32>]) -> Matrix {
+    if rows.is_empty() || rows[0].is_empty() {
+        return Matrix::zeros(0, 0);
+    }
+    let r = rows.len();
+    let c = rows[0].len();
+    let mut mat = Matrix::zeros(r, c);
+    for (i, row) in rows.iter().enumerate() {
+        for (j, &val) in row.iter().enumerate() {
+            mat.set(i, j, val);
+        }
+    }
+    mat
+}
+
 pub fn save_model(
     path: &str,
     encoder: &mut EncoderT,
@@ -65,8 +81,7 @@ pub fn save_model(
         encoder_embedding: enc_emb,
         decoder_embedding: dec_emb,
     };
-    let txt = serde_json::to_string(&model)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let txt = serde_json::to_string(&model).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     fs::write(path, txt)?;
     println!("Saved weights to {}", path);
     Ok(())
@@ -78,32 +93,30 @@ pub fn load_model(
     decoder: &mut DecoderT,
 ) -> Result<(), io::Error> {
     let txt = fs::read_to_string(path)?;
-    let model: ModelJson = serde_json::from_str(&txt)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let model: ModelJson =
+        serde_json::from_str(&txt).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     if !model.encoder_embedding.is_empty() {
-        let e_rows = model.encoder_embedding.len();
-        let e_cols = model.encoder_embedding[0].len();
         let mut params = encoder.embedding.parameters();
         let exp_rows = params[0].w.data.rows;
         let exp_cols = params[0].w.data.cols;
+        let loaded = vec2_to_matrix(&model.encoder_embedding);
         let mut mat = Matrix::zeros(exp_rows, exp_cols);
-        for r in 0..e_rows.min(exp_rows) {
-            for c in 0..e_cols.min(exp_cols) {
-                mat.set(r, c, model.encoder_embedding[r][c]);
+        for r in 0..loaded.rows.min(exp_rows) {
+            for c in 0..loaded.cols.min(exp_cols) {
+                mat.set(r, c, loaded.get(r, c));
             }
         }
         params[0].w = Tensor::from_matrix(mat);
     }
     if !model.decoder_embedding.is_empty() {
-        let d_rows = model.decoder_embedding.len();
-        let d_cols = model.decoder_embedding[0].len();
         let mut params = decoder.embedding.parameters();
         let exp_rows = params[0].w.data.rows;
         let exp_cols = params[0].w.data.cols;
+        let loaded = vec2_to_matrix(&model.decoder_embedding);
         let mut mat = Matrix::zeros(exp_rows, exp_cols);
-        for r in 0..d_rows.min(exp_rows) {
-            for c in 0..d_cols.min(exp_cols) {
-                mat.set(r, c, model.decoder_embedding[r][c]);
+        for r in 0..loaded.rows.min(exp_rows) {
+            for c in 0..loaded.cols.min(exp_cols) {
+                mat.set(r, c, loaded.get(r, c));
             }
         }
         params[0].w = Tensor::from_matrix(mat);
@@ -125,8 +138,7 @@ pub fn save_cnn(path: &str, cnn: &SimpleCNN) -> Result<(), io::Error> {
         fc: matrix_to_vec2(fc),
         bias: bias.clone(),
     };
-    let txt = serde_json::to_string(&model)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let txt = serde_json::to_string(&model).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     fs::write(path, txt)?;
     println!("Saved CNN weights to {}", path);
     Ok(())
@@ -134,20 +146,12 @@ pub fn save_cnn(path: &str, cnn: &SimpleCNN) -> Result<(), io::Error> {
 
 pub fn load_cnn(path: &str, num_classes: usize) -> Result<SimpleCNN, io::Error> {
     let txt = fs::read_to_string(path)?;
-    let model: CnnJson = serde_json::from_str(&txt)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let model: CnnJson =
+        serde_json::from_str(&txt).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     let mut cnn = SimpleCNN::new(num_classes);
     let (fc, bias) = cnn.parameters_mut();
     if !model.fc.is_empty() {
-        let rows = model.fc.len();
-        let cols = model.fc[0].len();
-        let mut mat = Matrix::zeros(rows, cols);
-        for r in 0..rows {
-            for c in 0..cols {
-                mat.set(r, c, model.fc[r][c]);
-            }
-        }
-        *fc = mat;
+        *fc = vec2_to_matrix(&model.fc);
     }
     if !model.bias.is_empty() {
         *bias = model.bias;
@@ -164,8 +168,7 @@ pub fn save_lcm(path: &str, model: &LargeConceptModel) -> Result<(), io::Error> 
         w2: matrix_to_vec2(w2),
         b2: b2.clone(),
     };
-    let txt = serde_json::to_string(&json)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let txt = serde_json::to_string(&json).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     fs::write(path, txt)?;
     println!("Saved LCM weights to {}", path);
     Ok(())
@@ -178,31 +181,15 @@ pub fn load_lcm(
     num_classes: usize,
 ) -> Result<LargeConceptModel, io::Error> {
     let txt = fs::read_to_string(path)?;
-    let json: LcmJson = serde_json::from_str(&txt)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let json: LcmJson =
+        serde_json::from_str(&txt).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     let mut model = LargeConceptModel::new(input_dim, hidden_dim, num_classes);
     let (w1, b1, w2, b2) = model.parameters_mut();
     if !json.w1.is_empty() {
-        let rows = json.w1.len();
-        let cols = json.w1[0].len();
-        let mut mat = Matrix::zeros(rows, cols);
-        for r in 0..rows {
-            for c in 0..cols {
-                mat.set(r, c, json.w1[r][c]);
-            }
-        }
-        *w1 = mat;
+        *w1 = vec2_to_matrix(&json.w1);
     }
     if !json.w2.is_empty() {
-        let rows = json.w2.len();
-        let cols = json.w2[0].len();
-        let mut mat = Matrix::zeros(rows, cols);
-        for r in 0..rows {
-            for c in 0..cols {
-                mat.set(r, c, json.w2[r][c]);
-            }
-        }
-        *w2 = mat;
+        *w2 = vec2_to_matrix(&json.w2);
     }
     if !json.b1.is_empty() {
         *b1 = json.b1.clone();
@@ -220,8 +207,7 @@ pub fn save_rnn(path: &str, model: &mut RNN) -> Result<(), io::Error> {
         params.push(tensor_to_vec2(&p.w));
     }
     let json = RnnJson { params };
-    let txt = serde_json::to_string(&json)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let txt = serde_json::to_string(&json).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     fs::write(path, txt)?;
     println!("Saved RNN weights to {}", path);
     Ok(())
@@ -234,20 +220,12 @@ pub fn load_rnn(
     output_dim: usize,
 ) -> Result<RNN, io::Error> {
     let txt = fs::read_to_string(path)?;
-    let json: RnnJson = serde_json::from_str(&txt)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let json: RnnJson =
+        serde_json::from_str(&txt).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     let mut model = RNN::new_gru(input_dim, hidden_dim, output_dim);
     let mut params = model.parameters();
     for (p, data) in params.iter_mut().zip(json.params.iter()) {
-        let rows = data.len();
-        let cols = if rows > 0 { data[0].len() } else { 0 };
-        let mut mat = Matrix::zeros(rows, cols);
-        for r in 0..rows {
-            for c in 0..cols {
-                mat.set(r, c, data[r][c]);
-            }
-        }
-        p.w = Tensor::from_matrix(mat);
+        p.w = Tensor::from_matrix(vec2_to_matrix(data));
     }
     println!("Loaded RNN weights from {}", path);
     Ok(model)
@@ -255,8 +233,7 @@ pub fn load_rnn(
 
 /// Save an arbitrary checkpoint structure to `path` using JSON serialisation.
 pub fn save_checkpoint<T: Serialize>(path: &str, state: &T) -> Result<(), io::Error> {
-    let txt = serde_json::to_string(state)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let txt = serde_json::to_string(state).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     if let Some(parent) = std::path::Path::new(path).parent() {
         fs::create_dir_all(parent)?;
     }
@@ -268,8 +245,7 @@ pub fn save_checkpoint<T: Serialize>(path: &str, state: &T) -> Result<(), io::Er
 /// Load a checkpoint from `path` that was saved with [`save_checkpoint`].
 pub fn load_checkpoint<T: for<'de> Deserialize<'de>>(path: &str) -> Result<T, io::Error> {
     let txt = fs::read_to_string(path)?;
-    let state = serde_json::from_str(&txt)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let state = serde_json::from_str(&txt).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     println!("Loaded checkpoint from {}", path);
     Ok(state)
 }
@@ -282,8 +258,7 @@ pub fn save_vae(path: &str, vae: &VAE) -> Result<(), io::Error> {
         dec_fc1: tensor_to_vec2(&vae.dec_fc1.w),
         dec_fc2: tensor_to_vec2(&vae.dec_fc2.w),
     };
-    let txt = serde_json::to_string(&json)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let txt = serde_json::to_string(&json).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     fs::write(path, txt)?;
     println!("Saved VAE weights to {}", path);
     Ok(())
@@ -296,53 +271,23 @@ pub fn load_vae(
     latent_dim: usize,
 ) -> Result<VAE, io::Error> {
     let txt = fs::read_to_string(path)?;
-    let json: VaeJson = serde_json::from_str(&txt)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let json: VaeJson =
+        serde_json::from_str(&txt).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     let mut vae = VAE::new(input_dim, hidden_dim, latent_dim);
     if !json.enc_fc1.is_empty() {
-        let mut mat = Matrix::zeros(json.enc_fc1.len(), json.enc_fc1[0].len());
-        for r in 0..mat.rows {
-            for c in 0..mat.cols {
-                mat.set(r, c, json.enc_fc1[r][c]);
-            }
-        }
-        vae.enc_fc1.w = Tensor::from_matrix(mat);
+        vae.enc_fc1.w = Tensor::from_matrix(vec2_to_matrix(&json.enc_fc1));
     }
     if !json.enc_mu.is_empty() {
-        let mut mat = Matrix::zeros(json.enc_mu.len(), json.enc_mu[0].len());
-        for r in 0..mat.rows {
-            for c in 0..mat.cols {
-                mat.set(r, c, json.enc_mu[r][c]);
-            }
-        }
-        vae.enc_mu.w = Tensor::from_matrix(mat);
+        vae.enc_mu.w = Tensor::from_matrix(vec2_to_matrix(&json.enc_mu));
     }
     if !json.enc_logvar.is_empty() {
-        let mut mat = Matrix::zeros(json.enc_logvar.len(), json.enc_logvar[0].len());
-        for r in 0..mat.rows {
-            for c in 0..mat.cols {
-                mat.set(r, c, json.enc_logvar[r][c]);
-            }
-        }
-        vae.enc_logvar.w = Tensor::from_matrix(mat);
+        vae.enc_logvar.w = Tensor::from_matrix(vec2_to_matrix(&json.enc_logvar));
     }
     if !json.dec_fc1.is_empty() {
-        let mut mat = Matrix::zeros(json.dec_fc1.len(), json.dec_fc1[0].len());
-        for r in 0..mat.rows {
-            for c in 0..mat.cols {
-                mat.set(r, c, json.dec_fc1[r][c]);
-            }
-        }
-        vae.dec_fc1.w = Tensor::from_matrix(mat);
+        vae.dec_fc1.w = Tensor::from_matrix(vec2_to_matrix(&json.dec_fc1));
     }
     if !json.dec_fc2.is_empty() {
-        let mut mat = Matrix::zeros(json.dec_fc2.len(), json.dec_fc2[0].len());
-        for r in 0..mat.rows {
-            for c in 0..mat.cols {
-                mat.set(r, c, json.dec_fc2[r][c]);
-            }
-        }
-        vae.dec_fc2.w = Tensor::from_matrix(mat);
+        vae.dec_fc2.w = Tensor::from_matrix(vec2_to_matrix(&json.dec_fc2));
     }
     println!("Loaded VAE weights from {}", path);
     Ok(vae)
