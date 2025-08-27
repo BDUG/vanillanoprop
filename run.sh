@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 {download|predict|train-backprop|train-elmo|train-noprop|train-lcm} [model] [opt] [--moe] [--num-experts N]" >&2
+  echo "Usage: $0 {download|predict|train-backprop|train-elmo|train-noprop|train-lcm|train-resnet} [model] [opt] [--moe] [--num-experts N]" >&2
   exit 1
 }
 
@@ -33,6 +33,10 @@ case "$1" in
   train-lcm)
     shift
     cargo run --bin main -- train-lcm "$@"
+    ;;
+  train-resnet)
+    shift
+    cargo run --bin train_resnet -- "$@"
     ;;
   *)
     usage
