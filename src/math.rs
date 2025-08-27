@@ -273,3 +273,51 @@ pub fn argmax(v: &[f32]) -> usize {
     }
     best_idx
 }
+
+/// Mean squared error loss between `pred` and `target` matrices.
+/// Returns the average loss and the gradient with respect to `pred`.
+pub fn mse_loss(pred: &Matrix, target: &Matrix) -> (f32, Matrix) {
+    assert_eq!(pred.rows, target.rows);
+    assert_eq!(pred.cols, target.cols);
+    let mut grad = Matrix::zeros(pred.rows, pred.cols);
+    let mut loss = 0.0f32;
+    for (i, (&p, &t)) in pred.data.iter().zip(target.data.iter()).enumerate() {
+        let diff = p - t;
+        loss += diff * diff;
+        grad.data[i] = 2.0 * diff;
+    }
+    let cnt = pred.data.len() as f32;
+    loss /= cnt;
+    for g in grad.data.iter_mut() {
+        *g /= cnt;
+    }
+    (loss, grad)
+}
+
+/// Kullback-Leibler divergence between a normal with mean `mu` and log-variance
+/// `logvar` and the unit Gaussian. Returns the average loss and gradients for
+/// `mu` and `logvar`.
+pub fn kl_divergence(mu: &Matrix, logvar: &Matrix) -> (f32, Matrix, Matrix) {
+    assert_eq!(mu.rows, logvar.rows);
+    assert_eq!(mu.cols, logvar.cols);
+    let mut grad_mu = Matrix::zeros(mu.rows, mu.cols);
+    let mut grad_lv = Matrix::zeros(mu.rows, mu.cols);
+    let mut loss = 0.0f32;
+    for i in 0..mu.data.len() {
+        let m = mu.data[i];
+        let lv = logvar.data[i];
+        let exp_lv = lv.exp();
+        loss += -0.5 * (1.0 + lv - m * m - exp_lv);
+        grad_mu.data[i] = m;
+        grad_lv.data[i] = 0.5 * (exp_lv - 1.0);
+    }
+    let cnt = mu.data.len() as f32;
+    loss /= cnt;
+    for g in grad_mu.data.iter_mut() {
+        *g /= cnt;
+    }
+    for g in grad_lv.data.iter_mut() {
+        *g /= cnt;
+    }
+    (loss, grad_mu, grad_lv)
+}
