@@ -36,7 +36,7 @@ fn main() {
         position: 0,
         goal: 5,
     };
-    let mut agent = TreePoAgent::new(env, 0.9);
+    let mut agent = TreePoAgent::new(env, 0.9, 0.95, 10, 10);
     let actions = [-1, 1];
     let mut rng = rand::thread_rng();
     let episodes = 10;

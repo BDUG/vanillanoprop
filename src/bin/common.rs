@@ -1,6 +1,6 @@
 use std::env;
-use vanillanoprop::optim::lr_scheduler::LrScheduleConfig;
 use vanillanoprop::config::Config;
+use vanillanoprop::optim::lr_scheduler::LrScheduleConfig;
 
 /// Parses common CLI arguments across training binaries.
 ///
@@ -45,7 +45,7 @@ where
     let mut num_experts = 1usize;
     let mut lr_sched = String::new();
     let mut step_size = 10usize;
-    let mut gamma = 0.5f32;
+    let mut lr_gamma = 0.5f32;
     let mut max_steps = 1000usize;
     let mut resume = None;
     let mut save_every = None;
@@ -54,6 +54,10 @@ where
     let mut experiment_name = None;
     let mut epochs = None;
     let mut batch_size = None;
+    let mut gamma = None;
+    let mut lam = None;
+    let mut max_depth = None;
+    let mut rollout_steps = None;
     let mut config_path = None;
     let mut positional = Vec::new();
 
@@ -77,7 +81,7 @@ where
             }
             "--lr-gamma" => {
                 if let Some(v) = args.next() {
-                    gamma = v.parse().unwrap_or(gamma);
+                    lr_gamma = v.parse().unwrap_or(lr_gamma);
                 }
             }
             "--lr-max-steps" => {
@@ -120,6 +124,26 @@ where
                     batch_size = v.parse().ok();
                 }
             }
+            "--gamma" => {
+                if let Some(v) = args.next() {
+                    gamma = v.parse().ok();
+                }
+            }
+            "--lam" => {
+                if let Some(v) = args.next() {
+                    lam = v.parse().ok();
+                }
+            }
+            "--max-depth" => {
+                if let Some(v) = args.next() {
+                    max_depth = v.parse().ok();
+                }
+            }
+            "--rollout-steps" => {
+                if let Some(v) = args.next() {
+                    rollout_steps = v.parse().ok();
+                }
+            }
             "--config" => {
                 if let Some(v) = args.next() {
                     config_path = Some(v);
@@ -137,7 +161,10 @@ where
     }
 
     let lr_schedule = match lr_sched.as_str() {
-        "step" => LrScheduleConfig::Step { step_size, gamma },
+        "step" => LrScheduleConfig::Step {
+            step_size,
+            gamma: lr_gamma,
+        },
         "cosine" => LrScheduleConfig::Cosine { max_steps },
         _ => LrScheduleConfig::Constant,
     };
@@ -151,6 +178,18 @@ where
     }
     if let Some(b) = batch_size {
         config.batch_size = b;
+    }
+    if let Some(g) = gamma {
+        config.gamma = g;
+    }
+    if let Some(l) = lam {
+        config.lam = l;
+    }
+    if let Some(d) = max_depth {
+        config.max_depth = d;
+    }
+    if let Some(r) = rollout_steps {
+        config.rollout_steps = r;
     }
 
     (
@@ -171,8 +210,7 @@ where
 
 /// Convenience wrapper that parses arguments from the current process
 /// (skipping the binary name).
-pub fn parse_env(
-) -> (
+pub fn parse_env() -> (
     String,
     String,
     bool,
@@ -185,7 +223,7 @@ pub fn parse_env(
     Option<String>,
     Config,
     Vec<String>,
- ) {
+) {
     let args = env::args().skip(1);
     parse_cli(args)
 }
