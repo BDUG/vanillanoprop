@@ -1,7 +1,8 @@
-use crate::tensor::Tensor;
-use crate::math::Matrix;
 use super::layer::Layer;
 use super::linear::LinearT;
+use crate::math::Matrix;
+use crate::tensor::Tensor;
+use std::fmt;
 
 /// 2D convolution layer using im2col and a linear weight matrix.
 ///
@@ -22,6 +23,32 @@ pub struct Conv2d {
     last_input_shape: (usize, usize, usize), // (batch, in_h, in_w)
     last_output_shape: (usize, usize),       // (out_h, out_w)
 }
+
+#[derive(Debug, PartialEq)]
+pub enum ConvError {
+    ChannelMismatch { features: usize, in_channels: usize },
+    NonSquareInput { size: usize },
+}
+
+impl fmt::Display for ConvError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ConvError::ChannelMismatch {
+                features,
+                in_channels,
+            } => write!(
+                f,
+                "Input feature count {} is not divisible by in_channels {}",
+                features, in_channels
+            ),
+            ConvError::NonSquareInput { size } => {
+                write!(f, "Input spatial size {} is not a perfect square", size)
+            }
+        }
+    }
+}
+
+impl std::error::Error for ConvError {}
 
 impl Conv2d {
     /// Create a new convolution layer.
@@ -46,23 +73,23 @@ impl Conv2d {
         }
     }
 
-    fn compute_shapes(&self, x: &Matrix) -> (usize, usize, usize, usize, usize) {
+    fn compute_shapes(&self, x: &Matrix) -> Result<(usize, usize, usize, usize, usize), ConvError> {
         let batch = x.rows;
         if x.cols % self.in_channels != 0 {
-            panic!(
-                "Input feature count {} is not divisible by in_channels {}",
-                x.cols, self.in_channels
-            );
+            return Err(ConvError::ChannelMismatch {
+                features: x.cols,
+                in_channels: self.in_channels,
+            });
         }
         let in_hw = x.cols / self.in_channels;
         let in_h = (in_hw as f32).sqrt() as usize;
         if in_h * in_h != in_hw {
-            panic!("Input spatial size {} is not a perfect square", in_hw);
+            return Err(ConvError::NonSquareInput { size: in_hw });
         }
         let in_w = in_h; // assume square inputs
         let out_h = (in_h + 2 * self.padding - self.kernel_size) / self.stride + 1;
         let out_w = (in_w + 2 * self.padding - self.kernel_size) / self.stride + 1;
-        (batch, in_h, in_w, out_h, out_w)
+        Ok((batch, in_h, in_w, out_h, out_w))
     }
 
     fn im2col(&self, x: &Matrix, in_h: usize, in_w: usize, out_h: usize, out_w: usize) -> Matrix {
@@ -130,7 +157,11 @@ impl Conv2d {
                                 let iw = ow * self.stride + kw as usize;
                                 let ihp = ih as isize - self.padding as isize;
                                 let iwp = iw as isize - self.padding as isize;
-                                if ihp >= 0 && ihp < in_h as isize && iwp >= 0 && iwp < in_w as isize {
+                                if ihp >= 0
+                                    && ihp < in_h as isize
+                                    && iwp >= 0
+                                    && iwp < in_w as isize
+                                {
                                     let val = cols.get(row, col_idx);
                                     let idx = b * img.cols
                                         + ic * in_h * in_w
@@ -173,21 +204,21 @@ impl Conv2d {
         out
     }
 
-    pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
-        let (batch, in_h, in_w, out_h, out_w) = self.compute_shapes(x);
+    pub fn forward_local(&mut self, x: &Matrix) -> Result<Matrix, ConvError> {
+        let (batch, in_h, in_w, out_h, out_w) = self.compute_shapes(x)?;
         let cols = self.im2col(x, in_h, in_w, out_h, out_w);
         let out_cols = self.w.forward_local(&cols);
         self.last_input_shape = (batch, in_h, in_w);
         self.last_output_shape = (out_h, out_w);
-        self.reshape_output(&out_cols, batch, out_h, out_w)
+        Ok(self.reshape_output(&out_cols, batch, out_h, out_w))
     }
 
-    pub fn forward(&self, x: &Tensor) -> Tensor {
-        let (batch, in_h, in_w, out_h, out_w) = self.compute_shapes(&x.data);
+    pub fn forward(&self, x: &Tensor) -> Result<Tensor, ConvError> {
+        let (batch, in_h, in_w, out_h, out_w) = self.compute_shapes(&x.data)?;
         let cols = self.im2col(&x.data, in_h, in_w, out_h, out_w);
         let out_cols = self.w.forward(&Tensor::from_matrix(cols));
         let out = self.reshape_output(&out_cols.data, batch, out_h, out_w);
-        Tensor::from_matrix(out)
+        Ok(Tensor::from_matrix(out))
     }
 
     pub fn backward(&mut self, grad_out: &Matrix) -> Matrix {
@@ -236,14 +267,7 @@ impl Conv2d {
         self.w.zero_grad();
     }
 
-    pub fn adam_step(
-        &mut self,
-        lr: f32,
-        beta1: f32,
-        beta2: f32,
-        eps: f32,
-        weight_decay: f32,
-    ) {
+    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
         self.w.adam_step(lr, beta1, beta2, eps, weight_decay);
     }
 
@@ -255,11 +279,11 @@ impl Conv2d {
 
 impl Layer for Conv2d {
     fn forward(&self, x: &Tensor) -> Tensor {
-        Conv2d::forward(self, x)
+        Conv2d::forward(self, x).expect("invalid input to Conv2d forward")
     }
 
     fn forward_train(&mut self, x: &Matrix) -> Matrix {
-        Conv2d::forward_local(self, x)
+        Conv2d::forward_local(self, x).expect("invalid input to Conv2d forward_local")
     }
 
     fn backward(&mut self, grad_out: &Matrix) -> Matrix {
@@ -274,14 +298,7 @@ impl Layer for Conv2d {
         Conv2d::fa_update(self, grad_out, lr)
     }
 
-    fn adam_step(
-        &mut self,
-        lr: f32,
-        beta1: f32,
-        beta2: f32,
-        eps: f32,
-        weight_decay: f32,
-    ) {
+    fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
         Conv2d::adam_step(self, lr, beta1, beta2, eps, weight_decay);
     }
 
@@ -289,4 +306,3 @@ impl Layer for Conv2d {
         Conv2d::parameters(self)
     }
 }
-
