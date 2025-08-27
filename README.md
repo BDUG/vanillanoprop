@@ -15,9 +15,42 @@ For example:
 ./run.sh predict --moe --num-experts 4
 ./run.sh train-lcm
 ./run.sh predict lcm
+./run.sh train-treepo --config treepo_config.toml
 ```
 The `--moe` flag enables mixture-of-experts layers and `--num-experts` sets
 how many experts to use.
+
+## Tree Policy Optimization (TreePO)
+
+TreePO combines tree-based planning with policy optimisation to update
+actions using advantages estimated from a search tree. A full description of
+the method can be found in the [Tree Policy Optimization paper](https://arxiv.org/abs/2506.03736).
+
+Run a training session with a configuration file:
+
+```
+./run.sh train-treepo --config treepo_config.toml
+```
+
+### TreePO configuration
+
+`treepo_config.toml` introduces several hyperparameters:
+
+```
+gamma = 0.99        # discount factor
+lam = 0.95          # GAE smoothing
+max_depth = 10      # maximum tree expansion depth
+rollout_steps = 10  # steps per simulated rollout
+episodes = 10       # number of episodes to train
+```
+
+During training the binary prints progress for each episode, e.g.:
+
+```
+Episode 1 complete
+Episode 2 complete
+...
+```
 
 ## Configuration
 
