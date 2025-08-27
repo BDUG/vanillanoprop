@@ -14,3 +14,4 @@ pub mod train_cnn;
 pub mod memory;
 pub mod config;
 pub mod logging;
+pub mod rl;
