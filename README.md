@@ -42,3 +42,23 @@ Or override specific settings from the command line:
 ```
 ./run.sh train-noprop --config config.toml --epochs 20 --batch-size 16
 ```
+
+## Examples
+
+The `examples` directory contains small programs that showcase core features of the framework.
+
+### Mixture of Experts
+
+```bash
+cargo run --example mixture_of_experts
+```
+
+Builds a tiny mixture-of-experts network and prints the gating probabilities to demonstrate sparse expert routing.
+
+### Loading configuration
+
+```bash
+cargo run --example load_config
+```
+
+Loads training parameters from `lcm_config.toml` and falls back to defaults if the file is not found.
