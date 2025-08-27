@@ -1,7 +1,7 @@
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use csv::Writer;
 use serde::Serialize;
@@ -27,7 +27,7 @@ impl Logger {
         let exp = experiment.unwrap_or_else(|| {
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .unwrap_or_else(|_| Duration::from_secs(0))
                 .as_secs()
                 .to_string()
         });
@@ -43,7 +43,9 @@ impl Logger {
             .create(true)
             .append(true)
             .open(csv_path)?;
-        let csv = csv::WriterBuilder::new().has_headers(false).from_writer(csv_file);
+        let csv = csv::WriterBuilder::new()
+            .has_headers(false)
+            .from_writer(csv_file);
         Ok(Logger { json, csv })
     }
 
