@@ -14,6 +14,7 @@ libc = "0.2"
 rayon = "1.8"
 toml = "0.8"
 csv = "1"
+nalgebra = { version = "0.27" }
 
 [lib]
 name = "vanillanoprop"

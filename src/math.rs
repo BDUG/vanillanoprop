@@ -1,5 +1,6 @@
 use crate::device::{Cpu, Device};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use nalgebra::DMatrix;
 
 // Separate counters for addition and multiplication operations.
 static ADD_OPS: AtomicUsize = AtomicUsize::new(0);
@@ -186,6 +187,57 @@ impl Matrix {
             }
         }
         Matrix::from_vec(self.rows, self.cols, v)
+    }
+
+    /// Compute the singular value decomposition of the matrix using the
+    /// [`nalgebra`](https://crates.io/crates/nalgebra) crate.
+    ///
+    /// Returns matrices `U`, `S`, and `Vt` such that `self = U * S * Vt`.
+    /// The `S` matrix is square with dimension `min(rows, cols)` and contains
+    /// the singular values on its diagonal.
+    ///
+    /// # Examples
+    /// ```
+    /// use vanillanoprop::math::Matrix;
+    ///
+    /// let m = Matrix::from_vec(2, 2, vec![1.0, 2.0, 3.0, 4.0]);
+    /// let (u, s, vt) = m.svd();
+    /// let us = Matrix::matmul(&u, &s);
+    /// let reconstructed = Matrix::matmul(&us, &vt);
+    /// for (a, b) in reconstructed.data.iter().zip(m.data.iter()) {
+    ///     assert!((a - b).abs() < 1e-4);
+    /// }
+    /// ```
+    pub fn svd(&self) -> (Matrix, Matrix, Matrix) {
+        let m = DMatrix::<f32>::from_row_slice(self.rows, self.cols, &self.data);
+        let svd = m.svd(true, true);
+        let u = svd.u.expect("SVD failed: missing U");
+        let vt = svd.v_t.expect("SVD failed: missing Vt");
+        let s = svd.singular_values;
+
+        let mut u_vec = Vec::with_capacity(u.nrows() * u.ncols());
+        for r in 0..u.nrows() {
+            for c in 0..u.ncols() {
+                u_vec.push(u[(r, c)]);
+            }
+        }
+        let u_mat = Matrix::from_vec(u.nrows(), u.ncols(), u_vec);
+
+        let mut vt_vec = Vec::with_capacity(vt.nrows() * vt.ncols());
+        for r in 0..vt.nrows() {
+            for c in 0..vt.ncols() {
+                vt_vec.push(vt[(r, c)]);
+            }
+        }
+        let vt_mat = Matrix::from_vec(vt.nrows(), vt.ncols(), vt_vec);
+
+        let rank = s.len();
+        let mut s_mat = Matrix::zeros(rank, rank);
+        for i in 0..rank {
+            s_mat.set(i, i, s[i]);
+        }
+
+        (u_mat, s_mat, vt_mat)
     }
 }
 
