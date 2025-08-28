@@ -10,6 +10,9 @@ pub struct Config {
     /// Batch size used when loading data.
     #[serde(default = "default_batch_size")]
     pub batch_size: usize,
+    /// Name of dataset to use for training.
+    #[serde(default = "default_dataset")]
+    pub dataset: String,
     /// Discount factor for reinforcement learning agents.
     #[serde(default = "default_gamma")]
     pub gamma: f32,
@@ -30,6 +33,10 @@ fn default_epochs() -> usize {
 
 fn default_batch_size() -> usize {
     4
+}
+
+fn default_dataset() -> String {
+    "mnist".into()
 }
 
 fn default_gamma() -> f32 {
@@ -53,6 +60,7 @@ impl Default for Config {
         Self {
             epochs: default_epochs(),
             batch_size: default_batch_size(),
+            dataset: default_dataset(),
             gamma: default_gamma(),
             lam: default_lam(),
             max_depth: default_max_depth(),

@@ -1,4 +1,63 @@
+use cifar_10_loader::CifarDataset;
 use mnist::MnistBuilder;
+
+/// Trait for loading and batching datasets with optional preprocessing.
+pub trait Dataset {
+    /// Type representing a single sample from the dataset.
+    type Item: Clone;
+
+    /// Load the entire dataset into memory.
+    fn load() -> Vec<Self::Item>;
+
+    /// Optional preprocessing applied to each sample. Default is a no-op.
+    fn preprocess(_sample: &mut Self::Item) {}
+
+    /// Load the dataset and group samples into mini-batches of `batch_size`.
+    fn batch(batch_size: usize) -> Vec<Vec<Self::Item>> {
+        let mut data = Self::load();
+        for sample in &mut data {
+            Self::preprocess(sample);
+        }
+        data.chunks(batch_size).map(|c| c.to_vec()).collect()
+    }
+}
+
+/// Loader for the full MNIST dataset.
+pub struct Mnist;
+
+impl Dataset for Mnist {
+    type Item = (Vec<u8>, u8);
+
+    fn load() -> Vec<Self::Item> {
+        let mnist = MnistBuilder::new()
+            .label_format_digit()
+            .download_and_extract()
+            .finalize();
+        mnist
+            .trn_img
+            .chunks(28 * 28)
+            .zip(mnist.trn_lbl.iter())
+            .map(|(img, &lbl)| (img.to_vec(), lbl))
+            .collect()
+    }
+}
+
+/// Loader for the CIFAR-10 dataset.
+pub struct Cifar10;
+
+impl Dataset for Cifar10 {
+    type Item = (Vec<u8>, u8);
+
+    fn load() -> Vec<Self::Item> {
+        let path = "data/cifar-10-batches-bin";
+        let cifar = CifarDataset::new(path).expect("failed to load CIFAR-10 dataset");
+        cifar
+            .train_dataset
+            .into_iter()
+            .map(|img| (img.image.to_rgb().into_raw(), img.label))
+            .collect()
+    }
+}
 
 /// Apply a 3x3 convolution kernel with zero padding to an image.
 ///
