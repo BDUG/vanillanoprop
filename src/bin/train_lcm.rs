@@ -1,10 +1,10 @@
 use std::env;
 
 use indicatif::ProgressBar;
-use vanillanoprop::data::load_batches;
-use vanillanoprop::metrics::f1_score;
-use vanillanoprop::models::LargeConceptModel;
 use vanillanoprop::config::Config;
+use vanillanoprop::data::load_batches;
+use vanillanoprop::model::Model;
+use vanillanoprop::models::LargeConceptModel;
 use vanillanoprop::weights::save_lcm;
 
 mod common;
@@ -31,6 +31,7 @@ fn run(config: &Config) {
     let batches = load_batches(config.batch_size);
     let mut model = LargeConceptModel::new(28 * 28, 128, 10);
     let lr = 0.01f32;
+    let evaluator = Model::new();
 
     let pb = ProgressBar::new(config.epochs as u64);
     for epoch in 0..config.epochs {
@@ -43,7 +44,7 @@ fn run(config: &Config) {
             for (img, tgt) in batch {
                 let (loss, pred) = model.train_step(img, *tgt, lr);
                 batch_loss += loss;
-                batch_f1 += f1_score(&[pred], &[*tgt]);
+                batch_f1 += evaluator.evaluate(&[pred], &[*tgt]);
             }
             let bsz = batch.len() as f32;
             batch_loss /= bsz;

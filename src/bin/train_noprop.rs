@@ -10,7 +10,7 @@ use vanillanoprop::layers::Activation;
 use vanillanoprop::logging::{Logger, MetricRecord};
 use vanillanoprop::math::{self, Matrix};
 use vanillanoprop::memory;
-use vanillanoprop::metrics::f1_score;
+use vanillanoprop::model::Model;
 use vanillanoprop::models::EncoderT;
 use vanillanoprop::optim::lr_scheduler::{
     ConstantLr, CosineLr, LearningRateSchedule, LrScheduleConfig, StepLr,
@@ -143,6 +143,7 @@ fn run(
 
     let mut logger = Logger::new(log_dir, experiment_name).ok();
     let mut last_lr = base_lr;
+    let evaluator = Model::new();
 
     math::reset_matrix_ops();
     let pb = ProgressBar::new(config.epochs as u64);
@@ -195,7 +196,7 @@ fn run(
                 encoder.fa_update(&delta, lr);
                 step += 1;
                 let src_slice: Vec<usize> = src[..len].iter().map(|&v| v as usize).collect();
-                let f1 = f1_score(&src_slice, &[tgt]);
+                let f1 = evaluator.evaluate(&src_slice, &[tgt]);
                 batch_f1 += f1;
             }
             let bsz = batch.len() as f32;

@@ -6,12 +6,12 @@ use vanillanoprop::data::load_batches;
 use vanillanoprop::logging::{Logger, MetricRecord};
 use vanillanoprop::math::{self, Matrix};
 use vanillanoprop::memory;
-use vanillanoprop::metrics::f1_score;
+use vanillanoprop::model::Model;
 use vanillanoprop::models::ResNet;
 use vanillanoprop::optim::lr_scheduler::{
     ConstantLr, CosineLr, LearningRateSchedule, LrScheduleConfig, StepLr,
 };
-use vanillanoprop::optim::Hrm;
+use vanillanoprop::optim::{Hrm, MseLoss, SGD};
 
 mod common;
 
@@ -42,10 +42,15 @@ fn run(
 ) {
     let batches = load_batches(config.batch_size);
     // 64 hidden units and 2 residual blocks as a default configuration.
-    let mut model = ResNet::new(10, 64, 2);
+    let mut net = ResNet::new(10, 64, 2);
 
     let base_lr = 0.01f32;
-    let mut hrm = Hrm::new(base_lr, 0.0);
+    let mut trainer = Model::new();
+    if opt == "hrm" {
+        trainer.compile(Hrm::new(base_lr, 0.0), MseLoss::new());
+    } else {
+        trainer.compile(SGD::new(base_lr, 0.0), MseLoss::new());
+    }
     let scheduler: Box<dyn LearningRateSchedule> = match lr_cfg {
         LrScheduleConfig::Step { step_size, gamma } => {
             Box::new(StepLr::new(base_lr, step_size, gamma))
@@ -70,37 +75,27 @@ fn run(
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
             for (img, tgt) in batch {
-                let (feat, logits) = model.forward(img);
+                let (feat, logits) = net.forward(img);
                 let logits_m = Matrix::from_vec(1, logits.len(), logits);
                 let (loss, grad_m, preds) =
                     math::softmax_cross_entropy(&logits_m, &[*tgt as usize], 0);
                 batch_loss += loss;
                 let grad_logits = grad_m.data;
 
-                let (fc, bias) = model.parameters_mut();
+                let (fc, bias) = net.parameters_mut();
                 let lr = scheduler.next_lr(step);
                 last_lr = lr;
-                if opt == "hrm" {
-                    hrm.lr = lr;
-                    hrm.update(fc, bias, &grad_logits, &feat);
-                } else {
-                    let rows = fc.rows;
-                    let cols = fc.cols;
-                    let mut grad_matrix = vec![0.0f32; rows * cols];
-                    for (c, &g) in grad_logits.iter().enumerate() {
-                        for (r, &f) in feat.iter().enumerate() {
-                            grad_matrix[r * cols + c] = f * g;
-                        }
-                    }
-                    for (w, &g) in fc.data.iter_mut().zip(grad_matrix.iter()) {
-                        *w -= lr * g;
-                    }
-                    for (b, &g) in bias.iter_mut().zip(grad_logits.iter()) {
-                        *b -= lr * g;
+                // update optimizer learning rate if needed
+                if let Some(opt) = trainer.optimizer_mut() {
+                    if let Some(sgd) = opt.as_any_mut().downcast_mut::<SGD>() {
+                        sgd.lr = lr;
+                    } else if let Some(hrm) = opt.as_any_mut().downcast_mut::<Hrm>() {
+                        hrm.lr = lr;
                     }
                 }
+                trainer.fit_fc(fc, bias, &grad_logits, &feat);
 
-                let f1 = f1_score(&preds, &[*tgt as usize]);
+                let f1 = trainer.evaluate(&preds, &[*tgt as usize]);
                 batch_f1 += f1;
                 step += 1;
             }
@@ -140,5 +135,8 @@ fn run(
     pb.finish_with_message("training done");
     println!("Total matrix ops: {}", math::matrix_ops_count());
     let peak = memory::peak_memory_bytes();
-    println!("Max memory usage: {:.2} MB", peak as f64 / (1024.0 * 1024.0));
+    println!(
+        "Max memory usage: {:.2} MB",
+        peak as f64 / (1024.0 * 1024.0)
+    );
 }
