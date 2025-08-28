@@ -1,7 +1,9 @@
 # vanillanoprop
 
 This here is a vanilla implementation of [NoProp](https://arxiv.org/html/2503.24322v2) according to *Qinyu Li*.
-It is part of a baremetal AI framework, not requering exhausting 3rd party libraries, compare *Cargo.toml*. 
+It is part of a baremetal AI framework, not requering exhausting 3rd party libraries, compare *Cargo.toml*.
+
+Eine Einführung mit Beispielen findet sich in [docs/einfuehrung.md](docs/einfuehrung.md).
 
 Call
 ```
