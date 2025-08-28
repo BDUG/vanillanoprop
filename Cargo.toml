@@ -2,6 +2,11 @@
 name = "vanillanoprop"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
+
+[features]
+default = []
+kai = []
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

@@ -1,8 +1,8 @@
 use crate::math::{matmul_cpu, Matrix};
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(target_arch = "aarch64", feature = "kai"))]
 use crate::math::{inc_add_ops_by, inc_mul_ops_by};
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(target_arch = "aarch64", feature = "kai"))]
 use crate::ffi::kai::kai_matmul;
 
 /// Abstraction over a compute device capable of executing matrix operations.
@@ -22,11 +22,11 @@ impl Device for Cpu {
 }
 
 /// [`Device`] backed by the Kai microkernel over FFI.
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(target_arch = "aarch64", feature = "kai"))]
 #[derive(Default, Clone, Copy)]
 pub struct KaiDevice;
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(target_arch = "aarch64", feature = "kai"))]
 impl Device for KaiDevice {
     fn matmul(&self, a: &Matrix, b: &Matrix) -> Matrix {
         assert_eq!(a.cols, b.rows);

@@ -2,6 +2,10 @@ use std::env;
 use glob::glob;
 
 fn main() {
+    if env::var("CARGO_FEATURE_KAI").is_err() {
+        return;
+    }
+
     let mut build = cc::Build::new();
     for entry in glob("c_src/*.c").expect("failed to read glob pattern") {
         build.file(entry.expect("invalid path"));
