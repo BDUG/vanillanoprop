@@ -2,7 +2,7 @@ use indicatif::ProgressBar;
 
 use crate::config::Config;
 use crate::data::load_batches;
-use crate::logging::{Logger, MetricRecord};
+use crate::logging::{Callback, CallbackSignal, Logger, MetricRecord};
 use crate::math::{self, Matrix};
 use crate::memory;
 use crate::metrics::f1_score;
@@ -41,6 +41,7 @@ pub fn run(
     log_dir: Option<String>,
     experiment_name: Option<String>,
     config: &Config,
+    mut callbacks: Vec<Box<dyn Callback>>,
 ) {
     let batches = load_batches(config.batch_size);
     let mut cnn = SimpleCNN::new(10);
@@ -92,7 +93,15 @@ pub fn run(
     let pb = ProgressBar::new(epochs as u64);
     pb.set_position(start_epoch as u64);
 
+    for cb in callbacks.iter_mut() {
+        cb.on_train_begin();
+    }
+    let mut stop_training = false;
+
     for epoch in start_epoch..epochs {
+        for cb in callbacks.iter_mut() {
+            cb.on_epoch_begin(epoch);
+        }
         let mut last_loss = 0.0f32;
         let mut f1_sum = 0.0f32;
         let mut sample_cnt = 0.0f32;
@@ -155,31 +164,53 @@ pub fn run(
             f1_sum += batch_f1;
             sample_cnt += bsz;
             println!("loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
+            let record = MetricRecord {
+                epoch,
+                step,
+                loss: batch_loss,
+                f1: batch_f1_avg,
+                lr: last_lr,
+                kind: "batch",
+            };
             if let Some(l) = &mut logger {
-                l.log(&MetricRecord {
-                    epoch,
-                    step,
-                    loss: batch_loss,
-                    f1: batch_f1_avg,
-                    lr: last_lr,
-                    kind: "batch",
-                });
+                l.log(&record);
             }
+            for cb in callbacks.iter_mut() {
+                if let CallbackSignal::Stop = cb.on_batch_end(&record) {
+                    stop_training = true;
+                }
+            }
+            if stop_training {
+                break;
+            }
+        }
+
+        if stop_training {
+            break;
         }
 
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
+        let record = MetricRecord {
+            epoch,
+            step,
+            loss: last_loss,
+            f1: avg_f1,
+            lr: last_lr,
+            kind: "epoch",
+        };
         if let Some(l) = &mut logger {
-            l.log(&MetricRecord {
-                epoch,
-                step,
-                loss: last_loss,
-                f1: avg_f1,
-                lr: last_lr,
-                kind: "epoch",
-            });
+            l.log(&record);
+        }
+        for cb in callbacks.iter_mut() {
+            if let CallbackSignal::Stop = cb.on_epoch_end(&record) {
+                stop_training = true;
+            }
         }
         pb.inc(1);
+        if stop_training {
+            break;
+        }
 
         let mut should_save = false;
         if avg_f1 > best_f1 {
@@ -214,6 +245,10 @@ pub fn run(
                 eprintln!("Failed to save checkpoint: {e}");
             }
         }
+    }
+
+    for cb in callbacks.iter_mut() {
+        cb.on_train_end();
     }
 
     pb.finish_with_message("training done");
