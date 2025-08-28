@@ -58,6 +58,7 @@ where
     let mut lam = None;
     let mut max_depth = None;
     let mut rollout_steps = None;
+    let mut dataset = None;
     let mut config_path = None;
     let mut positional = Vec::new();
 
@@ -144,6 +145,11 @@ where
                     rollout_steps = v.parse().ok();
                 }
             }
+            "--dataset" => {
+                if let Some(v) = args.next() {
+                    dataset = Some(v);
+                }
+            }
             "--config" => {
                 if let Some(v) = args.next() {
                     config_path = Some(v);
@@ -190,6 +196,9 @@ where
     }
     if let Some(r) = rollout_steps {
         config.rollout_steps = r;
+    }
+    if let Some(d) = dataset {
+        config.dataset = d;
     }
 
     (
