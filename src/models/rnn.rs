@@ -1,5 +1,6 @@
 use crate::layers::{LinearT, LSTM, GRU};
 use crate::math::Matrix;
+use crate::model::Model;
 use crate::tensor::Tensor;
 
 /// Reusable RNN encoder/decoder built from an LSTM or GRU cell.
@@ -120,4 +121,16 @@ impl RNN {
         params.extend(self.fc.parameters());
         params
     }
+}
+
+/// Build a generic RNN architecture as a [`Model`] graph.
+/// `cell` should describe the recurrent cell used (e.g. "LSTM" or "GRU").
+pub fn rnn_model(cell: &str) -> Model {
+    let mut m = Model::new();
+    let input = m.add("input_seq");
+    let cell_node = m.add(format!("{}", cell));
+    let fc = m.add("fc");
+    m.connect(input, cell_node);
+    m.connect(cell_node, fc);
+    m
 }

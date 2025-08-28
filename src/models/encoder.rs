@@ -2,6 +2,7 @@ use crate::layers::{
     Activation, EmbeddingT, FeedForwardT, Layer, LinearT, MixtureOfExpertsT, MultiHeadAttentionT,
 };
 use crate::math::Matrix;
+use crate::model::Model;
 use crate::positional::positional_encoding;
 use crate::tensor::Tensor;
 
@@ -174,4 +175,23 @@ impl EncoderT {
         }
         params
     }
+}
+
+/// Build an encoder architecture as a [`Model`] graph. The returned
+/// model contains an input embedding followed by `n` attention +
+/// feed-forward blocks connected sequentially.
+pub fn encoder_model(n: usize) -> Model {
+    let mut m = Model::new();
+    let input = m.add("input");
+    let embedding = m.add("embedding");
+    m.connect(input, embedding);
+    let mut prev = embedding;
+    for i in 0..n {
+        let attn = m.add(format!("attn{}", i));
+        let ff = m.add(format!("ff{}", i));
+        m.connect(prev, attn);
+        m.connect(attn, ff);
+        prev = ff;
+    }
+    m
 }

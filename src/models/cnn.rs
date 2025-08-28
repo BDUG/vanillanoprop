@@ -1,4 +1,5 @@
 use crate::math::{self, Matrix};
+use crate::model::Model;
 use crate::rng::rng_from_env;
 use rand::Rng;
 
@@ -88,4 +89,20 @@ impl SimpleCNN {
     pub fn parameters_mut(&mut self) -> (&mut Matrix, &mut Vec<f32>) {
         (&mut self.fc, &mut self.bias)
     }
+}
+
+/// Build the `SimpleCNN` architecture as a [`Model`] graph that can be
+/// programmatically composed.
+pub fn simple_cnn_model(num_classes: usize) -> Model {
+    let mut m = Model::new();
+    let input = m.add("input");
+    let conv = m.add("conv3x3");
+    let relu = m.add("relu");
+    let flatten = m.add("flatten");
+    let fc = m.add(format!("fc{}", num_classes));
+    m.connect(input, conv);
+    m.connect(conv, relu);
+    m.connect(relu, flatten);
+    m.connect(flatten, fc);
+    m
 }

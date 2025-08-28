@@ -6,11 +6,11 @@ pub mod vae;
 pub mod resnet;
 pub mod rnn;
 
-pub use encoder::{EncoderLayerT, EncoderT};
-pub use decoder::{DecoderLayerT, DecoderT};
-pub use cnn::SimpleCNN;
-pub use large_concept::LargeConceptModel;
-pub use vae::VAE;
-pub use resnet::ResNet;
-pub use rnn::RNN;
+pub use encoder::{encoder_model, EncoderLayerT, EncoderT};
+pub use decoder::{decoder_model, DecoderLayerT, DecoderT};
+pub use cnn::{simple_cnn_model, SimpleCNN};
+pub use large_concept::{large_concept_model, LargeConceptModel};
+pub use vae::{vae_model, VAE};
+pub use resnet::{resnet_model, ResNet};
+pub use rnn::{rnn_model, RNN};
 

@@ -1,4 +1,5 @@
 use crate::math::{self, Matrix};
+use crate::model::Model;
 use crate::rng::rng_from_env;
 use rand::Rng;
 
@@ -114,4 +115,18 @@ impl LargeConceptModel {
     pub fn parameters_mut(&mut self) -> (&mut Matrix, &mut Vec<f32>, &mut Matrix, &mut Vec<f32>) {
         (&mut self.w1, &mut self.b1, &mut self.w2, &mut self.b2)
     }
+}
+
+/// Build the "Large Concept" network as a [`Model`] graph with an input
+/// layer, a hidden ReLU layer and a final linear classification layer.
+pub fn large_concept_model(input_dim: usize, hidden_dim: usize, num_classes: usize) -> Model {
+    let mut m = Model::new();
+    let input = m.add(format!("input{}", input_dim));
+    let fc1 = m.add(format!("linear{}", hidden_dim));
+    let relu = m.add("relu");
+    let fc2 = m.add(format!("linear{}", num_classes));
+    m.connect(input, fc1);
+    m.connect(fc1, relu);
+    m.connect(relu, fc2);
+    m
 }

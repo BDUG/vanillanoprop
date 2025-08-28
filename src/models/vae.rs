@@ -1,6 +1,7 @@
 use crate::layers::linear::LinearT;
 use crate::layers::{relu, sigmoid};
 use crate::math::Matrix;
+use crate::model::Model;
 use crate::rng::rng_from_env;
 use rand_distr::{Distribution, StandardNormal};
 
@@ -130,4 +131,26 @@ impl VAE {
             &mut self.dec_fc2,
         ]
     }
+}
+
+/// Build a Variational Autoencoder architecture as a [`Model`] graph.
+/// The graph captures the encoder, latent sampling and decoder
+/// components of the VAE.
+pub fn vae_model() -> Model {
+    let mut m = Model::new();
+    let input = m.add("input");
+    let enc_fc1 = m.add("enc_fc1");
+    let enc_mu = m.add("enc_mu");
+    let enc_logvar = m.add("enc_logvar");
+    let latent = m.add("latent");
+    let dec_fc1 = m.add("dec_fc1");
+    let dec_fc2 = m.add("dec_fc2");
+    m.connect(input, enc_fc1);
+    m.connect(enc_fc1, enc_mu);
+    m.connect(enc_fc1, enc_logvar);
+    m.connect(enc_mu, latent);
+    m.connect(enc_logvar, latent);
+    m.connect(latent, dec_fc1);
+    m.connect(dec_fc1, dec_fc2);
+    m
 }

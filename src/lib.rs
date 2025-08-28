@@ -7,6 +7,7 @@ pub mod logging;
 pub mod math;
 pub mod memory;
 pub mod metrics;
+pub mod model;
 pub mod models;
 pub mod optim;
 pub mod positional;
