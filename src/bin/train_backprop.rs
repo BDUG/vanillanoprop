@@ -3,7 +3,7 @@ use std::env;
 use indicatif::ProgressBar;
 use vanillanoprop::config::Config;
 use vanillanoprop::data::load_batches;
-use vanillanoprop::layers::Activation;
+use vanillanoprop::layers::{Activation, LinearT};
 use vanillanoprop::logging::{Callback, Logger, MetricRecord};
 use vanillanoprop::math::{self, Matrix};
 use vanillanoprop::memory;
@@ -11,7 +11,6 @@ use vanillanoprop::model::Model;
 use vanillanoprop::models::{DecoderT, EncoderT};
 use vanillanoprop::optim::{Adam, MseLoss, SGD};
 use vanillanoprop::train_cnn;
-use vanillanoprop::weights::save_model;
 
 mod common;
 
@@ -22,7 +21,7 @@ fn main() {
         moe,
         num_experts,
         lr_cfg,
-        _resume,
+        resume,
         _save_every,
         _ckpt_dir,
         log_dir,
@@ -45,7 +44,7 @@ fn main() {
             Vec::<Box<dyn Callback>>::new(),
         );
     } else {
-        run(&opt, moe, num_experts, log_dir, experiment, &config);
+        run(&opt, moe, num_experts, log_dir, experiment, &config, resume);
     }
 }
 
@@ -58,6 +57,7 @@ fn run(
     log_dir: Option<String>,
     experiment: Option<String>,
     config: &Config,
+    resume: Option<String>,
 ) {
     let batches = load_batches(config.batch_size);
     let vocab_size = 256;
@@ -87,7 +87,25 @@ fn run(
     let beta2 = 0.999;
     let eps = 1e-8;
     let weight_decay = 0.0;
-    let mut trainer = Model::new();
+    let mut trainer = if let Some(path) = resume.as_deref() {
+        let mut params = encoder.parameters();
+        {
+            let dec_params = decoder.parameters();
+            params.extend(dec_params);
+        }
+        match Model::load(path, &mut params) {
+            Ok(m) => {
+                println!("Resumed model from {path}");
+                m
+            }
+            Err(e) => {
+                eprintln!("Failed to load model {path}: {e}");
+                Model::new()
+            }
+        }
+    } else {
+        Model::new()
+    };
     if opt == "sgd" {
         trainer.compile(SGD::new(lr, weight_decay), MseLoss::new());
     } else {
@@ -176,7 +194,13 @@ fn run(
         if avg_f1 > best_f1 {
             println!("Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}");
             best_f1 = avg_f1;
-            if let Err(e) = save_model("checkpoint.json", &mut encoder, Some(&mut decoder)) {
+            let mut params = encoder.parameters();
+            {
+                let dec_params = decoder.parameters();
+                params.extend(dec_params);
+            }
+            let param_refs: Vec<&LinearT> = params.iter().map(|p| &**p).collect();
+            if let Err(e) = trainer.save("checkpoint.bin", &param_refs) {
                 eprintln!("Failed to save checkpoint: {e}");
             }
         }
@@ -191,7 +215,13 @@ fn run(
     );
 
     // Save trained weights
-    if let Err(e) = save_model("model.json", &mut encoder, Some(&mut decoder)) {
+    let mut params = encoder.parameters();
+    {
+        let dec_params = decoder.parameters();
+        params.extend(dec_params);
+    }
+    let param_refs: Vec<&LinearT> = params.iter().map(|p| &**p).collect();
+    if let Err(e) = trainer.save("model.bin", &param_refs) {
         eprintln!("Failed to save model: {e}");
     }
 }
