@@ -1,7 +1,8 @@
 use vanillanoprop::data::load_pairs;
 use vanillanoprop::math::{kl_divergence, mse_loss, Matrix};
+use vanillanoprop::model::Model;
 use vanillanoprop::models::VAE;
-use vanillanoprop::optim::Adam;
+use vanillanoprop::optim::{Adam, MseLoss};
 use vanillanoprop::weights::save_vae;
 
 fn main() {
@@ -10,7 +11,8 @@ fn main() {
     let hidden_dim = 400;
     let latent_dim = 20;
     let mut vae = VAE::new(input_dim, hidden_dim, latent_dim);
-    let mut adam = Adam::new(0.001, 0.9, 0.999, 1e-8, 0.0);
+    let mut trainer = Model::new();
+    trainer.compile(Adam::new(0.001, 0.9, 0.999, 1e-8, 0.0), MseLoss::new());
 
     for epoch in 0..3 {
         let mut total = 0.0f32;
@@ -23,7 +25,7 @@ fn main() {
             vae.zero_grad();
             vae.backward(&grad_recon, &grad_mu_kl, &grad_logvar_kl);
             let mut params = vae.parameters();
-            adam.step(&mut params);
+            trainer.fit(&mut params);
             total += recon_loss + kl_loss;
         }
         println!("epoch {epoch} loss {:.4}", total / pairs.len() as f32);
