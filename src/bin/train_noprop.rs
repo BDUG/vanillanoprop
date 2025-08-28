@@ -7,7 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use vanillanoprop::config::Config;
 use vanillanoprop::data::load_batches;
 use vanillanoprop::layers::Activation;
-use vanillanoprop::logging::{Logger, MetricRecord};
+use vanillanoprop::logging::{Callback, Logger, MetricRecord};
 use vanillanoprop::math::{self, Matrix};
 use vanillanoprop::memory;
 use vanillanoprop::model::Model;
@@ -51,6 +51,7 @@ fn main() {
             log_dir,
             experiment,
             &config,
+            Vec::<Box<dyn Callback>>::new(),
         );
     } else {
         run(
