@@ -95,3 +95,27 @@ cargo run --example load_config
 ```
 
 Loads training parameters from `lcm_config.toml` and falls back to defaults if the file is not found.
+
+### MNIST CNN
+
+```bash
+cargo run --example mnist_cnn
+```
+
+Trains a simple convolutional network on the MNIST digits using the dataset utilities.
+
+### RNN text classification
+
+```bash
+cargo run --example text_rnn
+```
+
+Shows how to build a tiny LSTM classifier on a toy text dataset.
+
+### Autoencoder
+
+```bash
+cargo run --example autoencoder
+```
+
+Runs a small variational autoencoder to reconstruct MNIST images.
