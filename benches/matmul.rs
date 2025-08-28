@@ -1,5 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::Rng;
+#[cfg(all(target_arch = "aarch64", feature = "kai"))]
+use vanillanoprop::device::KaiDevice;
 use vanillanoprop::math::Matrix;
 
 fn matmul_naive(a: &Matrix, b: &Matrix) -> Matrix {
@@ -36,6 +38,15 @@ fn bench_matmul(c: &mut Criterion) {
     c.bench_function("matmul_blocked", |bencher| {
         bencher.iter(|| {
             let res = Matrix::matmul(black_box(&a), black_box(&b));
+            black_box(res);
+        });
+    });
+
+    #[cfg(all(target_arch = "aarch64", feature = "kai"))]
+    c.bench_function("matmul_kai", |bencher| {
+        let device = KaiDevice;
+        bencher.iter(|| {
+            let res = Matrix::matmul_with(black_box(&a), black_box(&b), &device);
             black_box(res);
         });
     });
