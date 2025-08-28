@@ -1,6 +1,7 @@
 use crate::math::Matrix;
 use crate::models::{DecoderT, EncoderT, LargeConceptModel, SimpleCNN, RNN, VAE};
 use crate::tensor::Tensor;
+use crate::layers::LinearT;
 use serde::{Deserialize, Serialize};
 use std::{fs, io};
 
@@ -60,6 +61,45 @@ pub fn vec2_to_matrix(rows: &[Vec<f32>]) -> Matrix {
         }
     }
     mat
+}
+
+#[derive(Serialize, Deserialize)]
+struct WeightsBin {
+    weights: Vec<Vec<Vec<f32>>>,
+}
+
+/// Save a list of layer weights to a binary file using `bincode`.
+///
+/// The provided `params` should reference the `LinearT` layers whose weight
+/// matrices will be serialised.  Only the raw weight matrices are persisted; any
+/// optimiser state is ignored.
+pub fn save_weights(path: &str, params: &[&LinearT]) -> Result<(), io::Error> {
+    let weights: Vec<Vec<Vec<f32>>> =
+        params.iter().map(|p| tensor_to_vec2(&p.w)).collect();
+    let bin = bincode::serialize(&WeightsBin { weights })
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    if let Some(parent) = std::path::Path::new(path).parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, bin)?;
+    println!("Saved weights to {}", path);
+    Ok(())
+}
+
+/// Load layer weights previously saved with [`save_weights`].
+///
+/// The loaded weights are copied into the provided `params` in order.  Any
+/// mismatch in number of parameters or matrix shapes will simply truncate to
+/// the smaller dimensions.
+pub fn load_weights(path: &str, params: &mut [&mut LinearT]) -> Result<(), io::Error> {
+    let bin = fs::read(path)?;
+    let wb: WeightsBin =
+        bincode::deserialize(&bin).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    for (p, w) in params.iter_mut().zip(wb.weights.iter()) {
+        p.w = Tensor::from_matrix(vec2_to_matrix(w));
+    }
+    println!("Loaded weights from {}", path);
+    Ok(())
 }
 
 pub fn save_model(
