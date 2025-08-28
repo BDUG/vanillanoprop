@@ -2,6 +2,7 @@ use crate::layers::{
     Activation, EmbeddingT, FeedForwardT, Layer, LinearT, MixtureOfExpertsT, MultiHeadAttentionT,
 };
 use crate::math::Matrix;
+use crate::model::Model;
 use crate::tensor::Tensor;
 
 pub struct DecoderLayerT {
@@ -192,4 +193,29 @@ impl DecoderT {
         }
         params
     }
+}
+
+/// Build a decoder architecture as a [`Model`] graph. The model contains an
+/// input embedding followed by `n` decoder blocks with self-attention,
+/// encoder-decoder attention and feed-forward layers.
+pub fn decoder_model(n: usize) -> Model {
+    let mut m = Model::new();
+    let input = m.add("input");
+    let embedding = m.add("embedding");
+    m.connect(input, embedding);
+    let enc_ctx = m.add("encoder_ctx");
+    let mut prev = embedding;
+    for i in 0..n {
+        let self_attn = m.add(format!("self_attn{}", i));
+        let cross_attn = m.add(format!("cross_attn{}", i));
+        let ff = m.add(format!("ff{}", i));
+        m.connect(prev, self_attn);
+        m.connect(self_attn, cross_attn);
+        m.connect(enc_ctx, cross_attn);
+        m.connect(cross_attn, ff);
+        prev = ff;
+    }
+    let proj = m.add("proj");
+    m.connect(prev, proj);
+    m
 }

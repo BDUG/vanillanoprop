@@ -1,4 +1,5 @@
 use crate::math::{self, Matrix};
+use crate::model::Model;
 use crate::rng::rng_from_env;
 use rand::Rng;
 
@@ -138,5 +139,28 @@ impl ResNet {
     pub fn parameters_mut(&mut self) -> (&mut Matrix, &mut Vec<f32>) {
         (&mut self.fc, &mut self.bias)
     }
+}
+
+/// Build a small ResNet-like architecture as a [`Model`] graph.
+/// The graph contains an input projection, a configurable number of
+/// residual blocks and a final linear layer.
+pub fn resnet_model(num_blocks: usize) -> Model {
+    let mut m = Model::new();
+    let input = m.add("input");
+    let proj = m.add("input_proj");
+    m.connect(input, proj);
+    let mut prev = proj;
+    for i in 0..num_blocks {
+        let l1 = m.add(format!("block{}_lin1", i));
+        let l2 = m.add(format!("block{}_lin2", i));
+        m.connect(prev, l1);
+        m.connect(l1, l2);
+        // residual connection
+        m.connect(prev, l2);
+        prev = l2;
+    }
+    let fc = m.add("fc");
+    m.connect(prev, fc);
+    m
 }
 
