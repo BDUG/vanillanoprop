@@ -5,6 +5,7 @@ pub mod large_concept;
 pub mod vae;
 pub mod resnet;
 pub mod rnn;
+pub mod sequential;
 
 pub use encoder::{encoder_model, EncoderLayerT, EncoderT};
 pub use decoder::{decoder_model, DecoderLayerT, DecoderT};
@@ -13,4 +14,5 @@ pub use large_concept::{large_concept_model, LargeConceptModel};
 pub use vae::{vae_model, VAE};
 pub use resnet::{resnet_model, ResNet};
 pub use rnn::{rnn_model, RNN};
+pub use sequential::Sequential;
 
