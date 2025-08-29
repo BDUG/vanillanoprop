@@ -42,11 +42,19 @@ Typical training commands:
 
 The `--moe` flag enables mixture-of-experts layers and `--num-experts` sets how many experts to use.
 
+### AutoML
+
+Enable random search over hyperparameters with `--auto-ml` and a config file:
+
+```bash
+./run.sh train-noprop --auto-ml --config config.toml
+```
+
+See [AutoML](docs/introduction.md#automl) for more details. ([example](docs/examples/automl.md))
+
 ### Fine-tuning
 
-Existing checkpoints from the Hugging Face Hub can be used to initialise a
-model for further training. Supply a model identifier with `--fine-tune` and
-optionally freeze layers by index via `--freeze-layers`:
+Use `--fine-tune <MODEL_ID>` to initialise from a Hugging Face checkpoint and optionally `--freeze-layers <IDX,IDX>` to keep parameters fixed:
 
 ```bash
 ./run.sh train-backprop --fine-tune bert-base-uncased --freeze-layers 0,1,2
@@ -55,6 +63,7 @@ optionally freeze layers by index via `--freeze-layers`:
 The example above downloads the `bert-base-uncased` weights, loads them into
 the Transformer and updates all parameters except the first three layers.
 
+See [Fine-tuning](docs/introduction.md#fine-tuning) for more details. ([example](docs/examples/fine_tuning.md))
 ### ONNX export
 
 Training binaries accept an optional `--export-onnx <FILE>` flag. When
@@ -62,11 +71,13 @@ provided, the trained weights are exported to an ONNX model after
 training completes. Only a small subset of layers is supported (linear
 and convolution) and the generated model targets opset 13.
 
+See [ONNX export](docs/introduction.md#onnx-export) for details on the flag. ([example](docs/examples/onnx_export.md))
+
 ## Tree Policy Optimization (TreePO)
 
 TreePO combines tree-based planning with policy optimisation to update actions using advantages estimated from a search tree. See the [Tree Policy Optimization paper](https://arxiv.org/abs/2506.03736) for details.
 
-Run a training session with a configuration file:
+Run a training session with the `train-treepo` command and a required `--config <FILE>` flag:
 
 ```bash
 ./run.sh train-treepo --config treepo_config.toml
@@ -89,6 +100,8 @@ Episode 1 complete
 Episode 2 complete
 ...
 ```
+
+See [TreePO](docs/introduction.md#treepo) for more details. ([example](docs/examples/treepo.md))
 
 ## Configuration
 
@@ -116,21 +129,21 @@ Or override specific settings from the command line:
 
 The `examples` directory contains small programs that showcase core features of the framework.
 
-- **Mixture of Experts** – `cargo run --example mixture_of_experts`
+- **Mixture of Experts** – `cargo run --example mixture_of_experts` ([walkthrough](docs/examples/mixture_of_experts.md))
   Builds a tiny mixture‑of‑experts network and prints gating probabilities.
 
-- **Loading configuration** – `cargo run --example load_config`
+- **Loading configuration** – `cargo run --example load_config` ([walkthrough](docs/examples/load_config.md))
   Loads training parameters from `lcm_config.toml` and falls back to defaults if the file is not found.
 
-- **MNIST CNN** – `cargo run --example mnist_cnn`
+- **MNIST CNN** – `cargo run --example mnist_cnn` ([walkthrough](docs/examples/mnist_cnn.md))
   Trains a simple convolutional network on the MNIST digits.
 
-- **RNN text classification** – `cargo run --example text_rnn`
+- **RNN text classification** – `cargo run --example text_rnn` ([walkthrough](docs/examples/text_rnn.md))
   Shows how to build a tiny LSTM classifier on a toy text dataset.
 
-- **Autoencoder** – `cargo run --example autoencoder`
+- **Autoencoder** – `cargo run --example autoencoder` ([walkthrough](docs/examples/autoencoder.md))
   Runs a small variational autoencoder to reconstruct MNIST images.
-- **Hugging Face Transformer** – `cargo run --example hf_transformer`
+- **Hugging Face Transformer** – `cargo run --example hf_transformer` ([walkthrough](docs/examples/hf_transformer.md))
   Downloads a tiny BERT model and runs a dummy inference to verify tensor shapes.
 
 ## Hugging Face models
