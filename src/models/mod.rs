@@ -16,7 +16,7 @@ pub use encoder::{encoder_model, EncoderLayerT, EncoderT};
 pub use gan::{Discriminator, Generator, GAN};
 pub use large_concept::{large_concept_model, LargeConceptModel};
 pub use resnet::{resnet_model, ResNet};
-pub use rnn::{rnn_model, RNN};
+pub use rnn::{rnn_model, RnnCell, RNN};
 pub use sequential::Sequential;
 pub use transformer::{TransformerEncoder, TransformerEncoderLayer};
 pub use vae::{vae_model, VAE};

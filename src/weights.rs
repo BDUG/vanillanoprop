@@ -1,5 +1,5 @@
 use crate::export::onnx::export_to_onnx;
-use crate::layers::{LayerNorm, LinearT};
+use crate::layers::{Layer, LayerNorm, LinearT, MixtureOfExpertsT};
 use crate::math::Matrix;
 use crate::models::{
     DecoderT, EncoderT, LargeConceptModel, Sequential, SimpleCNN, TransformerEncoder, RNN, VAE,
@@ -35,6 +35,12 @@ pub struct LcmJson {
 #[derive(Serialize, Deserialize)]
 pub struct RnnJson {
     pub params: Vec<Vec<Vec<f32>>>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MoeJson {
+    pub gate: Vec<Vec<f32>>,
+    pub experts: Vec<Vec<Vec<f32>>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -204,6 +210,48 @@ pub fn load_cnn(path: &str, num_classes: usize) -> Result<SimpleCNN, io::Error> 
     }
     println!("Loaded CNN weights from {}", path);
     Ok(cnn)
+}
+
+pub fn save_moe(path: &str, moe: &mut MixtureOfExpertsT) -> Result<(), io::Error> {
+    let gate = tensor_to_vec2(&moe.gate.w);
+    let mut experts_w = Vec::new();
+    for exp in moe.experts.iter_mut() {
+        let params = exp.parameters();
+        if let Some(p) = params.first() {
+            experts_w.push(tensor_to_vec2(&p.w));
+        }
+    }
+    let json = MoeJson { gate, experts: experts_w };
+    let txt = serde_json::to_string(&json).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    fs::write(path, txt)?;
+    println!("Saved MoE weights to {}", path);
+    Ok(())
+}
+
+pub fn load_moe(
+    path: &str,
+    input_dim: usize,
+    output_dim: usize,
+    num_experts: usize,
+) -> Result<MixtureOfExpertsT, io::Error> {
+    let txt = fs::read_to_string(path)?;
+    let json: MoeJson = serde_json::from_str(&txt)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let experts: Vec<Box<dyn Layer>> = (0..num_experts)
+        .map(|_| Box::new(LinearT::new(input_dim, output_dim)) as Box<dyn Layer>)
+        .collect();
+    let mut moe = MixtureOfExpertsT::new(input_dim, experts, 1);
+    if !json.gate.is_empty() {
+        moe.gate.w = Tensor::from_matrix(vec2_to_matrix(&json.gate));
+    }
+    for (exp, data) in moe.experts.iter_mut().zip(json.experts.iter()) {
+        let mut params = exp.parameters();
+        if let Some(p) = params.first_mut() {
+            p.w = Tensor::from_matrix(vec2_to_matrix(data));
+        }
+    }
+    println!("Loaded MoE weights from {}", path);
+    Ok(moe)
 }
 
 /// Export a [`Sequential`] model to an ONNX file.

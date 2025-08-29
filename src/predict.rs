@@ -1,9 +1,9 @@
 use crate::data::load_pairs;
-use crate::layers::Activation;
+use crate::layers::{Activation, LinearT, MixtureOfExpertsT, Layer};
 use crate::math::{self, Matrix};
-use crate::models::{DecoderT, EncoderT, LargeConceptModel, RNN, SimpleCNN};
+use crate::models::{DecoderT, EncoderT, LargeConceptModel, RNN, SimpleCNN, RnnCell};
 use crate::tensor::Tensor;
-use crate::weights::{load_cnn, load_lcm, load_model, load_rnn};
+use crate::weights::{load_cnn, load_lcm, load_model, load_rnn, load_moe};
 use rand::{thread_rng, Rng};
 
 fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
@@ -85,8 +85,36 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                     LargeConceptModel::new(28 * 28, 128, 64, 10)
                 }
             };
-            let pred = model.predict(src);
-            println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
+            if moe {
+                let n = num_experts.max(1);
+                let moe_layer = match load_moe("moe.json", 64, 10, n) {
+                    Ok(m) => m,
+                    Err(e) => {
+                        eprintln!("Using random MoE weights; failed to load moe.json: {e}");
+                        let experts: Vec<Box<dyn Layer>> = (0..n)
+                            .map(|_| Box::new(LinearT::new(64, 10)) as Box<dyn Layer>)
+                            .collect();
+                        MixtureOfExpertsT::new(64, experts, 1)
+                    }
+                };
+                let (feat, _logits) = model.forward(src);
+                let feat_m = Matrix::from_vec(1, feat.len(), feat);
+                let logits = moe_layer.forward(&Tensor::from_matrix(feat_m));
+                let probs = Tensor::softmax(&logits);
+                let mut best_tok = 0usize;
+                let mut best_val = f32::NEG_INFINITY;
+                for t in 0..probs.data.cols {
+                    let p = probs.data.get(0, t);
+                    if p > best_val {
+                        best_val = p;
+                        best_tok = t;
+                    }
+                }
+                println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+            } else {
+                let pred = model.predict(src);
+                println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
+            }
         }
         "rnn" => {
             let vocab_size = 256;
@@ -100,18 +128,53 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                 }
             };
             let enc_x = to_matrix(src, vocab_size);
-            let logits = model.forward(&Tensor::from_matrix(enc_x));
-            let probs = Tensor::softmax(&logits);
-            let mut best_tok = 0usize;
-            let mut best_val = f32::NEG_INFINITY;
-            for t in 0..probs.data.cols {
-                let p = probs.data.get(0, t);
-                if p > best_val {
-                    best_val = p;
-                    best_tok = t;
+            if moe {
+                let n = num_experts.max(1);
+                let moe_layer = match load_moe("moe.json", hidden_dim, num_classes, n) {
+                    Ok(m) => m,
+                    Err(e) => {
+                        eprintln!("Using random MoE weights; failed to load moe.json: {e}");
+                        let experts: Vec<Box<dyn Layer>> = (0..n)
+                            .map(|_| Box::new(LinearT::new(hidden_dim, num_classes)) as Box<dyn Layer>)
+                            .collect();
+                        MixtureOfExpertsT::new(hidden_dim, experts, 1)
+                    }
+                };
+                let h = match &model.cell {
+                    RnnCell::LSTM(l) => l.forward(&Tensor::from_matrix(enc_x.clone())),
+                    RnnCell::GRU(g) => g.forward(&Tensor::from_matrix(enc_x.clone())),
+                };
+                let last_row = h.data.rows - 1;
+                let mut last = Matrix::zeros(1, h.data.cols);
+                for c in 0..h.data.cols {
+                    last.set(0, c, h.data.get(last_row, c));
                 }
+                let logits = moe_layer.forward(&Tensor::from_matrix(last));
+                let probs = Tensor::softmax(&logits);
+                let mut best_tok = 0usize;
+                let mut best_val = f32::NEG_INFINITY;
+                for t in 0..probs.data.cols {
+                    let p = probs.data.get(0, t);
+                    if p > best_val {
+                        best_val = p;
+                        best_tok = t;
+                    }
+                }
+                println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+            } else {
+                let logits = model.forward(&Tensor::from_matrix(enc_x));
+                let probs = Tensor::softmax(&logits);
+                let mut best_tok = 0usize;
+                let mut best_val = f32::NEG_INFINITY;
+                for t in 0..probs.data.cols {
+                    let p = probs.data.get(0, t);
+                    if p > best_val {
+                        best_val = p;
+                        best_tok = t;
+                    }
+                }
+                println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
             }
-            println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
         }
         _ => {
             // default CNN
@@ -122,8 +185,36 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                     SimpleCNN::new(10)
                 }
             };
-            let pred = cnn.predict(src);
-            println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
+            if moe {
+                let n = num_experts.max(1);
+                let moe_layer = match load_moe("moe.json", 28 * 28, 10, n) {
+                    Ok(m) => m,
+                    Err(e) => {
+                        eprintln!("Using random MoE weights; failed to load moe.json: {e}");
+                        let experts: Vec<Box<dyn Layer>> = (0..n)
+                            .map(|_| Box::new(LinearT::new(28 * 28, 10)) as Box<dyn Layer>)
+                            .collect();
+                        MixtureOfExpertsT::new(28 * 28, experts, 1)
+                    }
+                };
+                let (feat, _logits) = cnn.forward(src);
+                let feat_m = Matrix::from_vec(1, feat.len(), feat);
+                let logits = moe_layer.forward(&Tensor::from_matrix(feat_m));
+                let probs = Tensor::softmax(&logits);
+                let mut best_tok = 0usize;
+                let mut best_val = f32::NEG_INFINITY;
+                for t in 0..probs.data.cols {
+                    let p = probs.data.get(0, t);
+                    if p > best_val {
+                        best_val = p;
+                        best_tok = t;
+                    }
+                }
+                println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+            } else {
+                let pred = cnn.predict(src);
+                println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
+            }
         }
     }
 }

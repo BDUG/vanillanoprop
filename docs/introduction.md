@@ -16,6 +16,14 @@ let mut moe = MixtureOfExpertsT::new(4, experts, 1);
 
 The gating mechanism selects which expert should process each input, enabling sparse routing and efficient scaling.
 
+Weights for a mixture-of-experts layer can be persisted and later reloaded:
+
+```rust
+use vanillanoprop::weights::{save_moe, load_moe};
+save_moe("moe.json", &mut moe)?;
+let restored = load_moe("moe.json", 4, 8, 3)?;
+```
+
 ## Training
 
 The following snippet trains a recurrent neural network for text classification:
