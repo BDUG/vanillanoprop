@@ -509,7 +509,12 @@ pub fn tensor_add(a: &Tensor, b: &Tensor) -> Tensor {
     Tensor { data, shape }
 }
 
-/// Multiply two rank-2 tensors using naive matrix multiplication.
+/// Multiply two rank-2 tensors.
+///
+/// When the `matrixmultiply` feature (or another BLAS backend) is enabled the
+/// computation is delegated to [`matmul_cpu`], ensuring we benefit from any
+/// optimized routines. Otherwise a simple triple loop implementation is used
+/// with optional `rayon` parallelisation when the matrices are large enough.
 pub fn tensor_matmul(a: &Tensor, b: &Tensor) -> Tensor {
     assert_eq!(a.shape.len(), 2, "lhs must be rank 2");
     assert_eq!(b.shape.len(), 2, "rhs must be rank 2");
@@ -518,19 +523,45 @@ pub fn tensor_matmul(a: &Tensor, b: &Tensor) -> Tensor {
     let k2 = b.shape[0];
     let n = b.shape[1];
     assert_eq!(k, k2, "matmul dimension mismatch");
-    let mut out = vec![0.0; m * n];
-    for i in 0..m {
-        for j in 0..n {
-            let mut sum = 0.0;
-            for p in 0..k {
-                sum += a.data[i * k + p] * b.data[p * n + j];
-            }
-            out[i * n + j] = sum;
-        }
+
+    #[cfg(feature = "matrixmultiply")]
+    {
+        let a_m = Matrix::from_vec(m, k, a.data.clone());
+        let b_m = Matrix::from_vec(k, n, b.data.clone());
+        return Tensor::from_matrix(matmul_cpu(&a_m, &b_m));
     }
-    Tensor {
-        data: out,
-        shape: vec![m, n],
+
+    #[cfg(not(feature = "matrixmultiply"))]
+    {
+        const PAR_THRESHOLD: usize = 128 * 128;
+        let mut out = vec![0.0; m * n];
+
+        if m * n > PAR_THRESHOLD {
+            out.par_chunks_mut(n).enumerate().for_each(|(i, row)| {
+                for j in 0..n {
+                    let mut sum = 0.0;
+                    for p in 0..k {
+                        sum += a.data[i * k + p] * b.data[p * n + j];
+                    }
+                    row[j] = sum;
+                }
+            });
+        } else {
+            for i in 0..m {
+                for j in 0..n {
+                    let mut sum = 0.0;
+                    for p in 0..k {
+                        sum += a.data[i * k + p] * b.data[p * n + j];
+                    }
+                    out[i * n + j] = sum;
+                }
+            }
+        }
+
+        Tensor {
+            data: out,
+            shape: vec![m, n],
+        }
     }
 }
 
