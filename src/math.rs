@@ -1,4 +1,5 @@
 use crate::device::{Cpu, Device};
+use crate::tensor::Tensor;
 use nalgebra::DMatrix;
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -475,3 +476,134 @@ pub fn kl_divergence(mu: &Matrix, logvar: &Matrix) -> (f32, Matrix, Matrix) {
     }
     (loss, grad_mu, grad_lv)
 }
+
+// ---------------------------------------------------------------------------
+// Tensor based routines
+// ---------------------------------------------------------------------------
+
+/// Determine the broadcasted shape of two tensors following NumPy rules.
+fn broadcast_shape(a: &[usize], b: &[usize]) -> Vec<usize> {
+    let rank = a.len().max(b.len());
+    let mut shape = Vec::with_capacity(rank);
+    for i in 0..rank {
+        let ad = *a.get(a.len().wrapping_sub(1).saturating_sub(i)).unwrap_or(&1);
+        let bd = *b.get(b.len().wrapping_sub(1).saturating_sub(i)).unwrap_or(&1);
+        assert!(ad == bd || ad == 1 || bd == 1, "incompatible shapes");
+        shape.push(ad.max(bd));
+    }
+    shape.reverse();
+    shape
+}
+
+/// Elementwise addition supporting broadcasting.
+pub fn tensor_add(a: &Tensor, b: &Tensor) -> Tensor {
+    let shape = broadcast_shape(&a.shape, &b.shape);
+    let a_b = a.broadcast_to(&shape);
+    let b_b = b.broadcast_to(&shape);
+    let data = a_b
+        .data
+        .iter()
+        .zip(b_b.data.iter())
+        .map(|(x, y)| x + y)
+        .collect();
+    Tensor { data, shape }
+}
+
+/// Multiply two rank-2 tensors using naive matrix multiplication.
+pub fn tensor_matmul(a: &Tensor, b: &Tensor) -> Tensor {
+    assert_eq!(a.shape.len(), 2, "lhs must be rank 2");
+    assert_eq!(b.shape.len(), 2, "rhs must be rank 2");
+    let m = a.shape[0];
+    let k = a.shape[1];
+    let k2 = b.shape[0];
+    let n = b.shape[1];
+    assert_eq!(k, k2, "matmul dimension mismatch");
+    let mut out = vec![0.0; m * n];
+    for i in 0..m {
+        for j in 0..n {
+            let mut sum = 0.0;
+            for p in 0..k {
+                sum += a.data[i * k + p] * b.data[p * n + j];
+            }
+            out[i * n + j] = sum;
+        }
+    }
+    Tensor {
+        data: out,
+        shape: vec![m, n],
+    }
+}
+
+/// Transpose a rank-2 tensor.
+pub fn tensor_transpose(t: &Tensor) -> Tensor {
+    assert_eq!(t.shape.len(), 2);
+    let rows = t.shape[0];
+    let cols = t.shape[1];
+    let mut out = vec![0.0; t.data.len()];
+    for i in 0..rows {
+        for j in 0..cols {
+            out[j * rows + i] = t.data[i * cols + j];
+        }
+    }
+    Tensor {
+        data: out,
+        shape: vec![cols, rows],
+    }
+}
+
+/// Softmax along the last dimension of the tensor.
+pub fn tensor_softmax(t: &Tensor) -> Tensor {
+    let cols = *t.shape.last().unwrap();
+    let rows = t.data.len() / cols;
+    let mut out = t.data.clone();
+    for r in 0..rows {
+        let start = r * cols;
+        let slice = &t.data[start..start + cols];
+        let max = slice.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let mut sum = 0.0;
+        for j in 0..cols {
+            let e = (slice[j] - max).exp();
+            out[start + j] = e;
+            sum += e;
+        }
+        for j in 0..cols {
+            out[start + j] /= sum;
+        }
+    }
+    Tensor {
+        data: out,
+        shape: t.shape.clone(),
+    }
+}
+
+/// Compute softmax cross entropy loss and gradient w.r.t. logits.
+pub fn tensor_softmax_cross_entropy(
+    logits: &Tensor,
+    targets: &[usize],
+    row_offset: usize,
+) -> (f32, Tensor) {
+    assert_eq!(logits.shape.len(), 2);
+    let rows = logits.shape[0];
+    let cols = logits.shape[1];
+    let probs = tensor_softmax(logits);
+    let mut grad = probs.data.clone();
+    let mut loss = 0.0f32;
+    for r in 0..rows {
+        let target = targets[row_offset + r];
+        let idx = r * cols + target;
+        loss += -probs.data[idx].ln();
+        grad[idx] -= 1.0;
+    }
+    loss /= rows as f32;
+    for g in grad.iter_mut() {
+        *g /= rows as f32;
+    }
+    (
+        loss,
+        Tensor {
+            data: grad,
+            shape: logits.shape.clone(),
+        },
+    )
+}
+
