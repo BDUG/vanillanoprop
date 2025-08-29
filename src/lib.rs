@@ -6,6 +6,7 @@ pub mod ffi;
 pub mod huggingface;
 pub mod layers;
 pub mod logging;
+pub mod automl;
 pub mod math;
 pub mod memory;
 pub mod metrics;

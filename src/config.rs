@@ -25,6 +25,10 @@ pub struct Config {
     /// Number of rollout steps taken during planning.
     #[serde(default = "default_rollout_steps")]
     pub rollout_steps: usize,
+    /// Candidate learning rates for AutoML search. When multiple values are
+    /// provided the [`automl`](crate::automl) module will explore them.
+    #[serde(default = "default_learning_rates")]
+    pub learning_rate: Vec<f32>,
 }
 
 fn default_epochs() -> usize {
@@ -55,6 +59,10 @@ fn default_rollout_steps() -> usize {
     10
 }
 
+fn default_learning_rates() -> Vec<f32> {
+    vec![0.001]
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -65,6 +73,7 @@ impl Default for Config {
             lam: default_lam(),
             max_depth: default_max_depth(),
             rollout_steps: default_rollout_steps(),
+            learning_rate: default_learning_rates(),
         }
     }
 }
