@@ -2557,6 +2557,7 @@ dependencies = [
  "hf-hub",
  "indicatif",
  "libc",
+ "matrixmultiply",
  "mnist",
  "nalgebra",
  "onnx-pb",
