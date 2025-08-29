@@ -66,3 +66,60 @@ if let Err(e) = save_vae("vae.json", &vae) {
 
 Persisting models allows you to reload them later for inference or continued training.
 
+
+## AutoML
+
+```rust
+// src/bin/train_noprop.rs
+if auto_ml {
+    use vanillanoprop::automl::{random_search, SearchSpace};
+    let space = SearchSpace::from_config(&config);
+    let eval = |_cfg: Config| rand::random::<f32>();
+    let (_best_cfg, best_score) = random_search(&space, 10, eval, &mut rng, &mut logger);
+    println!("AutoML best score: {best_score:.4}");
+    return;
+}
+```
+
+Enable random search with `./run.sh train-noprop --auto-ml --config config.toml`.
+See the [AutoML example](examples/automl.md) for a full walkthrough.
+
+## Fine-tuning
+
+```rust
+// src/bin/train_noprop.rs
+let _ft = fine_tune.map(|model_id| {
+    vanillanoprop::fine_tune::run(&model_id, freeze_layers, |_, _| Ok(()))
+        .expect("fine-tune load failed")
+});
+```
+
+Initialise from a Hugging Face checkpoint using
+`./run.sh train-backprop --fine-tune bert-base-uncased`.
+Further details in the [fine-tuning example](examples/fine_tuning.md).
+
+## ONNX export
+
+```rust
+// src/bin/common.rs
+"--export-onnx" => {
+    if let Some(v) = args.next() {
+        export_onnx = Some(v);
+    }
+}
+```
+
+Training binaries accept `--export-onnx <FILE>` to write weights in the
+ONNX format. Check the [ONNX export example](examples/onnx_export.md).
+
+## TreePO
+
+```rust
+// src/rl/treepo.rs
+pub fn update_policy(/* ... */) {
+    // Tree-based policy optimisation
+}
+```
+
+Launch a TreePO run with `./run.sh train-treepo --config treepo_config.toml`.
+See the [TreePO example](examples/treepo.md) for configuration details.
