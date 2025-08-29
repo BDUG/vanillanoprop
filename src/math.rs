@@ -131,7 +131,7 @@ impl<'a> MatrixLike for MatrixView<'a> {
 
 /// CPU implementation of matrix multiplication. This is used by the default
 /// [`Cpu`](crate::device::Cpu) device but exposed for other backends to reuse.
-pub(crate) fn matmul_cpu(a: &Matrix, b: &Matrix) -> Matrix {
+pub(crate) fn matmul_cpu(a: MatrixView<'_>, b: MatrixView<'_>) -> Matrix {
     // Each output element requires a.cols multiplications and additions
     let muls = a.rows * a.cols * b.cols;
     let adds = muls;
@@ -153,11 +153,11 @@ pub(crate) fn matmul_cpu(a: &Matrix, b: &Matrix) -> Matrix {
             n,
             1.0,
             a.data.as_ptr(),
-            k_dim as isize,
-            1,
+            a.row_stride as isize,
+            a.col_stride as isize,
             b.data.as_ptr(),
-            n as isize,
-            1,
+            b.row_stride as isize,
+            b.col_stride as isize,
             0.0,
             out.as_mut_ptr(),
             n as isize,
@@ -167,42 +167,25 @@ pub(crate) fn matmul_cpu(a: &Matrix, b: &Matrix) -> Matrix {
 
     #[cfg(not(feature = "matrixmultiply"))]
     {
-        const BLOCK: usize = 32;
         const PAR_THRESHOLD: usize = 128 * 128; // Use rayon when matrix is reasonably large
 
         if m * n > PAR_THRESHOLD {
             use rayon::prelude::*;
             out.par_chunks_mut(n).enumerate().for_each(|(i, out_row)| {
-                let a_row = &a.data[i * k_dim..(i + 1) * k_dim];
-                for kk in (0..k_dim).step_by(BLOCK) {
-                    let k_end = (kk + BLOCK).min(k_dim);
-                    for k_idx in kk..k_end {
-                        let a_val = a_row[k_idx];
-                        let b_row = &b.data[k_idx * n..(k_idx + 1) * n];
-                        for jj in (0..n).step_by(BLOCK) {
-                            let j_end = (jj + BLOCK).min(n);
-                            for j in jj..j_end {
-                                out_row[j] += a_val * b_row[j];
-                            }
-                        }
+                for k_idx in 0..k_dim {
+                    let a_val = a.get(i, k_idx);
+                    for j in 0..n {
+                        out_row[j] += a_val * b.get(k_idx, j);
                     }
                 }
             });
         } else {
             for i in 0..m {
-                let a_row = &a.data[i * k_dim..(i + 1) * k_dim];
                 let out_row = &mut out[i * n..(i + 1) * n];
-                for kk in (0..k_dim).step_by(BLOCK) {
-                    let k_end = (kk + BLOCK).min(k_dim);
-                    for k_idx in kk..k_end {
-                        let a_val = a_row[k_idx];
-                        let b_row = &b.data[k_idx * n..(k_idx + 1) * n];
-                        for jj in (0..n).step_by(BLOCK) {
-                            let j_end = (jj + BLOCK).min(n);
-                            for j in jj..j_end {
-                                out_row[j] += a_val * b_row[j];
-                            }
-                        }
+                for k_idx in 0..k_dim {
+                    let a_val = a.get(i, k_idx);
+                    for j in 0..n {
+                        out_row[j] += a_val * b.get(k_idx, j);
                     }
                 }
             }
@@ -292,6 +275,31 @@ impl Matrix {
             rows: r,
             cols: c,
             data: v,
+        }
+    }
+
+    /// Create a non-owning view over a row-major slice.
+    pub fn from_slice(rows: usize, cols: usize, data: &[f32]) -> MatrixView<'_> {
+        assert_eq!(data.len(), rows * cols);
+        MatrixView {
+            rows,
+            cols,
+            data,
+            row_stride: cols,
+            col_stride: 1,
+            offset: 0,
+        }
+    }
+
+    /// Borrow the entire matrix as a [`MatrixView`].
+    pub fn as_view(&self) -> MatrixView<'_> {
+        MatrixView {
+            rows: self.rows,
+            cols: self.cols,
+            data: &self.data,
+            row_stride: self.cols,
+            col_stride: 1,
+            offset: 0,
         }
     }
 
@@ -689,9 +697,9 @@ pub fn tensor_matmul(a: &Tensor, b: &Tensor) -> Tensor {
 
     #[cfg(feature = "matrixmultiply")]
     {
-        let a_m = Matrix::from_vec(m, k, a.data.clone());
-        let b_m = Matrix::from_vec(k, n, b.data.clone());
-        return Tensor::from_matrix(matmul_cpu(&a_m, &b_m));
+        let a_m = Matrix::from_slice(m, k, &a.data);
+        let b_m = Matrix::from_slice(k, n, &b.data);
+        return Tensor::from_matrix(matmul_cpu(a_m, b_m));
     }
 
     #[cfg(not(feature = "matrixmultiply"))]
