@@ -144,9 +144,10 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                         MixtureOfExpertsT::new(hidden_dim, experts, 1)
                     }
                 };
+                let enc_x = Tensor::from_matrix(enc_x);
                 let h = match &model.cell {
-                    RnnCell::LSTM(l) => l.forward(&Tensor::from_matrix(enc_x.clone())),
-                    RnnCell::GRU(g) => g.forward(&Tensor::from_matrix(enc_x.clone())),
+                    RnnCell::LSTM(l) => l.forward(&enc_x),
+                    RnnCell::GRU(g) => g.forward(&enc_x),
                 };
                 let last_row = h.data.rows - 1;
                 let mut last = Matrix::zeros(1, h.data.cols);
