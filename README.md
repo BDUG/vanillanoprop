@@ -48,6 +48,8 @@ Typical training commands:
 
 The `--moe` flag enables mixture-of-experts layers and `--num-experts` sets how many experts to use.
 
+When predicting with `--moe`, a corresponding `moe.json` file is read to load the gating and expert weights.
+
 ### AutoML
 
 Enable random search over hyperparameters with `--auto-ml` and a config file:
