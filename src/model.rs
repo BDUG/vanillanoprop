@@ -21,6 +21,8 @@ pub struct Model {
     pub nodes: Vec<String>,
     /// Directed edges between nodes represented by their indices.
     pub edges: Vec<(usize, usize)>,
+    /// Optional edges representing temporal flow between nodes.
+    pub flow_edges: Vec<(usize, usize)>,
     /// Optional metadata for nodes.
     pub metadata: HashMap<usize, HashMap<String, String>>,
     optimizer: Option<Box<dyn Optimizer>>, // training optimizer
@@ -32,6 +34,7 @@ impl Default for Model {
         Self {
             nodes: Vec::new(),
             edges: Vec::new(),
+            flow_edges: Vec::new(),
             metadata: HashMap::new(),
             optimizer: None,
             loss: None,
@@ -110,6 +113,17 @@ impl Model {
         self.edges.push((from, to));
     }
 
+    /// Connect two nodes with a temporal flow edge.
+    pub fn connect_flow(&mut self, from: usize, to: usize) {
+        self.flow_edges.push((from, to));
+    }
+
+    /// Annotate a node with a time attribute used for flow based models.
+    pub fn set_time(&mut self, node: usize, time: f32) {
+        let entry = self.metadata.entry(node).or_insert_with(HashMap::new);
+        entry.insert("time".into(), time.to_string());
+    }
+
     /// Persist the model architecture together with provided layer weights.
     ///
     /// The weights slice should correspond to the layers that make up this
@@ -120,6 +134,7 @@ impl Model {
         struct ModelState {
             nodes: Vec<String>,
             edges: Vec<(usize, usize)>,
+            flow_edges: Vec<(usize, usize)>,
             metadata: HashMap<usize, HashMap<String, String>>,
             weights: Vec<Vec<Vec<f32>>>,
         }
@@ -128,6 +143,7 @@ impl Model {
         let state = ModelState {
             nodes: self.nodes.clone(),
             edges: self.edges.clone(),
+            flow_edges: self.flow_edges.clone(),
             metadata: self.metadata.clone(),
             weights,
         };
@@ -151,6 +167,7 @@ impl Model {
         struct ModelState {
             nodes: Vec<String>,
             edges: Vec<(usize, usize)>,
+            flow_edges: Vec<(usize, usize)>,
             metadata: HashMap<usize, HashMap<String, String>>,
             weights: Vec<Vec<Vec<f32>>>,
         }
@@ -165,6 +182,7 @@ impl Model {
         Ok(Model {
             nodes: state.nodes,
             edges: state.edges,
+            flow_edges: state.flow_edges,
             metadata: state.metadata,
             optimizer: None,
             loss: None,

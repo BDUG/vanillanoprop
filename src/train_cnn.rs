@@ -15,6 +15,7 @@ use crate::optim::Hrm;
 use crate::weights::{
     load_checkpoint, matrix_to_vec2, save_checkpoint, save_cnn, vec2_to_matrix, CnnJson,
 };
+use crate::flow_matching::FlowModel;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -55,6 +56,7 @@ pub fn run(
     } else {
         None
     };
+    let flow_model = FlowModel::new(|_t, x: &[f32]| x.to_vec());
 
     let base_lr = 0.01f32;
     let mut hrm = Hrm::new(base_lr, 0.0);
@@ -122,14 +124,17 @@ pub fn run(
 
             for (img, tgt) in batch {
                 let (feat, logits_fc) = cnn.forward(img);
-                let (loss, grad_m, preds) = if let Some(moe) = &mut moe_layer {
+                let flow_target = vec![0.0f32; logits_fc.len()];
+                let flow_loss = flow_model.time_loss(&logits_fc, &flow_target, 0.0, 1.0, 10);
+                let (ce_loss, grad_m, preds) = if let Some(moe) = &mut moe_layer {
                     let feat_m = Matrix::from_vec(1, feat.len(), feat.clone());
                     let logits_m = moe.forward_train(&feat_m);
                     math::softmax_cross_entropy(&logits_m, &[*tgt as usize], 0)
                 } else {
-                    let logits_m = Matrix::from_vec(1, logits_fc.len(), logits_fc);
+                    let logits_m = Matrix::from_vec(1, logits_fc.len(), logits_fc.clone());
                     math::softmax_cross_entropy(&logits_m, &[*tgt as usize], 0)
                 };
+                let loss = ce_loss + flow_loss;
                 batch_loss += loss;
 
                 let lr = scheduler.next_lr(step);
