@@ -22,9 +22,15 @@ fn main() {
         _log_dir,
         _experiment,
         _export_onnx,
+        fine_tune,
+        freeze_layers,
         config,
         _,
     ) = common::parse_cli(env::args().skip(1));
+    let _ft = fine_tune.map(|model_id| {
+        vanillanoprop::fine_tune::run(&model_id, freeze_layers, |_, _| Ok(()))
+            .expect("fine-tune load failed")
+    });
     run(&config);
 }
 

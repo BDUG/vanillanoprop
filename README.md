@@ -42,6 +42,19 @@ Typical training commands:
 
 The `--moe` flag enables mixture-of-experts layers and `--num-experts` sets how many experts to use.
 
+### Fine-tuning
+
+Existing checkpoints from the Hugging Face Hub can be used to initialise a
+model for further training. Supply a model identifier with `--fine-tune` and
+optionally freeze layers by index via `--freeze-layers`:
+
+```bash
+./run.sh train-backprop --fine-tune bert-base-uncased --freeze-layers 0,1,2
+```
+
+The example above downloads the `bert-base-uncased` weights, loads them into
+the Transformer and updates all parameters except the first three layers.
+
 ### ONNX export
 
 Training binaries accept an optional `--export-onnx <FILE>` flag. When

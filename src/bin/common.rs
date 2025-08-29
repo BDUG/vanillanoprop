@@ -4,7 +4,7 @@ use vanillanoprop::optim::lr_scheduler::LrScheduleConfig;
 
 /// Parses common CLI arguments across training binaries.
 ///
-/// Returns a tuple `(model, optimizer, moe, num_experts, lr_schedule, resume, save_every, checkpoint_dir, log_dir, experiment_name, export_onnx, config, positional_args)`.
+/// Returns a tuple `(model, optimizer, moe, num_experts, lr_schedule, resume, save_every, checkpoint_dir, log_dir, experiment_name, export_onnx, fine_tune, freeze_layers, config, positional_args)`.
 /// - `model` defaults to "transformer" if not specified. Supported models include
 ///   "transformer", "cnn" and the new "lcm" large concept model.
 /// - `optimizer` defaults to "sgd" if not specified.
@@ -19,6 +19,11 @@ use vanillanoprop::optim::lr_scheduler::LrScheduleConfig;
 ///   using `--checkpoint-dir <dir>`.
 /// - `log_dir` sets the base directory for metrics logs via `--log-dir <dir>`.
 /// - `experiment_name` names the experiment for logging with `--experiment-name <name>`.
+/// - `export_onnx` exports the model to ONNX via `--export-onnx <file>`.
+/// - `fine_tune` specifies a Hugging Face model ID to initialise from using
+///   `--fine-tune <id>`.
+/// - `freeze_layers` is a comma-separated list of parameter indices to freeze via
+///   `--freeze-layers 0,2,4`.
 /// - `positional_args` contains remaining positional arguments in order.
 pub fn parse_cli<I>(
     mut args: I,
@@ -34,6 +39,8 @@ pub fn parse_cli<I>(
     Option<String>,
     Option<String>,
     Option<String>,
+    Option<String>,
+    Vec<usize>,
     Config,
     Vec<String>,
 )
@@ -54,6 +61,8 @@ where
     let mut log_dir = None;
     let mut experiment_name = None;
     let mut export_onnx = None;
+    let mut fine_tune = None;
+    let mut freeze_layers = Vec::new();
     let mut epochs = None;
     let mut batch_size = None;
     let mut gamma = None;
@@ -120,6 +129,16 @@ where
             "--export-onnx" => {
                 if let Some(v) = args.next() {
                     export_onnx = Some(v);
+                }
+            }
+            "--fine-tune" => {
+                if let Some(v) = args.next() {
+                    fine_tune = Some(v);
+                }
+            }
+            "--freeze-layers" => {
+                if let Some(v) = args.next() {
+                    freeze_layers = vanillanoprop::fine_tune::parse_freeze_list(&v);
                 }
             }
             "--epochs" => {
@@ -220,6 +239,8 @@ where
         log_dir,
         experiment_name,
         export_onnx,
+        fine_tune,
+        freeze_layers,
         config,
         positional,
     )
@@ -239,6 +260,8 @@ pub fn parse_env() -> (
     Option<String>,
     Option<String>,
     Option<String>,
+    Option<String>,
+    Vec<usize>,
     Config,
     Vec<String>,
 ) {

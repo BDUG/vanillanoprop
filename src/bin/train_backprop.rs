@@ -27,9 +27,15 @@ fn main() {
         log_dir,
         experiment,
         _export_onnx,
+        fine_tune,
+        freeze_layers,
         config,
         _,
     ) = common::parse_cli(env::args().skip(1));
+    let ft = fine_tune.map(|model_id| {
+        vanillanoprop::fine_tune::run(&model_id, freeze_layers, |_, _| Ok(()))
+            .expect("fine-tune load failed")
+    });
     if model == "cnn" {
         train_cnn::run(
             &opt,
@@ -45,7 +51,7 @@ fn main() {
             Vec::<Box<dyn Callback>>::new(),
         );
     } else {
-        run(&opt, moe, num_experts, log_dir, experiment, &config, resume);
+        run(&opt, moe, num_experts, log_dir, experiment, &config, resume, ft);
     }
 }
 
@@ -59,6 +65,7 @@ fn run(
     experiment: Option<String>,
     config: &Config,
     resume: Option<String>,
+    fine_tune: Option<vanillanoprop::fine_tune::FineTune>,
 ) {
     let batches = load_batches(config.batch_size);
     let vocab_size = 256;
@@ -164,7 +171,12 @@ fn run(
                 let dec_params = decoder.parameters();
                 params.extend(dec_params);
             }
-            trainer.fit(&mut params);
+            if let Some(ft) = &fine_tune {
+                let mut filtered = ft.filter(params);
+                trainer.fit(&mut filtered);
+            } else {
+                trainer.fit(&mut params);
+            }
             println!("loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
             if let Some(l) = &mut logger {
                 l.log(&MetricRecord {
