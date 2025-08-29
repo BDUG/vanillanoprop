@@ -1,40 +1,56 @@
 # vanillanoprop
 
-This here is a vanilla implementation of [NoProp](https://arxiv.org/html/2503.24322v2) according to *Qinyu Li*.
-It is part of a baremetal AI framework, not requering exhausting 3rd party libraries, compare *Cargo.toml*.
+Vanillanoprop is a vanilla implementation of [NoProp](https://arxiv.org/html/2503.24322v2) according to *Qinyu Li*. The project provides a bare‑metal Rust framework for experimenting with alternative neural‑network training algorithms without relying on heavyweight third‑party libraries.
 
-Eine Einführung mit Beispielen findet sich in [docs/einfuehrung.md](docs/einfuehrung.md).
+## Features
 
-Call
+- Mixture‑of‑experts layers with a configurable number of experts.
+- Training pipelines for NoProp, LCM, Tree Policy Optimization (TreePO) and more.
+- Minimal dependencies; builds with stable Rust.
+- Configuration via TOML or JSON files with command‑line overrides.
+- Collection of examples demonstrating core components.
+
+A more thorough introduction with additional examples can be found in [docs/introduction.md](docs/introduction.md).
+
+## Installation
+
+Clone the repository and build the project using cargo:
+
+```bash
+git clone <repo-url>
+cd vanillanoprop
+cargo build
 ```
+
+The `run.sh` script exposes a convenience CLI that lists available commands.
+
+```bash
 ./run.sh
 ```
-to see the continously evolving command line parameters.
 
-For example:
-```
+## Usage
+
+Typical training commands:
+
+```bash
 ./run.sh train-noprop cnn --moe --num-experts 4
 ./run.sh predict --moe --num-experts 4
 ./run.sh train-lcm
 ./run.sh predict lcm
 ./run.sh train-treepo --config treepo_config.toml
 ```
-The `--moe` flag enables mixture-of-experts layers and `--num-experts` sets
-how many experts to use.
+
+The `--moe` flag enables mixture-of-experts layers and `--num-experts` sets how many experts to use.
 
 ## Tree Policy Optimization (TreePO)
 
-TreePO combines tree-based planning with policy optimisation to update
-actions using advantages estimated from a search tree. A full description of
-the method can be found in the [Tree Policy Optimization paper](https://arxiv.org/abs/2506.03736).
+TreePO combines tree-based planning with policy optimisation to update actions using advantages estimated from a search tree. See the [Tree Policy Optimization paper](https://arxiv.org/abs/2506.03736) for details.
 
 Run a training session with a configuration file:
 
-```
+```bash
 ./run.sh train-treepo --config treepo_config.toml
 ```
-
-### TreePO configuration
 
 `treepo_config.toml` introduces several hyperparameters:
 
@@ -46,7 +62,7 @@ rollout_steps = 10  # steps per simulated rollout
 episodes = 10       # number of episodes to train
 ```
 
-During training the binary prints progress for each episode, e.g.:
+During training the binary prints progress for each episode:
 
 ```
 Episode 1 complete
@@ -56,9 +72,7 @@ Episode 2 complete
 
 ## Configuration
 
-Training parameters such as the number of epochs and batch size can be set via
-a configuration file in TOML or JSON format. CLI flags override values from the
-file. Example `config.toml`:
+Training parameters such as the number of epochs and batch size can be set via a configuration file in TOML or JSON format. CLI flags override values from the file. Example `config.toml`:
 
 ```
 epochs = 10
@@ -67,14 +81,14 @@ batch_size = 8
 
 Run a training binary with a configuration file:
 
-```
+```bash
 ./run.sh train-noprop --config config.toml
 ./run.sh train-lcm --config lcm_config.toml
 ```
 
 Or override specific settings from the command line:
 
-```
+```bash
 ./run.sh train-noprop --config config.toml --epochs 20 --batch-size 16
 ```
 
@@ -82,42 +96,22 @@ Or override specific settings from the command line:
 
 The `examples` directory contains small programs that showcase core features of the framework.
 
-### Mixture of Experts
+- **Mixture of Experts** – `cargo run --example mixture_of_experts`
+  Builds a tiny mixture‑of‑experts network and prints gating probabilities.
 
-```bash
-cargo run --example mixture_of_experts
-```
+- **Loading configuration** – `cargo run --example load_config`
+  Loads training parameters from `lcm_config.toml` and falls back to defaults if the file is not found.
 
-Builds a tiny mixture-of-experts network and prints the gating probabilities to demonstrate sparse expert routing.
+- **MNIST CNN** – `cargo run --example mnist_cnn`
+  Trains a simple convolutional network on the MNIST digits.
 
-### Loading configuration
+- **RNN text classification** – `cargo run --example text_rnn`
+  Shows how to build a tiny LSTM classifier on a toy text dataset.
 
-```bash
-cargo run --example load_config
-```
+- **Autoencoder** – `cargo run --example autoencoder`
+  Runs a small variational autoencoder to reconstruct MNIST images.
 
-Loads training parameters from `lcm_config.toml` and falls back to defaults if the file is not found.
+## License
 
-### MNIST CNN
+This project is licensed under the [MIT License](LICENSE).
 
-```bash
-cargo run --example mnist_cnn
-```
-
-Trains a simple convolutional network on the MNIST digits using the dataset utilities.
-
-### RNN text classification
-
-```bash
-cargo run --example text_rnn
-```
-
-Shows how to build a tiny LSTM classifier on a toy text dataset.
-
-### Autoencoder
-
-```bash
-cargo run --example autoencoder
-```
-
-Runs a small variational autoencoder to reconstruct MNIST images.
