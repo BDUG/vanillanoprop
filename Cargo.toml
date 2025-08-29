@@ -7,6 +7,7 @@ build = "build.rs"
 [features]
 default = []
 kai = []
+matrixmultiply = ["dep:matrixmultiply"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -27,6 +28,7 @@ prost = "0.6"
 hf-hub = "0.4"
 ureq = "2"
 safetensors = "0.6"
+matrixmultiply = { version = "0.3", optional = true }
 
 [lib]
 name = "vanillanoprop"
