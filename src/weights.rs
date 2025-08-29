@@ -28,6 +28,8 @@ pub struct LcmJson {
     pub b1: Vec<f32>,
     pub w2: Vec<Vec<f32>>,
     pub b2: Vec<f32>,
+    pub w3: Vec<Vec<f32>>,
+    pub b3: Vec<f32>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -213,12 +215,14 @@ pub fn save_onnx(path: &str, model: &Sequential) -> Result<(), Box<dyn std::erro
 }
 
 pub fn save_lcm(path: &str, model: &LargeConceptModel) -> Result<(), io::Error> {
-    let (w1, b1, w2, b2) = model.parameters();
+    let (w1, b1, w2, b2, w3, b3) = model.parameters();
     let json = LcmJson {
         w1: matrix_to_vec2(w1),
         b1: b1.clone(),
         w2: matrix_to_vec2(w2),
         b2: b2.clone(),
+        w3: matrix_to_vec2(w3),
+        b3: b3.clone(),
     };
     let txt = serde_json::to_string(&json).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     fs::write(path, txt)?;
@@ -229,25 +233,32 @@ pub fn save_lcm(path: &str, model: &LargeConceptModel) -> Result<(), io::Error> 
 pub fn load_lcm(
     path: &str,
     input_dim: usize,
-    hidden_dim: usize,
+    hidden_dim1: usize,
+    hidden_dim2: usize,
     num_classes: usize,
 ) -> Result<LargeConceptModel, io::Error> {
     let txt = fs::read_to_string(path)?;
     let json: LcmJson =
         serde_json::from_str(&txt).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-    let mut model = LargeConceptModel::new(input_dim, hidden_dim, num_classes);
-    let (w1, b1, w2, b2) = model.parameters_mut();
+    let mut model = LargeConceptModel::new(input_dim, hidden_dim1, hidden_dim2, num_classes);
+    let (w1, b1, w2, b2, w3, b3) = model.parameters_mut();
     if !json.w1.is_empty() {
         *w1 = vec2_to_matrix(&json.w1);
     }
     if !json.w2.is_empty() {
         *w2 = vec2_to_matrix(&json.w2);
     }
+    if !json.w3.is_empty() {
+        *w3 = vec2_to_matrix(&json.w3);
+    }
     if !json.b1.is_empty() {
         *b1 = json.b1.clone();
     }
     if !json.b2.is_empty() {
         *b2 = json.b2.clone();
+    }
+    if !json.b3.is_empty() {
+        *b3 = json.b3.clone();
     }
     println!("Loaded LCM weights from {}", path);
     Ok(model)

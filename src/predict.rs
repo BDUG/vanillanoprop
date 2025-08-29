@@ -78,11 +78,11 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
             println!("Total matrix ops: {}", math::matrix_ops_count());
         }
         "lcm" => {
-            let model = match load_lcm("lcm.json", 28 * 28, 128, 10) {
+            let model = match load_lcm("lcm.json", 28 * 28, 128, 64, 10) {
                 Ok(m) => m,
                 Err(e) => {
                     eprintln!("Using random LCM weights; failed to load lcm.json: {e}");
-                    LargeConceptModel::new(28 * 28, 128, 10)
+                    LargeConceptModel::new(28 * 28, 128, 64, 10)
                 }
             };
             let pred = model.predict(src);

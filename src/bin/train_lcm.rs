@@ -37,8 +37,9 @@ fn main() {
 
 fn run(config: &Config) {
     let batches = load_batches(config.batch_size);
-    let mut model = LargeConceptModel::new(28 * 28, 128, 10);
+    let mut model = LargeConceptModel::new(28 * 28, 128, 64, 10);
     let lr = 0.01f32;
+    let l2 = 1e-4f32;
     let evaluator = Model::new();
 
     let pb = ProgressBar::new(config.epochs as u64);
@@ -50,7 +51,7 @@ fn run(config: &Config) {
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
             for (img, tgt) in batch {
-                let (loss, pred) = model.train_step(img, *tgt, lr);
+                let (loss, pred) = model.train_step(img, *tgt, lr, l2);
                 batch_loss += loss;
                 batch_f1 += evaluator.evaluate(&[pred], &[*tgt]);
             }
