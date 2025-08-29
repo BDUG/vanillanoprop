@@ -12,6 +12,12 @@ Vanillanoprop is a vanilla machine learning library implementation.
 
 A more thorough introduction with additional examples can be found in [docs/introduction.md](docs/introduction.md).
 
+## Supported operating systems
+
+vanillanoprop is tested on Linux, macOS and Windows. Memory tracking utilities
+such as `memory::peak_memory_bytes` report actual values on these platforms and
+return `0` elsewhere.
+
 ## Installation
 
 Clone the repository and build the project using cargo:
