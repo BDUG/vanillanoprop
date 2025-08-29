@@ -63,59 +63,70 @@ impl MixtureOfExpertsT {
         self.mask_topk(&mut logits);
         let probs_t = self.softmax.forward(&Tensor::from_matrix(logits));
         let probs = probs_t.data;
-        let first_out = self.experts[0].forward(x);
-        let batch = first_out.data.rows;
-        let dim = first_out.data.cols;
+
+        // Compute all expert outputs first so we can combine them uniformly
+        let expert_outs: Vec<Matrix> =
+            self.experts.iter().map(|e| e.forward(x).data).collect();
+        let batch = expert_outs[0].rows;
+        let dim = expert_outs[0].cols;
         let mut out = Matrix::zeros(batch, dim);
-        for r in 0..batch {
-            let g = probs.data[r * num_exp + 0];
-            let row_start = r * dim;
-            for c in 0..dim {
-                out.data[row_start + c] += g * first_out.data.data[row_start + c];
-            }
-        }
-        for (i, exp) in self.experts.iter().enumerate().skip(1) {
-            let h = exp.forward(x);
-            for r in 0..batch {
-                let g = probs.data[r * num_exp + i];
-                let row_start = r * dim;
+
+        for (i, h) in expert_outs.iter().enumerate() {
+            for (prob_row, (out_row, h_row)) in probs
+                .data
+                .chunks(num_exp)
+                .zip(out.data.chunks_mut(dim).zip(h.data.chunks(dim)))
+            {
+                let g = prob_row[i];
                 for c in 0..dim {
-                    out.data[row_start + c] += g * h.data.data[row_start + c];
+                    out_row[c] += g * h_row[c];
                 }
             }
         }
+
         Tensor::from_matrix(out)
     }
 
     pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
         let mut logits = self.gate.forward_local(x);
         self.mask_topk(&mut logits);
-        self.probs = self.softmax.forward_train(&logits);
-        self.expert_outs.clear();
-        let first = self.experts[0].forward_train(x);
-        let batch = first.rows;
-        let dim = first.cols;
-        let num_exp = self.experts.len();
-        let mut out = Matrix::zeros(batch, dim);
-        for r in 0..batch {
-            let g = self.probs.data[r * num_exp + 0];
-            let row_start = r * dim;
-            for c in 0..dim {
-                out.data[row_start + c] += g * first.data[row_start + c];
-            }
+
+        // cache probabilities, resizing if necessary
+        let probs = self.softmax.forward_train(&logits);
+        if self.probs.rows != probs.rows || self.probs.cols != probs.cols {
+            self.probs = Matrix::zeros(probs.rows, probs.cols);
         }
-        self.expert_outs.push(first.clone());
-        for (i, exp) in self.experts.iter_mut().enumerate().skip(1) {
-            let h = exp.forward_train(x);
-            for r in 0..batch {
-                let g = self.probs.data[r * num_exp + i];
-                let row_start = r * dim;
+        self.probs.data.clone_from_slice(&probs.data);
+        self.probs.rows = probs.rows;
+        self.probs.cols = probs.cols;
+
+        let num_exp = self.experts.len();
+        // ensure expert_outs has space for all experts
+        if self.expert_outs.len() != num_exp {
+            self.expert_outs = vec![Matrix::zeros(0, 0); num_exp];
+        }
+        for (slot, exp) in self.expert_outs.iter_mut().zip(self.experts.iter_mut()) {
+            *slot = exp.forward_train(x);
+        }
+
+        let batch = self.expert_outs[0].rows;
+        let dim = self.expert_outs[0].cols;
+        let mut out = Matrix::zeros(batch, dim);
+
+        for (i, h) in self.expert_outs.iter().enumerate() {
+            for (prob_row, (out_row, h_row)) in self
+                .probs
+                .data
+                .chunks(num_exp)
+                .zip(out.data.chunks_mut(dim).zip(h.data.chunks(dim)))
+            {
+                let g = prob_row[i];
                 for c in 0..dim {
-                    out.data[row_start + c] += g * h.data[row_start + c];
+                    out_row[c] += g * h_row[c];
                 }
             }
-            self.expert_outs.push(h);
         }
+
         out
     }
 
@@ -129,28 +140,31 @@ impl MixtureOfExpertsT {
         let num_exp = self.experts.len();
         let mut grad_input = Matrix::zeros(batch, self.gate.w.data.rows);
         let mut gate_grad = Matrix::zeros(batch, num_exp);
-        for (i, exp) in self.experts.iter_mut().enumerate() {
-            // gradient w.r.t gating probabilities
-            for r in 0..batch {
-                let row_start = r * dim;
+        let mut grad_exp = Matrix::zeros(batch, dim);
+
+        for (i, (exp, h)) in self.experts.iter_mut().zip(self.expert_outs.iter()).enumerate() {
+            grad_exp.data.clone_from_slice(&grad_out.data);
+            for (r, ((prob_row, grad_row), h_row)) in self
+                .probs
+                .data
+                .chunks(num_exp)
+                .zip(grad_out.data.chunks(dim))
+                .zip(h.data.chunks(dim))
+                .enumerate()
+            {
+                let g = prob_row[i];
                 let mut dot = 0.0;
+                let row_start = r * dim;
                 for c in 0..dim {
-                    dot += grad_out.data[row_start + c] * self.expert_outs[i].data[row_start + c];
+                    dot += grad_row[c] * h_row[c];
+                    grad_exp.data[row_start + c] = g * grad_row[c];
                 }
                 gate_grad.data[r * num_exp + i] = dot;
-            }
-            // gradient propagated through expert
-            let mut grad_exp = grad_out.clone();
-            for r in 0..batch {
-                let g = self.probs.data[r * num_exp + i];
-                let row_start = r * dim;
-                for c in 0..dim {
-                    grad_exp.data[row_start + c] *= g;
-                }
             }
             let grad_in = exp.backward(&grad_exp);
             grad_input = Matrix::add(&grad_input, &grad_in);
         }
+
         let grad_logits = self.softmax.backward(&gate_grad);
         let grad_gate_in = self.gate.backward(&grad_logits);
         Matrix::add(&grad_input, &grad_gate_in)
@@ -162,26 +176,31 @@ impl MixtureOfExpertsT {
         let num_exp = self.experts.len();
         let mut grad_input = Matrix::zeros(batch, self.gate.w.data.rows);
         let mut gate_grad = Matrix::zeros(batch, num_exp);
-        for (i, exp) in self.experts.iter_mut().enumerate() {
-            for r in 0..batch {
-                let row_start = r * dim;
+        let mut grad_exp = Matrix::zeros(batch, dim);
+
+        for (i, (exp, h)) in self.experts.iter_mut().zip(self.expert_outs.iter()).enumerate() {
+            grad_exp.data.clone_from_slice(&grad_out.data);
+            for (r, ((prob_row, grad_row), h_row)) in self
+                .probs
+                .data
+                .chunks(num_exp)
+                .zip(grad_out.data.chunks(dim))
+                .zip(h.data.chunks(dim))
+                .enumerate()
+            {
+                let g = prob_row[i];
                 let mut dot = 0.0;
+                let row_start = r * dim;
                 for c in 0..dim {
-                    dot += grad_out.data[row_start + c] * self.expert_outs[i].data[row_start + c];
+                    dot += grad_row[c] * h_row[c];
+                    grad_exp.data[row_start + c] = g * grad_row[c];
                 }
                 gate_grad.data[r * num_exp + i] = dot;
-            }
-            let mut grad_exp = grad_out.clone();
-            for r in 0..batch {
-                let g = self.probs.data[r * num_exp + i];
-                let row_start = r * dim;
-                for c in 0..dim {
-                    grad_exp.data[row_start + c] *= g;
-                }
             }
             let grad_in = exp.fa_update(&grad_exp, lr);
             grad_input = Matrix::add(&grad_input, &grad_in);
         }
+
         let grad_logits = self.softmax.fa_update(&gate_grad, lr);
         let grad_gate_in = self.gate.fa_update(&grad_logits, lr);
         Matrix::add(&grad_input, &grad_gate_in)
