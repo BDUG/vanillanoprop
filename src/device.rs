@@ -1,5 +1,10 @@
 use crate::math::{matmul_cpu, Matrix};
 
+#[cfg(feature = "cuda")]
+mod cuda;
+#[cfg(feature = "cuda")]
+pub use cuda::CudaDevice;
+
 #[cfg(all(target_arch = "aarch64", feature = "kai"))]
 use crate::math::{inc_add_ops_by, inc_mul_ops_by};
 #[cfg(all(target_arch = "aarch64", feature = "kai"))]

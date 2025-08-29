@@ -34,6 +34,28 @@ The `run.sh` script exposes a convenience CLI that lists available commands.
 ./run.sh
 ```
 
+### CUDA support
+
+Matrix operations can also run on NVIDIA GPUs. This requires the
+[CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) and a compatible
+driver. Build the crate with the optional `cuda` feature:
+
+```bash
+cargo build --features cuda
+```
+
+When built with this feature a `CudaDevice` type becomes available. Pass it to
+`Matrix::matmul_with` to execute the operation on the GPU:
+
+```rust
+use vanillanoprop::{device::CudaDevice, math::Matrix};
+
+let a = Matrix::zeros(2, 2);
+let b = Matrix::zeros(2, 2);
+let dev = CudaDevice::default();
+let c = Matrix::matmul_with(&a, &b, &dev);
+```
+
 ## Usage
 
 Typical training commands:
