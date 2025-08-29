@@ -78,8 +78,6 @@ fn run(
     resume: Option<String>,
     fine_tune: Option<vanillanoprop::fine_tune::FineTune>,
 ) {
-    let batches: Vec<Vec<(Vec<u8>, usize)>> =
-        DataLoader::<Mnist>::new(config.batch_size, true, None).collect();
     let vocab_size = 256;
 
     let model_dim = 64;
@@ -145,7 +143,7 @@ fn run(
         let mut last_loss = 0.0;
         let mut f1_sum = 0.0;
         let mut sample_cnt: f32 = 0.0;
-        for batch in &batches {
+        for batch in DataLoader::<Mnist>::new(config.batch_size, true, None) {
             encoder.zero_grad();
             decoder.zero_grad();
             let mut batch_loss = 0.0f32;

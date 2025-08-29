@@ -10,7 +10,6 @@ use vanillanoprop::models::SimpleCNN;
 
 // Train a SimpleCNN with standard backpropagation using a basic SGD loop.
 fn train_backprop(epochs: usize) -> (f32, usize, usize, u64) {
-    let batches: Vec<Vec<(Vec<u8>, usize)>> = DataLoader::<Mnist>::new(4, true, None).collect();
     let mut cnn = SimpleCNN::new(10);
 
     let lr = 0.01f32;
@@ -25,7 +24,7 @@ fn train_backprop(epochs: usize) -> (f32, usize, usize, u64) {
         let mut f1_sum = 0.0f32;
         let mut sample_cnt = 0.0f32;
 
-        for batch in &batches {
+        for batch in DataLoader::<Mnist>::new(4, true, None) {
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
 
@@ -79,7 +78,6 @@ fn train_backprop(epochs: usize) -> (f32, usize, usize, u64) {
 
 // Train a SimpleCNN using a NoProp-style local update with noisy targets.
 fn train_noprop(epochs: usize) -> (f32, usize, usize, u64) {
-    let batches: Vec<Vec<(Vec<u8>, usize)>> = DataLoader::<Mnist>::new(4, true, None).collect();
     let mut cnn = SimpleCNN::new(10);
     let mut rng = rng_from_env();
 
@@ -95,7 +93,7 @@ fn train_noprop(epochs: usize) -> (f32, usize, usize, u64) {
         let mut f1_sum = 0.0f32;
         let mut sample_cnt = 0.0f32;
 
-        for batch in &batches {
+        for batch in DataLoader::<Mnist>::new(4, true, None) {
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
 

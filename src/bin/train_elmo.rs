@@ -64,8 +64,6 @@ fn run(
     experiment: Option<String>,
     config: &Config,
 ) {
-    let batches: Vec<Vec<(Vec<u8>, usize)>> =
-        DataLoader::<Mnist>::new(config.batch_size, true, None).collect();
     let vocab_size = 256;
 
     // With embedding → model_dim separate
@@ -100,7 +98,7 @@ fn run(
         let mut last_loss = 0.0;
         let mut f1_sum = 0.0;
         let mut sample_cnt: f32 = 0.0;
-        for batch in &batches {
+        for batch in DataLoader::<Mnist>::new(config.batch_size, true, None) {
             encoder.zero_grad();
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
