@@ -5,7 +5,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 use vanillanoprop::config::Config;
-use vanillanoprop::data::load_batches;
+use vanillanoprop::data::{DataLoader, Mnist};
 use vanillanoprop::layers::Activation;
 use vanillanoprop::logging::{Callback, Logger, MetricRecord};
 use vanillanoprop::math::{self, Matrix};
@@ -108,7 +108,8 @@ fn run(
     experiment_name: Option<String>,
     config: &Config,
 ) {
-    let batches = load_batches(config.batch_size);
+    let batches: Vec<Vec<(Vec<u8>, usize)>> =
+        DataLoader::<Mnist>::new(config.batch_size, true, None).collect();
     let mut rng = rng_from_env();
     let vocab_size = 256;
 
