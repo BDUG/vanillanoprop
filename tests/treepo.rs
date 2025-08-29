@@ -53,8 +53,20 @@ fn tree_expansion_selects_optimal_action() {
     TreePoAgent::<TwoStateEnv>::backup(child1, r1);
     agent.root = root;
 
-    let adv0 = TreePoAgent::<TwoStateEnv>::advantage(agent.root.children.get(&0).unwrap());
-    let adv1 = TreePoAgent::<TwoStateEnv>::advantage(agent.root.children.get(&1).unwrap());
+    let adv0 = TreePoAgent::<TwoStateEnv>::advantage(
+        agent
+            .root
+            .children
+            .get(&0)
+            .expect("child node for action 0 missing"),
+    );
+    let adv1 = TreePoAgent::<TwoStateEnv>::advantage(
+        agent
+            .root
+            .children
+            .get(&1)
+            .expect("child node for action 1 missing"),
+    );
     assert!(adv0 > adv1, "expansion should favour optimal action");
 }
 
@@ -79,7 +91,12 @@ fn policy_update_improves_over_random() {
     // Update policy based on estimated advantages.
     agent.update_policy();
 
-    let p_best = agent.root.children.get(&0).unwrap().value;
+    let p_best = agent
+        .root
+        .children
+        .get(&0)
+        .expect("child node for action 0 missing")
+        .value;
     let expected_return: f32 = agent
         .root
         .children

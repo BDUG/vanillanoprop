@@ -469,7 +469,7 @@ fn to_f32_vec(t: &safetensors::tensor::TensorView) -> Result<Vec<f32>, Box<dyn s
     }
     let mut out = Vec::with_capacity(t.data().len() / 4);
     for chunk in t.data().chunks_exact(4) {
-        out.push(f32::from_le_bytes(chunk.try_into().unwrap()));
+        out.push(f32::from_le_bytes(chunk.try_into()?));
     }
     Ok(out)
 }
@@ -552,4 +552,20 @@ fn load_layernorm(
     norm.gamma.w.copy_from_slice(&w);
     norm.beta.w.copy_from_slice(&b);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use safetensors::tensor::{Dtype, TensorView};
+
+    #[test]
+    fn to_f32_vec_errors_on_non_f32() {
+        let data = vec![0u8; 4];
+        let view = TensorView::new(Dtype::U8, vec![4], &data)
+            .expect("failed to create tensor view");
+        let err = to_f32_vec(&view)
+            .expect_err("expected error for non-f32 tensor");
+        assert!(err.to_string().contains("expected f32 tensor"));
+    }
 }

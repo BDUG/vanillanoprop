@@ -158,7 +158,7 @@ fn run(
     let ckpt_dir = checkpoint_dir.unwrap_or_else(|| {
         let ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time before UNIX_EPOCH")
             .as_secs();
         format!("runs/{ts}")
     });

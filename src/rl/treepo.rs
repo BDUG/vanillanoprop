@@ -83,7 +83,10 @@ impl<E: Env> TreePoAgent<E> {
         node.children
             .entry(action.clone())
             .or_insert_with(|| TreeNode::new(next_state));
-        node.children.get_mut(&action).unwrap()
+        node
+            .children
+            .get_mut(&action)
+            .expect("child node should exist after insertion")
     }
 
     /// Backup a value estimate through the node.
