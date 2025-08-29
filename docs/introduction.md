@@ -90,7 +90,10 @@ if auto_ml {
 ```
 
 Enable random search with `./run.sh train-noprop --auto-ml --config config.toml`.
-See the [AutoML example](examples/automl.md) for a full walkthrough.
+See the [AutoML example](examples/automl.md) for a full walkthrough.  Multiple
+values for fields such as `learning_rate`, `batch_size` or `epochs` may be
+listed in the configuration to let the search explore different
+combinations.
 
 ## Fine-tuning
 
