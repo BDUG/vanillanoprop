@@ -4,8 +4,8 @@ use crate::layers::LinearT;
 use crate::math::Matrix;
 use crate::metrics;
 use crate::optim::{Loss, Optimizer};
-use crate::weights::{tensor_to_vec2, vec2_to_matrix};
 use crate::tensor::Tensor;
+use crate::weights::{tensor_to_vec2, vec2_to_matrix};
 use serde::{Deserialize, Serialize};
 
 /// A simple directed graph representing a neural network together with
@@ -82,10 +82,16 @@ impl Model {
 
     /// Predict the most likely class from a slice of logits.
     pub fn predict(&self, logits: &[f32]) -> usize {
+        use std::cmp::Ordering;
+
+        if logits.is_empty() {
+            return 0;
+        }
+
         logits
             .iter()
             .enumerate()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(Ordering::Equal))
             .map(|(i, _)| i)
             .unwrap_or(0)
     }
@@ -118,16 +124,15 @@ impl Model {
             weights: Vec<Vec<Vec<f32>>>,
         }
 
-        let weights: Vec<Vec<Vec<f32>>> =
-            params.iter().map(|p| tensor_to_vec2(&p.w)).collect();
+        let weights: Vec<Vec<Vec<f32>>> = params.iter().map(|p| tensor_to_vec2(&p.w)).collect();
         let state = ModelState {
             nodes: self.nodes.clone(),
             edges: self.edges.clone(),
             metadata: self.metadata.clone(),
             weights,
         };
-        let bin = bincode::serialize(&state)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let bin =
+            bincode::serialize(&state).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         if let Some(parent) = std::path::Path::new(path).parent() {
             fs::create_dir_all(parent)?;
         }
