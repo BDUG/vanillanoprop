@@ -1,27 +1,7 @@
-use crate::tensor::Tensor;
-use crate::math::Matrix;
-use super::linear::LinearT;
 use super::layer::Layer;
-
-fn slice_cols(m: &Matrix, start: usize, width: usize) -> Matrix {
-    let mut out = Matrix::zeros(m.rows, width);
-    for r in 0..m.rows {
-        let src = &m.data[r * m.cols + start..r * m.cols + start + width];
-        let dst = &mut out.data[r * width..(r + 1) * width];
-        dst.copy_from_slice(src);
-    }
-    out
-}
-
-fn slice_rows(m: &Matrix, start: usize, count: usize) -> Matrix {
-    let mut out = Matrix::zeros(count, m.cols);
-    for r in 0..count {
-        let src = &m.data[(start + r) * m.cols..(start + r + 1) * m.cols];
-        let dst = &mut out.data[r * m.cols..(r + 1) * m.cols];
-        dst.copy_from_slice(src);
-    }
-    out
-}
+use super::linear::LinearT;
+use crate::math::{Matrix, MatrixLike};
+use crate::tensor::Tensor;
 
 fn copy_into(dest: &mut Matrix, start_col: usize, src: &Matrix) {
     for r in 0..dest.rows {
@@ -31,18 +11,16 @@ fn copy_into(dest: &mut Matrix, start_col: usize, src: &Matrix) {
     }
 }
 
-fn softmax_backward(attn: &Matrix, grad_out: &Matrix) -> Matrix {
-    let mut grad = Matrix::zeros(grad_out.rows, grad_out.cols);
-    for r in 0..grad_out.rows {
-        let row_start = r * grad_out.cols;
-        let g_row = &grad_out.data[row_start..row_start + grad_out.cols];
-        let a_row = &attn.data[row_start..row_start + grad_out.cols];
+fn softmax_backward<A: MatrixLike, B: MatrixLike>(attn: &A, grad_out: &B) -> Matrix {
+    let mut grad = Matrix::zeros(grad_out.rows(), grad_out.cols());
+    for r in 0..grad_out.rows() {
         let mut dot = 0.0;
-        for c in 0..grad_out.cols {
-            dot += g_row[c] * a_row[c];
+        for c in 0..grad_out.cols() {
+            dot += grad_out.get(r, c) * attn.get(r, c);
         }
-        for c in 0..grad_out.cols {
-            grad.data[row_start + c] = a_row[c] * (g_row[c] - dot);
+        for c in 0..grad_out.cols() {
+            let v = attn.get(r, c) * (grad_out.get(r, c) - dot);
+            grad.set(r, c, v);
         }
     }
     grad
@@ -101,10 +79,10 @@ impl MultiHeadAttentionT {
         let scale = 1.0 / (head_dim as f32).sqrt();
         let mut concat = Matrix::zeros(seq_len, model_dim);
         for h in 0..self.num_heads {
-            let qh = slice_cols(&q.data, h * head_dim, head_dim);
-            let kh = slice_cols(&k.data, h * head_dim, head_dim);
-            let vh = slice_cols(&v.data, h * head_dim, head_dim);
-            let mut scores = Matrix::matmul(&qh, &kh.transpose());
+            let qh = q.data.view_cols(h * head_dim, head_dim);
+            let kh = k.data.view_cols(h * head_dim, head_dim);
+            let vh = v.data.view_cols(h * head_dim, head_dim);
+            let mut scores = Matrix::matmul_views(&qh, &kh.transpose());
             for s in scores.data.iter_mut() {
                 *s *= scale;
             }
@@ -114,7 +92,7 @@ impl MultiHeadAttentionT {
                 }
             }
             let attn = scores.softmax();
-            let head_out = Matrix::matmul(&attn, &vh);
+            let head_out = Matrix::matmul_views(&attn, &vh);
             copy_into(&mut concat, h * head_dim, &head_out);
         }
         let t = Tensor::from_matrix(concat);
@@ -133,10 +111,10 @@ impl MultiHeadAttentionT {
         self.attn = Matrix::zeros(self.num_heads * seq_len, seq_len);
         self.scores = Matrix::zeros(seq_len, model_dim);
         for h in 0..self.num_heads {
-            let qh = slice_cols(&self.q, h * head_dim, head_dim);
-            let kh = slice_cols(&self.k, h * head_dim, head_dim);
-            let vh = slice_cols(&self.v, h * head_dim, head_dim);
-            let mut scores = Matrix::matmul(&qh, &kh.transpose());
+            let qh = self.q.view_cols(h * head_dim, head_dim);
+            let kh = self.k.view_cols(h * head_dim, head_dim);
+            let vh = self.v.view_cols(h * head_dim, head_dim);
+            let mut scores = Matrix::matmul_views(&qh, &kh.transpose());
             for s in scores.data.iter_mut() {
                 *s *= scale;
             }
@@ -147,11 +125,12 @@ impl MultiHeadAttentionT {
             }
             let attn = scores.softmax();
             for r in 0..seq_len {
-                let dst = &mut self.attn.data[(h * seq_len + r) * seq_len..(h * seq_len + r + 1) * seq_len];
+                let dst = &mut self.attn.data
+                    [(h * seq_len + r) * seq_len..(h * seq_len + r + 1) * seq_len];
                 let src = &attn.data[r * seq_len..(r + 1) * seq_len];
                 dst.copy_from_slice(src);
             }
-            let head_out = Matrix::matmul(&attn, &vh);
+            let head_out = Matrix::matmul_views(&attn, &vh);
             copy_into(&mut self.scores, h * head_dim, &head_out);
         }
         self.wo.forward_local(&self.scores)
@@ -167,20 +146,20 @@ impl MultiHeadAttentionT {
         let mut grad_k = Matrix::zeros(seq_len, model_dim);
         let mut grad_v = Matrix::zeros(seq_len, model_dim);
         for h in 0..self.num_heads {
-            let qh = slice_cols(&self.q, h * head_dim, head_dim);
-            let kh = slice_cols(&self.k, h * head_dim, head_dim);
-            let vh = slice_cols(&self.v, h * head_dim, head_dim);
-            let attn = slice_rows(&self.attn, h * seq_len, seq_len);
-            let grad_head = slice_cols(&grad_concat, h * head_dim, head_dim);
-            let grad_vh = Matrix::matmul(&attn.transpose(), &grad_head);
+            let qh = self.q.view_cols(h * head_dim, head_dim);
+            let kh = self.k.view_cols(h * head_dim, head_dim);
+            let vh = self.v.view_cols(h * head_dim, head_dim);
+            let attn = self.attn.view_rows(h * seq_len, seq_len);
+            let grad_head = grad_concat.view_cols(h * head_dim, head_dim);
+            let grad_vh = Matrix::matmul_views(&attn.transpose(), &grad_head);
             copy_into(&mut grad_v, h * head_dim, &grad_vh);
-            let grad_attn = Matrix::matmul(&grad_head, &vh.transpose());
+            let grad_attn = Matrix::matmul_views(&grad_head, &vh.transpose());
             let mut grad_scores = softmax_backward(&attn, &grad_attn);
             for s in grad_scores.data.iter_mut() {
                 *s *= scale;
             }
-            let grad_qh = Matrix::matmul(&grad_scores, &kh);
-            let grad_kh = Matrix::matmul(&grad_scores.transpose(), &qh);
+            let grad_qh = Matrix::matmul_views(&grad_scores, &kh);
+            let grad_kh = Matrix::matmul_views(&grad_scores.transpose(), &qh);
             copy_into(&mut grad_q, h * head_dim, &grad_qh);
             copy_into(&mut grad_k, h * head_dim, &grad_kh);
         }
@@ -205,20 +184,20 @@ impl MultiHeadAttentionT {
         let mut grad_k = Matrix::zeros(seq_len, model_dim);
         let mut grad_v = Matrix::zeros(seq_len, model_dim);
         for h in 0..self.num_heads {
-            let qh = slice_cols(&self.q, h * head_dim, head_dim);
-            let kh = slice_cols(&self.k, h * head_dim, head_dim);
-            let vh = slice_cols(&self.v, h * head_dim, head_dim);
-            let attn = slice_rows(&self.attn, h * seq_len, seq_len);
-            let grad_head = slice_cols(&grad_concat, h * head_dim, head_dim);
-            let grad_vh = Matrix::matmul(&attn.transpose(), &grad_head);
+            let qh = self.q.view_cols(h * head_dim, head_dim);
+            let kh = self.k.view_cols(h * head_dim, head_dim);
+            let vh = self.v.view_cols(h * head_dim, head_dim);
+            let attn = self.attn.view_rows(h * seq_len, seq_len);
+            let grad_head = grad_concat.view_cols(h * head_dim, head_dim);
+            let grad_vh = Matrix::matmul_views(&attn.transpose(), &grad_head);
             copy_into(&mut grad_v, h * head_dim, &grad_vh);
-            let grad_attn = Matrix::matmul(&grad_head, &vh.transpose());
+            let grad_attn = Matrix::matmul_views(&grad_head, &vh.transpose());
             let mut grad_scores = softmax_backward(&attn, &grad_attn);
             for s in grad_scores.data.iter_mut() {
                 *s *= scale;
             }
-            let grad_qh = Matrix::matmul(&grad_scores, &kh);
-            let grad_kh = Matrix::matmul(&grad_scores.transpose(), &qh);
+            let grad_qh = Matrix::matmul_views(&grad_scores, &kh);
+            let grad_kh = Matrix::matmul_views(&grad_scores.transpose(), &qh);
             copy_into(&mut grad_q, h * head_dim, &grad_qh);
             copy_into(&mut grad_k, h * head_dim, &grad_kh);
         }
@@ -237,19 +216,15 @@ impl MultiHeadAttentionT {
     }
 
     pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
-        self.wq
-            .adam_step(lr, beta1, beta2, eps, weight_decay);
-        self.wk
-            .adam_step(lr, beta1, beta2, eps, weight_decay);
-        self.wv
-            .adam_step(lr, beta1, beta2, eps, weight_decay);
-        self.wo
-            .adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.wq.adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.wk.adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.wv.adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.wo.adam_step(lr, beta1, beta2, eps, weight_decay);
     }
 
     pub fn parameters(&mut self) -> Vec<&mut LinearT> {
         let (wq, wk, wv, wo) = (&mut self.wq, &mut self.wk, &mut self.wv, &mut self.wo);
-       vec![wq, wk, wv, wo]
+        vec![wq, wk, wv, wo]
     }
 }
 
@@ -274,14 +249,7 @@ impl Layer for MultiHeadAttentionT {
         MultiHeadAttentionT::fa_update(self, grad_out, lr)
     }
 
-    fn adam_step(
-        &mut self,
-        lr: f32,
-        beta1: f32,
-        beta2: f32,
-        eps: f32,
-        weight_decay: f32,
-    ) {
+    fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
         MultiHeadAttentionT::adam_step(self, lr, beta1, beta2, eps, weight_decay);
     }
 
@@ -307,11 +275,9 @@ mod tests {
                 attn.wo.w.data.set(i, j, v);
             }
         }
-        let x = Matrix::from_vec(2, 4, vec![1.0, 0.0, 0.0, 0.0,
-                                            0.0, 1.0, 0.0, 0.0]);
+        let x = Matrix::from_vec(2, 4, vec![1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
         // mask off-diagonal to prevent interaction between tokens
-        let mask = Matrix::from_vec(2, 2, vec![0.0, -1e9,
-                                              -1e9, 0.0]);
+        let mask = Matrix::from_vec(2, 2, vec![0.0, -1e9, -1e9, 0.0]);
         attn.set_mask(mask);
         let out = attn.forward(&Tensor::from_matrix(x.clone()));
         assert_eq!(out.data.rows, 2);
@@ -321,4 +287,3 @@ mod tests {
         }
     }
 }
-
