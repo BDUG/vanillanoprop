@@ -356,10 +356,8 @@ pub fn softmax_cross_entropy(
     let cols = logits.cols;
 
     // Slices covering only the rows that will be processed
-    let logits_slice =
-        &logits.data[row_offset * cols..row_offset * cols + rows_to_process * cols];
-    let grad_slice =
-        &mut grad.data[row_offset * cols..row_offset * cols + rows_to_process * cols];
+    let logits_slice = &logits.data[row_offset * cols..row_offset * cols + rows_to_process * cols];
+    let grad_slice = &mut grad.data[row_offset * cols..row_offset * cols + rows_to_process * cols];
 
     // Process each row in parallel, computing per-row loss and prediction.
     let results: Vec<(f32, usize)> = grad_slice
@@ -486,8 +484,12 @@ fn broadcast_shape(a: &[usize], b: &[usize]) -> Vec<usize> {
     let rank = a.len().max(b.len());
     let mut shape = Vec::with_capacity(rank);
     for i in 0..rank {
-        let ad = *a.get(a.len().wrapping_sub(1).saturating_sub(i)).unwrap_or(&1);
-        let bd = *b.get(b.len().wrapping_sub(1).saturating_sub(i)).unwrap_or(&1);
+        let ad = *a
+            .get(a.len().wrapping_sub(1).saturating_sub(i))
+            .unwrap_or(&1);
+        let bd = *b
+            .get(b.len().wrapping_sub(1).saturating_sub(i))
+            .unwrap_or(&1);
         assert!(ad == bd || ad == 1 || bd == 1, "incompatible shapes");
         shape.push(ad.max(bd));
     }
@@ -623,29 +625,41 @@ pub fn tensor_transpose(t: &Tensor) -> Tensor {
     }
 }
 
-/// Softmax along the last dimension of the tensor.
-pub fn tensor_softmax(t: &Tensor) -> Tensor {
+/// Softmax along the last dimension of the tensor operating in-place on `t`.
+pub fn tensor_softmax_inplace(t: &mut Tensor) {
     let cols = *t.shape.last().unwrap();
     let rows = t.data.len() / cols;
-    let mut out = t.data.clone();
     for r in 0..rows {
         let start = r * cols;
-        let slice = &t.data[start..start + cols];
-        let max = slice.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let row = &mut t.data[start..start + cols];
+        let mut max = f32::NEG_INFINITY;
+        for &v in row.iter() {
+            max = f32::max(max, v);
+        }
         let mut sum = 0.0;
-        for j in 0..cols {
-            let e = (slice[j] - max).exp();
-            out[start + j] = e;
-            sum += e;
+        for v in row.iter_mut() {
+            *v = (*v - max).exp();
+            sum += *v;
         }
-        for j in 0..cols {
-            out[start + j] /= sum;
+        for v in row.iter_mut() {
+            *v /= sum;
         }
     }
-    Tensor {
-        data: out,
-        shape: t.shape.clone(),
-    }
+}
+
+/// Softmax along the last dimension writing the result into `out` while
+/// leaving `t` unchanged.
+pub fn tensor_softmax_into(out: &mut Tensor, t: &Tensor) {
+    assert_eq!(out.shape, t.shape);
+    out.data.copy_from_slice(&t.data);
+    tensor_softmax_inplace(out);
+}
+
+/// Allocate a new tensor containing the softmax result.
+pub fn tensor_softmax(t: &Tensor) -> Tensor {
+    let mut out = t.clone();
+    tensor_softmax_inplace(&mut out);
+    out
 }
 
 /// Compute softmax cross entropy loss and gradient w.r.t. logits.
@@ -657,25 +671,18 @@ pub fn tensor_softmax_cross_entropy(
     assert_eq!(logits.shape.len(), 2);
     let rows = logits.shape[0];
     let cols = logits.shape[1];
-    let probs = tensor_softmax(logits);
-    let mut grad = probs.data.clone();
+    let mut grad = logits.clone();
+    tensor_softmax_inplace(&mut grad);
     let mut loss = 0.0f32;
     for r in 0..rows {
         let target = targets[row_offset + r];
         let idx = r * cols + target;
-        loss += -probs.data[idx].ln();
-        grad[idx] -= 1.0;
+        loss += -grad.data[idx].ln();
+        grad.data[idx] -= 1.0;
     }
     loss /= rows as f32;
-    for g in grad.iter_mut() {
+    for g in grad.data.iter_mut() {
         *g /= rows as f32;
     }
-    (
-        loss,
-        Tensor {
-            data: grad,
-            shape: logits.shape.clone(),
-        },
-    )
+    (loss, grad)
 }
-
