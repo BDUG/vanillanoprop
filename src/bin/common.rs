@@ -4,7 +4,7 @@ use vanillanoprop::optim::lr_scheduler::LrScheduleConfig;
 
 /// Parses common CLI arguments across training binaries.
 ///
-/// Returns a tuple `(model, optimizer, moe, num_experts, lr_schedule, resume, save_every, checkpoint_dir, log_dir, experiment_name, export_onnx, fine_tune, freeze_layers, config, positional_args)`.
+/// Returns a tuple `(model, optimizer, moe, num_experts, lr_schedule, resume, save_every, checkpoint_dir, log_dir, experiment_name, export_onnx, fine_tune, freeze_layers, auto_ml, config, positional_args)`.
 /// - `model` defaults to "transformer" if not specified. Supported models include
 ///   "transformer", "cnn" and the new "lcm" large concept model.
 /// - `optimizer` defaults to "sgd" if not specified.
@@ -41,6 +41,7 @@ pub fn parse_cli<I>(
     Option<String>,
     Option<String>,
     Vec<usize>,
+    bool,
     Config,
     Vec<String>,
 )
@@ -63,6 +64,7 @@ where
     let mut export_onnx = None;
     let mut fine_tune = None;
     let mut freeze_layers = Vec::new();
+    let mut auto_ml = false;
     let mut epochs = None;
     let mut batch_size = None;
     let mut gamma = None;
@@ -140,6 +142,9 @@ where
                 if let Some(v) = args.next() {
                     freeze_layers = vanillanoprop::fine_tune::parse_freeze_list(&v);
                 }
+            }
+            "--auto-ml" => {
+                auto_ml = true;
             }
             "--epochs" => {
                 if let Some(v) = args.next() {
@@ -241,6 +246,7 @@ where
         export_onnx,
         fine_tune,
         freeze_layers,
+        auto_ml,
         config,
         positional,
     )
@@ -262,6 +268,7 @@ pub fn parse_env() -> (
     Option<String>,
     Option<String>,
     Vec<usize>,
+    bool,
     Config,
     Vec<String>,
 ) {

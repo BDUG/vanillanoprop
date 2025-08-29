@@ -30,6 +30,7 @@ fn main() {
         _export_onnx,
         fine_tune,
         freeze_layers,
+        _auto_ml,
         config,
         _,
     ) = common::parse_cli(env::args().skip(1));

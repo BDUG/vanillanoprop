@@ -8,7 +8,7 @@ fn main() {
     if args.len() < 2 {
         eprintln!("Usage: {} <mode>", args[0]);
         eprintln!(
-            "Modes: predict | predict-rnn | download | train-backprop | train-elmo | train-noprop | train-lcm | train-rnn | train-treepo",
+            "Modes: predict | predict-rnn | download | train-backprop | train-elmo | train-noprop | train-lcm | train-rnn | train-treepo | automl",
         );
         return;
     }
@@ -29,6 +29,7 @@ fn main() {
                 _export_onnx,
                 _fine_tune,
                 _freeze_layers,
+                _auto_ml,
                 _config,
                 positional,
             ) = common::parse_cli(args[2..].iter().cloned());
@@ -54,6 +55,7 @@ fn main() {
                 _export_onnx,
                 _fine_tune,
                 _freeze_layers,
+                _auto_ml,
                 _config,
                 _positional,
             ) = common::parse_cli(args[2..].iter().cloned());
@@ -77,6 +79,17 @@ fn main() {
                 .expect("failed to run training binary");
             if !status.success() {
                 eprintln!("{} exited with status: {:?}", bin, status.code());
+            }
+        }
+        "automl" => {
+            let status = Command::new("cargo")
+                .args(["run", "--bin", "train_noprop", "--"])
+                .args(&args[2..])
+                .arg("--auto-ml")
+                .status()
+                .expect("failed to run automl");
+            if !status.success() {
+                eprintln!("automl exited with status: {:?}", status.code());
             }
         }
         other => eprintln!("Unknown mode {}", other),

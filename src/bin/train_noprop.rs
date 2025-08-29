@@ -39,6 +39,7 @@ fn main() {
         _export_onnx,
         fine_tune,
         freeze_layers,
+        auto_ml,
         config,
         _,
     ) = common::parse_cli(env::args().skip(1));
@@ -47,6 +48,18 @@ fn main() {
         vanillanoprop::fine_tune::run(&model_id, freeze_layers, |_, _| Ok(()))
             .expect("fine-tune load failed")
     });
+
+    if auto_ml {
+        if let Ok(mut logger) = Logger::new(log_dir.clone(), experiment.clone()) {
+            use vanillanoprop::automl::{random_search, SearchSpace};
+            let space = SearchSpace::from_config(&config);
+            let mut rng = rng_from_env();
+            let eval = |_cfg: Config| rand::random::<f32>();
+            let (_best_cfg, best_score) = random_search(&space, 10, eval, &mut rng, &mut logger);
+            println!("AutoML best score: {best_score:.4}");
+        }
+        return;
+    }
     if model == "cnn" {
         train_cnn::run(
             &opt,
