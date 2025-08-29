@@ -3,6 +3,8 @@ use std::env;
 use indicatif::ProgressBar;
 use vanillanoprop::config::Config;
 use vanillanoprop::data::load_batches;
+use vanillanoprop::fine_tune::LayerKind;
+use vanillanoprop::layers::LinearT;
 use vanillanoprop::logging::{Logger, MetricRecord};
 use vanillanoprop::math::{self, Matrix};
 use vanillanoprop::model::Model;
@@ -32,11 +34,10 @@ fn main() {
         _,
     ) = common::parse_cli(env::args().skip(1));
 
-    let ft = fine_tune
-        .map(|model_id| {
-            vanillanoprop::fine_tune::run(&model_id, freeze_layers, |_, _| Ok(()))
-                .expect("fine-tune load failed")
-        });
+    let ft = fine_tune.map(|model_id| {
+        vanillanoprop::fine_tune::run(&model_id, freeze_layers, |_, _| Ok(()))
+            .expect("fine-tune load failed")
+    });
 
     run(log_dir, experiment, &config, ft);
 }
@@ -92,12 +93,17 @@ fn run(
             batch_loss /= bsz;
             batch_f1 /= bsz;
             last_loss = batch_loss;
-            let mut params = rnn.parameters();
+            let params: Vec<(LayerKind, &mut LinearT)> = rnn
+                .parameters()
+                .into_iter()
+                .map(|p| (LayerKind::Linear, p))
+                .collect();
             if let Some(ft) = &fine_tune {
                 let mut filtered = ft.filter(params);
                 trainer.fit(&mut filtered);
             } else {
-                trainer.fit(&mut params);
+                let mut raw: Vec<&mut LinearT> = params.into_iter().map(|(_, p)| p).collect();
+                trainer.fit(&mut raw);
             }
             println!("loss {batch_loss:.4} f1 {batch_f1:.4}");
             if let Some(l) = &mut logger {
