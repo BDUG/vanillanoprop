@@ -1,13 +1,13 @@
 use indicatif::ProgressBar;
 
 use crate::config::Config;
-use crate::data::load_batches;
+use crate::data::{DataLoader, Mnist};
+use crate::layers::{Layer, LinearT, MixtureOfExpertsT};
 use crate::logging::{Callback, CallbackSignal, Logger, MetricRecord};
 use crate::math::{self, Matrix};
 use crate::memory;
 use crate::metrics::f1_score;
 use crate::models::SimpleCNN;
-use crate::layers::{Layer, LinearT, MixtureOfExpertsT};
 use crate::optim::lr_scheduler::{
     ConstantLr, CosineLr, LearningRateSchedule, LrScheduleConfig, StepLr,
 };
@@ -45,7 +45,8 @@ pub fn run(
     config: &Config,
     mut callbacks: Vec<Box<dyn Callback>>,
 ) {
-    let batches = load_batches(config.batch_size);
+    let batches: Vec<Vec<(Vec<u8>, usize)>> =
+        DataLoader::<Mnist>::new(config.batch_size, true, None).collect();
     let mut cnn = SimpleCNN::new(10);
     let mut moe_layer = if moe {
         let n = num_experts.max(1);

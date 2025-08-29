@@ -1,9 +1,9 @@
-use crate::data::load_pairs;
-use crate::layers::{Activation, LinearT, MixtureOfExpertsT, Layer};
+use crate::data::{DataLoader, Mnist};
+use crate::layers::{Activation, Layer, LinearT, MixtureOfExpertsT};
 use crate::math::{self, Matrix};
-use crate::models::{DecoderT, EncoderT, LargeConceptModel, RNN, SimpleCNN, RnnCell};
+use crate::models::{DecoderT, EncoderT, LargeConceptModel, RnnCell, SimpleCNN, RNN};
 use crate::tensor::Tensor;
-use crate::weights::{load_cnn, load_lcm, load_model, load_rnn, load_moe};
+use crate::weights::{load_cnn, load_lcm, load_model, load_moe, load_rnn};
 use rand::{thread_rng, Rng};
 
 fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
@@ -16,7 +16,9 @@ fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
 
 pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
     // pick a random image from the MNIST training pairs
-    let pairs = load_pairs();
+    let pairs: Vec<(Vec<u8>, usize)> = DataLoader::<Mnist>::new(1, true, None)
+        .flat_map(|b| b.into_iter())
+        .collect();
     let mut rng = thread_rng();
     let idx = rng.gen_range(0..pairs.len());
     let (src, tgt) = &pairs[idx];
@@ -135,7 +137,9 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                     Err(e) => {
                         eprintln!("Using random MoE weights; failed to load moe.json: {e}");
                         let experts: Vec<Box<dyn Layer>> = (0..n)
-                            .map(|_| Box::new(LinearT::new(hidden_dim, num_classes)) as Box<dyn Layer>)
+                            .map(|_| {
+                                Box::new(LinearT::new(hidden_dim, num_classes)) as Box<dyn Layer>
+                            })
                             .collect();
                         MixtureOfExpertsT::new(hidden_dim, experts, 1)
                     }

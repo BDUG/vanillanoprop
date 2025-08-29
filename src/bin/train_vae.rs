@@ -1,4 +1,4 @@
-use vanillanoprop::data::load_pairs;
+use vanillanoprop::data::{DataLoader, Mnist};
 use vanillanoprop::math::{kl_divergence, mse_loss, Matrix};
 use vanillanoprop::model::Model;
 use vanillanoprop::models::VAE;
@@ -6,7 +6,10 @@ use vanillanoprop::optim::{Adam, MseLoss};
 use vanillanoprop::weights::save_vae;
 
 fn main() {
-    let pairs = load_pairs();
+    let pairs: Vec<(Vec<u8>, usize)> = DataLoader::<Mnist>::new(1, true, None)
+        .take(10)
+        .flat_map(|b| b.into_iter())
+        .collect();
     let input_dim = 28 * 28;
     let hidden_dim = 400;
     let latent_dim = 20;

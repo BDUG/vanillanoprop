@@ -2,7 +2,7 @@ use std::env;
 
 use indicatif::ProgressBar;
 use vanillanoprop::config::Config;
-use vanillanoprop::data::load_batches;
+use vanillanoprop::data::{DataLoader, Mnist};
 use vanillanoprop::fine_tune::LayerKind;
 use vanillanoprop::layers::LinearT;
 use vanillanoprop::logging::{Logger, MetricRecord};
@@ -48,7 +48,8 @@ fn run(
     config: &Config,
     fine_tune: Option<vanillanoprop::fine_tune::FineTune>,
 ) {
-    let batches = load_batches(config.batch_size);
+    let batches: Vec<Vec<(Vec<u8>, usize)>> =
+        DataLoader::<Mnist>::new(config.batch_size, true, None).collect();
     let vocab_size = 256; // pixel values 0-255
     let hidden_dim = 64;
     let num_classes = 10;
