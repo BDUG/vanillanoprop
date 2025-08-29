@@ -1,6 +1,6 @@
 # vanillanoprop
 
-Vanillanoprop is a vanilla implementation of [NoProp](https://arxiv.org/html/2503.24322v2) according to *Qinyu Li*. The project provides a bare‑metal Rust framework for experimenting with alternative neural‑network training algorithms without relying on heavyweight third‑party libraries.
+Vanillanoprop is a vanilla machine learning library implementation.
 
 ## Features
 
