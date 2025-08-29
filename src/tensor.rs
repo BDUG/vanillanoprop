@@ -138,15 +138,22 @@ impl Tensor {
         math::tensor_softmax(t)
     }
 
+    /// Softmax along the last dimension, writing the result into `out`.
+    /// The input tensor `t` is not modified.
+    pub fn softmax_into(out: &mut Tensor, t: &Tensor) {
+        math::tensor_softmax_into(out, t)
+    }
+
+    /// In-place softmax along the last dimension.
+    pub fn softmax_inplace(&mut self) {
+        math::tensor_softmax_inplace(self)
+    }
+
     /// Compute cross-entropy loss and gradient w.r.t. the logits contained in
     /// this tensor.  The returned gradient tensor can be fed directly into a
     /// backward pass of subsequent layers.
     #[allow(dead_code)]
-    pub fn softmax_cross_entropy(
-        &self,
-        targets: &[usize],
-        row_offset: usize,
-    ) -> (f32, Tensor) {
+    pub fn softmax_cross_entropy(&self, targets: &[usize], row_offset: usize) -> (f32, Tensor) {
         let (loss, grad) = math::tensor_softmax_cross_entropy(self, targets, row_offset);
         (loss, grad)
     }
@@ -355,5 +362,3 @@ impl Node {
         }
     }
 }
-
-
