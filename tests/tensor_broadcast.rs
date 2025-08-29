@@ -10,6 +10,14 @@ fn broadcast_add_works() {
 }
 
 #[test]
+#[should_panic(expected = "incompatible shapes")]
+fn broadcast_add_incompatible_shapes() {
+    let a = Tensor::new(vec![1.0; 6], vec![2, 3]);
+    let b = Tensor::new(vec![1.0; 4], vec![2, 2]);
+    let _ = Tensor::add(&a, &b);
+}
+
+#[test]
 fn reshape_and_index() {
     let mut t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
     assert_eq!(t.get(&[1, 1]), 4.0);

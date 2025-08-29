@@ -498,15 +498,56 @@ fn broadcast_shape(a: &[usize], b: &[usize]) -> Vec<usize> {
 /// Elementwise addition supporting broadcasting.
 pub fn tensor_add(a: &Tensor, b: &Tensor) -> Tensor {
     let shape = broadcast_shape(&a.shape, &b.shape);
-    let a_b = a.broadcast_to(&shape);
-    let b_b = b.broadcast_to(&shape);
-    let data = a_b
-        .data
-        .iter()
-        .zip(b_b.data.iter())
-        .map(|(x, y)| x + y)
-        .collect();
-    Tensor { data, shape }
+    let rank = shape.len();
+    let out_len: usize = shape.iter().product();
+    let mut out = vec![0.0; out_len];
+
+    // Prepare padded shapes so both tensors share the same rank.
+    let mut a_shape = vec![1; rank];
+    a_shape[rank - a.shape.len()..].copy_from_slice(&a.shape);
+    let mut b_shape = vec![1; rank];
+    b_shape[rank - b.shape.len()..].copy_from_slice(&b.shape);
+
+    // Compute strides with zero stride for broadcast dimensions.
+    let mut a_stride = vec![0; rank];
+    let mut s = 1;
+    for i in (0..rank).rev() {
+        if a_shape[i] != 1 {
+            a_stride[i] = s;
+        }
+        s *= a_shape[i];
+    }
+    let mut b_stride = vec![0; rank];
+    s = 1;
+    for i in (0..rank).rev() {
+        if b_shape[i] != 1 {
+            b_stride[i] = s;
+        }
+        s *= b_shape[i];
+    }
+
+    // Iterate over the output tensor computing indices on the fly.
+    let mut a_idx = 0usize;
+    let mut b_idx = 0usize;
+    let mut counters = vec![0usize; rank];
+    for i in 0..out_len {
+        out[i] = a.data[a_idx] + b.data[b_idx];
+
+        // Update indices in a row-major fashion.
+        for d in (0..rank).rev() {
+            counters[d] += 1;
+            if counters[d] < shape[d] {
+                a_idx += a_stride[d];
+                b_idx += b_stride[d];
+                break;
+            }
+            counters[d] = 0;
+            a_idx -= a_stride[d] * (shape[d] - 1);
+            b_idx -= b_stride[d] * (shape[d] - 1);
+        }
+    }
+
+    Tensor { data: out, shape }
 }
 
 /// Multiply two rank-2 tensors.
