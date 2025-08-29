@@ -143,6 +143,10 @@ The `examples` directory contains small programs that showcase core features of 
 
 - **Autoencoder** – `cargo run --example autoencoder` ([walkthrough](docs/examples/autoencoder.md))
   Runs a small variational autoencoder to reconstruct MNIST images.
+- **Tree policy optimization** – `cargo run --example treepo`
+  Demonstrates a minimal `TreePoAgent` on a 1‑D line world. Each episode prints
+  the probability of moving toward the goal, which should increase as the agent
+  learns.
 - **Hugging Face Transformer** – `cargo run --example hf_transformer` ([walkthrough](docs/examples/hf_transformer.md))
   Downloads a tiny BERT model and runs a dummy inference to verify tensor shapes.
 
