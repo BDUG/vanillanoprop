@@ -9,6 +9,7 @@ default = []
 kai = []
 matrixmultiply = ["dep:matrixmultiply"]
 cuda = ["dep:cust", "dep:nvrtc"]
+rayon = []
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

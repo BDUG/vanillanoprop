@@ -4,6 +4,9 @@ use crate::math::Matrix;
 use crate::tensor::Tensor;
 use std::fmt;
 
+#[cfg(feature = "rayon")]
+use rayon::prelude::*;
+
 /// 2D convolution layer using im2col and a linear weight matrix.
 ///
 /// The implementation is intentionally simple and only supports
@@ -98,16 +101,25 @@ impl Conv2d {
             batch * out_h * out_w,
             self.in_channels * self.kernel_size * self.kernel_size,
         );
-        let mut row = 0;
-        for b in 0..batch {
-            for oh in 0..out_h {
-                for ow in 0..out_w {
+
+        #[cfg(feature = "rayon")]
+        {
+            let row_size = self.in_channels * self.kernel_size * self.kernel_size;
+            cols
+                .data
+                .par_chunks_mut(row_size)
+                .enumerate()
+                .for_each(|(row, col_chunk)| {
+                    let b = row / (out_h * out_w);
+                    let rem = row % (out_h * out_w);
+                    let oh = rem / out_w;
+                    let ow = rem % out_w;
                     let mut col_idx = 0;
                     for ic in 0..self.in_channels {
                         for kh in 0..self.kernel_size {
                             for kw in 0..self.kernel_size {
-                                let ih = oh * self.stride + kh as usize;
-                                let iw = ow * self.stride + kw as usize;
+                                let ih = oh * self.stride + kh;
+                                let iw = ow * self.stride + kw;
                                 let ihp = ih as isize - self.padding as isize;
                                 let iwp = iw as isize - self.padding as isize;
                                 let val = if ihp >= 0
@@ -123,15 +135,52 @@ impl Conv2d {
                                 } else {
                                     0.0
                                 };
-                                cols.set(row, col_idx, val);
+                                col_chunk[col_idx] = val;
                                 col_idx += 1;
                             }
                         }
                     }
-                    row += 1;
+                });
+        }
+
+        #[cfg(not(feature = "rayon"))]
+        {
+            let mut row = 0;
+            for b in 0..batch {
+                for oh in 0..out_h {
+                    for ow in 0..out_w {
+                        let mut col_idx = 0;
+                        for ic in 0..self.in_channels {
+                            for kh in 0..self.kernel_size {
+                                for kw in 0..self.kernel_size {
+                                    let ih = oh * self.stride + kh as usize;
+                                    let iw = ow * self.stride + kw as usize;
+                                    let ihp = ih as isize - self.padding as isize;
+                                    let iwp = iw as isize - self.padding as isize;
+                                    let val = if ihp >= 0
+                                        && ihp < in_h as isize
+                                        && iwp >= 0
+                                        && iwp < in_w as isize
+                                    {
+                                        let idx = b * x.cols
+                                            + ic * in_h * in_w
+                                            + ihp as usize * in_w
+                                            + iwp as usize;
+                                        x.data[idx]
+                                    } else {
+                                        0.0
+                                    };
+                                    cols.set(row, col_idx, val);
+                                    col_idx += 1;
+                                }
+                            }
+                        }
+                        row += 1;
+                    }
                 }
             }
         }
+
         cols
     }
 
@@ -145,38 +194,94 @@ impl Conv2d {
         out_w: usize,
     ) -> Matrix {
         let mut img = Matrix::zeros(batch, self.in_channels * in_h * in_w);
-        let mut row = 0;
-        for b in 0..batch {
-            for oh in 0..out_h {
-                for ow in 0..out_w {
-                    let mut col_idx = 0;
-                    for ic in 0..self.in_channels {
-                        for kh in 0..self.kernel_size {
-                            for kw in 0..self.kernel_size {
-                                let ih = oh * self.stride + kh as usize;
-                                let iw = ow * self.stride + kw as usize;
-                                let ihp = ih as isize - self.padding as isize;
-                                let iwp = iw as isize - self.padding as isize;
-                                if ihp >= 0
-                                    && ihp < in_h as isize
-                                    && iwp >= 0
-                                    && iwp < in_w as isize
-                                {
-                                    let val = cols.get(row, col_idx);
-                                    let idx = b * img.cols
-                                        + ic * in_h * in_w
-                                        + ihp as usize * in_w
-                                        + iwp as usize;
-                                    img.data[idx] += val;
+
+        #[cfg(feature = "rayon")]
+        {
+            let row_size = self.in_channels * self.kernel_size * self.kernel_size;
+            img.data
+                .par_chunks_mut(in_h * in_w)
+                .enumerate()
+                .for_each(|(b_ic, img_chunk)| {
+                    let b = b_ic / self.in_channels;
+                    let ic = b_ic % self.in_channels;
+                    for ih in 0..in_h {
+                        for iw in 0..in_w {
+                            let mut val = 0.0;
+                            for kh in 0..self.kernel_size {
+                                let ihp = ih + self.padding;
+                                if ihp < kh {
+                                    continue;
                                 }
-                                col_idx += 1;
+                                let oh_unstrided = ihp - kh;
+                                if oh_unstrided % self.stride != 0 {
+                                    continue;
+                                }
+                                let oh = oh_unstrided / self.stride;
+                                if oh >= out_h {
+                                    continue;
+                                }
+                                for kw in 0..self.kernel_size {
+                                    let iwp = iw + self.padding;
+                                    if iwp < kw {
+                                        continue;
+                                    }
+                                    let ow_unstrided = iwp - kw;
+                                    if ow_unstrided % self.stride != 0 {
+                                        continue;
+                                    }
+                                    let ow = ow_unstrided / self.stride;
+                                    if ow >= out_w {
+                                        continue;
+                                    }
+                                    let row = b * out_h * out_w + oh * out_w + ow;
+                                    let col_idx = ic * self.kernel_size * self.kernel_size
+                                        + kh * self.kernel_size
+                                        + kw;
+                                    val += cols.data[row * row_size + col_idx];
+                                }
                             }
+                            img_chunk[ih * in_w + iw] = val;
                         }
                     }
-                    row += 1;
+                });
+        }
+
+        #[cfg(not(feature = "rayon"))]
+        {
+            let mut row = 0;
+            for b in 0..batch {
+                for oh in 0..out_h {
+                    for ow in 0..out_w {
+                        let mut col_idx = 0;
+                        for ic in 0..self.in_channels {
+                            for kh in 0..self.kernel_size {
+                                for kw in 0..self.kernel_size {
+                                    let ih = oh * self.stride + kh as usize;
+                                    let iw = ow * self.stride + kw as usize;
+                                    let ihp = ih as isize - self.padding as isize;
+                                    let iwp = iw as isize - self.padding as isize;
+                                    if ihp >= 0
+                                        && ihp < in_h as isize
+                                        && iwp >= 0
+                                        && iwp < in_w as isize
+                                    {
+                                        let val = cols.get(row, col_idx);
+                                        let idx = b * img.cols
+                                            + ic * in_h * in_w
+                                            + ihp as usize * in_w
+                                            + iwp as usize;
+                                        img.data[idx] += val;
+                                    }
+                                    col_idx += 1;
+                                }
+                            }
+                        }
+                        row += 1;
+                    }
                 }
             }
         }
+
         img
     }
 
