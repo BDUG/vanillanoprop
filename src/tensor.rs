@@ -1,5 +1,8 @@
 use crate::math;
 use crate::math::Matrix;
+use std::cell::RefCell;
+use std::collections::HashSet;
+use std::rc::Rc;
 
 /// N-dimensional tensor backed by a flat `Vec<f32>`.
 ///
@@ -147,5 +150,210 @@ impl Tensor {
         let (loss, grad) = math::tensor_softmax_cross_entropy(self, targets, row_offset);
         (loss, grad)
     }
+
+    /// Create a tensor of zeros with the given shape.
+    pub fn zeros(shape: Vec<usize>) -> Self {
+        let len: usize = shape.iter().product();
+        Tensor {
+            data: vec![0.0; len],
+            shape,
+        }
+    }
+
+    /// Create a tensor of zeros matching the shape of `other`.
+    pub fn zeros_like(other: &Tensor) -> Self {
+        Tensor {
+            data: vec![0.0; other.data.len()],
+            shape: other.shape.clone(),
+        }
+    }
+
+    /// Create a tensor of ones matching the shape of `other`.
+    pub fn ones_like(other: &Tensor) -> Self {
+        Tensor {
+            data: vec![1.0; other.data.len()],
+            shape: other.shape.clone(),
+        }
+    }
+
+    /// Convert this tensor into an autograd [`Node`].
+    pub fn into_node(self, requires_grad: bool) -> NodeRef {
+        Node::new(self, requires_grad)
+    }
 }
+
+/// Reference-counted node pointer used for building computation graphs.
+pub type NodeRef = Rc<RefCell<Node>>;
+
+/// Operations that a [`Node`] can represent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Op {
+    None,
+    Add,
+    MatMul,
+    Transpose,
+    Softmax,
+}
+
+/// Autograd node storing the value, gradient and parent links.
+#[derive(Clone, Debug)]
+pub struct Node {
+    /// Value of this node.
+    pub value: Tensor,
+    /// Gradient accumulated for this node.
+    pub grad: Option<Tensor>,
+    /// Operation that produced this node.
+    op: Op,
+    /// Parents contributing to this node.
+    parents: Vec<NodeRef>,
+    /// Whether this node requires gradients.
+    pub requires_grad: bool,
+}
+
+impl Node {
+    /// Create a leaf node from a tensor.
+    pub fn new(value: Tensor, requires_grad: bool) -> NodeRef {
+        Rc::new(RefCell::new(Node {
+            value,
+            grad: None,
+            op: Op::None,
+            parents: vec![],
+            requires_grad,
+        }))
+    }
+
+    /// Wrap a tensor that should participate in autograd.
+    pub fn from_tensor(t: Tensor) -> NodeRef {
+        Node::new(t, true)
+    }
+
+    /// Create a node without tracking gradients.
+    pub fn from_tensor_no_grad(t: Tensor) -> NodeRef {
+        Node::new(t, false)
+    }
+
+    /// Elementwise addition operation.
+    pub fn add(a: &NodeRef, b: &NodeRef) -> NodeRef {
+        let value = Tensor::add(&a.borrow().value, &b.borrow().value);
+        let requires_grad = a.borrow().requires_grad || b.borrow().requires_grad;
+        Rc::new(RefCell::new(Node {
+            value,
+            grad: None,
+            op: Op::Add,
+            parents: vec![a.clone(), b.clone()],
+            requires_grad,
+        }))
+    }
+
+    /// Matrix multiplication operation.
+    pub fn matmul(a: &NodeRef, b: &NodeRef) -> NodeRef {
+        let value = Tensor::matmul(&a.borrow().value, &b.borrow().value);
+        let requires_grad = a.borrow().requires_grad || b.borrow().requires_grad;
+        Rc::new(RefCell::new(Node {
+            value,
+            grad: None,
+            op: Op::MatMul,
+            parents: vec![a.clone(), b.clone()],
+            requires_grad,
+        }))
+    }
+
+    /// Transpose operation for 2-D tensors.
+    pub fn transpose(x: &NodeRef) -> NodeRef {
+        let value = Tensor::transpose(&x.borrow().value);
+        Rc::new(RefCell::new(Node {
+            value,
+            grad: None,
+            op: Op::Transpose,
+            parents: vec![x.clone()],
+            requires_grad: x.borrow().requires_grad,
+        }))
+    }
+
+    /// Softmax along the last dimension.
+    pub fn softmax(x: &NodeRef) -> NodeRef {
+        let value = Tensor::softmax(&x.borrow().value);
+        Rc::new(RefCell::new(Node {
+            value,
+            grad: None,
+            op: Op::Softmax,
+            parents: vec![x.clone()],
+            requires_grad: x.borrow().requires_grad,
+        }))
+    }
+
+    /// Trigger backward propagation starting from this node.
+    pub fn backward(root: &NodeRef) {
+        {
+            let mut r = root.borrow_mut();
+            if r.grad.is_none() {
+                r.grad = Some(Tensor::ones_like(&r.value));
+            }
+        }
+        let mut visited = HashSet::new();
+        Node::backward_rec(root, &mut visited);
+    }
+
+    fn backward_rec(node: &NodeRef, visited: &mut HashSet<usize>) {
+        let id = Rc::as_ptr(node) as usize;
+        if visited.contains(&id) {
+            return;
+        }
+        visited.insert(id);
+
+        let grads = {
+            let n = node.borrow();
+            let grad_out = match &n.grad {
+                Some(g) => g.clone(),
+                None => return,
+            };
+            match n.op {
+                Op::None => vec![],
+                Op::Add => vec![grad_out.clone(), grad_out],
+                Op::MatMul => {
+                    let a = n.parents[0].borrow();
+                    let b = n.parents[1].borrow();
+                    let grad_a = Tensor::matmul(&grad_out, &Tensor::transpose(&b.value));
+                    let grad_b = Tensor::matmul(&Tensor::transpose(&a.value), &grad_out);
+                    vec![grad_a, grad_b]
+                }
+                Op::Transpose => vec![Tensor::transpose(&grad_out)],
+                Op::Softmax => {
+                    let s = &n.value;
+                    let mut grad_in = Tensor::zeros_like(s);
+                    let last_dim = *s.shape.last().unwrap();
+                    let rows = s.data.len() / last_dim;
+                    for r in 0..rows {
+                        let offset = r * last_dim;
+                        let mut dot = 0.0;
+                        for i in 0..last_dim {
+                            dot += grad_out.data[offset + i] * s.data[offset + i];
+                        }
+                        for i in 0..last_dim {
+                            grad_in.data[offset + i] =
+                                (grad_out.data[offset + i] - dot) * s.data[offset + i];
+                        }
+                    }
+                    vec![grad_in]
+                }
+            }
+        };
+
+        for (parent, grad) in node.borrow().parents.iter().zip(grads.into_iter()) {
+            if !parent.borrow().requires_grad {
+                continue;
+            }
+            {
+                let mut p = parent.borrow_mut();
+                if let Some(existing) = &p.grad {
+                    p.grad = Some(Tensor::add(existing, &grad));
+                } else {
+                    p.grad = Some(grad);
+                }
+            }
+            Node::backward_rec(parent, visited);
+        }
+    }
+}
+
 
