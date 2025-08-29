@@ -52,7 +52,7 @@ fn main() {
         position: 0,
         goal: 5,
     };
-    let mut agent = TreePoAgent::new(env, 0.9, 0.95, 10, 10);
+    let mut agent = TreePoAgent::new(env, 0.9, 0.95, 10, 10, 0.1);
 
     // Actions available to the agent: move left or right
     let actions = [-1, 1];
@@ -66,6 +66,7 @@ fn main() {
             state,
             value: 0.0,
             visits: 0,
+            policy: 1.0,
             children: HashMap::new(),
         };
 
@@ -92,7 +93,7 @@ fn main() {
         }
 
         // Inspect the learned probability of moving right from the root
-        let p_right = agent.root.children.get(&1).map(|c| c.value).unwrap_or(0.0);
+        let p_right = agent.root.children.get(&1).map(|c| c.policy).unwrap_or(0.0);
         println!("Episode {}: P(move right)={:.2}", episode + 1, p_right);
     }
 }

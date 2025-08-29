@@ -118,10 +118,13 @@ max pooling and batch normalization layers. Check the
 
 ```rust
 // src/rl/treepo.rs
-pub fn update_policy(/* ... */) {
-    // Tree-based policy optimisation
+pub fn update_policy(&mut self) {
+    // Backpropagate advantages and update policy with learning rate `lr`
 }
 ```
+
+`TreePoAgent::new` expects an additional `lr` parameter controlling the step
+size of the policy update.
 
 Launch a TreePO run with `./run.sh train-treepo --config treepo_config.toml`.
 See the [TreePO example](examples/treepo.md) for configuration details.

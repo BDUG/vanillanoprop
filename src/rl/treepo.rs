@@ -28,6 +28,8 @@ pub struct TreeNode<S, A> {
     pub state: S,
     pub value: f32,
     pub visits: u32,
+    /// Probability of selecting the action leading to this node.
+    pub policy: f32,
     pub children: HashMap<A, TreeNode<S, A>>,
 }
 
@@ -37,6 +39,7 @@ impl<S: Clone, A: Eq + Hash + Clone> TreeNode<S, A> {
             state,
             value: 0.0,
             visits: 0,
+            policy: 0.0,
             children: HashMap::new(),
         }
     }
@@ -56,19 +59,30 @@ pub struct TreePoAgent<E: Env> {
     pub lam: f32,
     pub max_depth: usize,
     pub rollout_steps: usize,
+    pub lr: f32,
 }
 
 impl<E: Env> TreePoAgent<E> {
     /// Create a new agent with the given environment and hyperparameters.
-    pub fn new(mut env: E, gamma: f32, lam: f32, max_depth: usize, rollout_steps: usize) -> Self {
+    pub fn new(
+        mut env: E,
+        gamma: f32,
+        lam: f32,
+        max_depth: usize,
+        rollout_steps: usize,
+        lr: f32,
+    ) -> Self {
         let state = env.reset();
+        let mut root = TreeNode::new(state);
+        root.policy = 1.0;
         Self {
             env,
-            root: TreeNode::new(state),
+            root,
             gamma,
             lam,
             max_depth,
             rollout_steps,
+            lr,
         }
     }
 
@@ -104,20 +118,52 @@ impl<E: Env> TreePoAgent<E> {
         }
     }
 
-    /// Update the root policy based on child advantages. This is a simple
-    /// normalised advantage scheme used as a placeholder for the policy update
-    /// described in the TreePO paper.
+    fn propagate_advantage(node: &TreeNode<E::State, E::Action>, gamma: f32) -> f32 {
+        let mut adv = Self::advantage(node);
+        if !node.children.is_empty() {
+            let best_child = node
+                .children
+                .values()
+                .map(|c| Self::propagate_advantage(c, gamma))
+                .fold(f32::NEG_INFINITY, f32::max);
+            if best_child.is_finite() {
+                adv += gamma * best_child;
+            }
+        }
+        adv
+    }
+
+    /// Update the root policy based on backpropagated advantages. Advantages are
+    /// propagated from the leaves up the tree using discounted returns and then
+    /// applied to the root policy via a simple gradient step followed by
+    /// normalisation.
     pub fn update_policy(&mut self) {
-        let total: f32 = self
-            .root
-            .children
-            .values()
-            .map(|c| Self::advantage(c).max(0.0))
-            .sum();
-        if total > 0.0 {
+        let mut advs: Vec<(E::Action, f32)> = Vec::new();
+        for (action, child) in self.root.children.iter() {
+            let adv = Self::propagate_advantage(child, self.gamma);
+            advs.push((action.clone(), adv));
+        }
+        if advs.is_empty() {
+            return;
+        }
+        let baseline = advs.iter().map(|(_, a)| *a).sum::<f32>() / advs.len() as f32;
+        for (action, adv) in advs {
+            if let Some(child) = self.root.children.get_mut(&action) {
+                child.policy += self.lr * (adv - baseline);
+                if child.policy < 0.0 {
+                    child.policy = 0.0;
+                }
+            }
+        }
+        let sum: f32 = self.root.children.values().map(|c| c.policy).sum();
+        if sum > 0.0 {
             for child in self.root.children.values_mut() {
-                let adv = Self::advantage(child).max(0.0);
-                child.value = adv / total;
+                child.policy /= sum;
+            }
+        } else {
+            let len = self.root.children.len() as f32;
+            for child in self.root.children.values_mut() {
+                child.policy = 1.0 / len;
             }
         }
     }
