@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 {download|predict|predict-rnn|train-backprop|train-elmo|train-noprop|train-lcm|train-resnet|train-rnn|train-treepo} [model] [opt] [--moe] [--num-experts N] [--resume FILE]" >&2
+  echo "Usage: $0 {download|predict|predict-rnn|train-backprop|train-elmo|train-noprop|train-lcm|train-resnet|train-rnn|train-treepo} [model] [opt] [--moe] [--num-experts N] [--resume FILE] [--export-onnx FILE]" >&2
   exit 1
 }
 

@@ -275,6 +275,27 @@ impl Conv2d {
         let w = &mut self.w;
         vec![w]
     }
+
+    /// Accessor methods for exporting or inspection.
+    pub fn in_channels(&self) -> usize {
+        self.in_channels
+    }
+
+    pub fn out_channels(&self) -> usize {
+        self.out_channels
+    }
+
+    pub fn kernel_size(&self) -> usize {
+        self.kernel_size
+    }
+
+    pub fn stride(&self) -> usize {
+        self.stride
+    }
+
+    pub fn padding(&self) -> usize {
+        self.padding
+    }
 }
 
 impl Layer for Conv2d {

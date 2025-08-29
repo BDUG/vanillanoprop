@@ -1,9 +1,11 @@
+use std::any::Any;
+
 use crate::tensor::Tensor;
 use crate::math::Matrix;
 use super::linear::LinearT;
 
 /// Common interface for network layers.
-pub trait Layer {
+pub trait Layer: Any {
     /// Forward pass used during inference.
     fn forward(&self, x: &Tensor) -> Tensor;
 

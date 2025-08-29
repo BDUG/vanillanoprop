@@ -1,5 +1,6 @@
 use crate::math::Matrix;
-use crate::models::{DecoderT, EncoderT, LargeConceptModel, SimpleCNN, RNN, VAE};
+use crate::models::{DecoderT, EncoderT, LargeConceptModel, SimpleCNN, RNN, VAE, Sequential};
+use crate::export::onnx::export_to_onnx;
 use crate::tensor::Tensor;
 use crate::layers::LinearT;
 use serde::{Deserialize, Serialize};
@@ -198,6 +199,14 @@ pub fn load_cnn(path: &str, num_classes: usize) -> Result<SimpleCNN, io::Error> 
     }
     println!("Loaded CNN weights from {}", path);
     Ok(cnn)
+}
+
+/// Export a [`Sequential`] model to an ONNX file.
+///
+/// This is a thin wrapper around [`export_to_onnx`] and currently supports only
+/// models constructed from layers that the exporter can map to ONNX operators.
+pub fn save_onnx(path: &str, model: &Sequential) -> Result<(), Box<dyn std::error::Error>> {
+    export_to_onnx(model, std::path::Path::new(path))
 }
 
 pub fn save_lcm(path: &str, model: &LargeConceptModel) -> Result<(), io::Error> {

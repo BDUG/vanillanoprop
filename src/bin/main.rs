@@ -26,6 +26,7 @@ fn main() {
                 _ckpt_dir,
                 _log_dir,
                 _experiment,
+                _export_onnx,
                 _config,
                 positional,
             ) = common::parse_cli(args[2..].iter().cloned());
@@ -48,6 +49,7 @@ fn main() {
                 _ckpt_dir,
                 _log_dir,
                 _experiment,
+                _export_onnx,
                 _config,
                 _positional,
             ) = common::parse_cli(args[2..].iter().cloned());

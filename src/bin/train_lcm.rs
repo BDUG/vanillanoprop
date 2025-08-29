@@ -21,6 +21,7 @@ fn main() {
         _checkpoint_dir,
         _log_dir,
         _experiment,
+        _export_onnx,
         config,
         _,
     ) = common::parse_cli(env::args().skip(1));

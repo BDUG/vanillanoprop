@@ -17,5 +17,6 @@ pub mod rng;
 pub mod tensor;
 pub mod train_cnn;
 pub mod weights;
+pub mod export;
 
 pub use data::{Cifar10, Dataset, Mnist};

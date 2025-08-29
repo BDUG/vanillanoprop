@@ -22,6 +22,8 @@ rayon = "1.8"
 toml = "0.8"
 csv = "1"
 nalgebra = { version = "0.27" }
+onnx-pb = "0.1"
+prost = "0.6"
 
 [lib]
 name = "vanillanoprop"
