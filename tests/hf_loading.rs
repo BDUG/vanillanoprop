@@ -10,15 +10,20 @@ use vanillanoprop::math::Matrix;
 fn hf_loading() {
     // Use local config and download weights from the Hugging Face Hub
     let cfg = Path::new("tests/data/tiny_bert/config.json");
-    let api = ApiBuilder::new().build().unwrap();
+    let api = ApiBuilder::new()
+        .build()
+        .expect("failed to build HF API");
     let repo = api.model("hf-internal-testing/tiny-random-bert".to_string());
-    let weights = repo.get("model.safetensors").unwrap();
+    let weights = repo
+        .get("model.safetensors")
+        .expect("failed to fetch model weights");
 
     // Build model matching the config
     let mut enc = TransformerEncoder::new(2, 1000, 32, 4, 64, 0.0);
 
     // Load weights from safetensors
-    load_transformer_from_hf(cfg, &weights, &mut enc).unwrap();
+    load_transformer_from_hf(cfg, &weights, &mut enc)
+        .expect("failed to load transformer weights");
 
     // Check embedding dimensions
     assert_eq!(enc.embedding.table.w.data.rows, 1000);
@@ -49,8 +54,10 @@ fn hf_loading() {
     let out = enc.forward(x, None);
 
     // Load reference output
-    let ref_text = fs::read_to_string("tests/data/tiny_bert/reference.json").unwrap();
-    let reference: Vec<Vec<f32>> = serde_json::from_str(&ref_text).unwrap();
+    let ref_text = fs::read_to_string("tests/data/tiny_bert/reference.json")
+        .expect("failed to read reference output");
+    let reference: Vec<Vec<f32>> = serde_json::from_str(&ref_text)
+        .expect("failed to parse reference JSON");
 
     for i in 0..tokens.len() {
         for j in 0..32 {

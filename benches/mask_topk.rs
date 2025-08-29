@@ -6,7 +6,9 @@ fn mask_topk_sort(data: &mut [f32], cols: usize, top_k: usize) {
         if top_k >= cols { continue; }
         let mut indices: Vec<usize> = (0..cols).collect();
         indices.sort_by(|&a, &b| {
-            row[b].partial_cmp(&row[a]).unwrap()
+            row[b]
+                .partial_cmp(&row[a])
+                .expect("mask_topk_sort values should be comparable")
         });
         for &idx in indices[top_k..].iter() {
             row[idx] = f32::NEG_INFINITY;
@@ -19,7 +21,9 @@ fn mask_topk_select(data: &mut [f32], cols: usize, top_k: usize) {
         if top_k >= cols { continue; }
         let mut indices: Vec<usize> = (0..cols).collect();
         indices.select_nth_unstable_by(top_k, |&a, &b| {
-            row[b].partial_cmp(&row[a]).unwrap()
+            row[b]
+                .partial_cmp(&row[a])
+                .expect("mask_topk_select values should be comparable")
         });
         for &idx in indices[top_k..].iter() {
             row[idx] = f32::NEG_INFINITY;

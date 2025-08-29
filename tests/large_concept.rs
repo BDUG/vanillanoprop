@@ -15,8 +15,9 @@ fn forward_produces_logits() {
 fn save_load_roundtrip() {
     let model = LargeConceptModel::new(28 * 28, 16, 10);
     let path = "test_lcm.json";
-    save_lcm(path, &model).unwrap();
-    let loaded = load_lcm(path, 28 * 28, 16, 10).unwrap();
+    save_lcm(path, &model).expect("failed to save LCM model");
+    let loaded = load_lcm(path, 28 * 28, 16, 10)
+        .expect("failed to load LCM model");
     fs::remove_file(path).ok();
     assert_eq!(loaded.b1.len(), model.b1.len());
 }

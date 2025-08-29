@@ -28,7 +28,7 @@ fn main() {
             indices.select_nth_unstable_by(moe.top_k, |&a, &b| {
                 logits.data[row_start + b]
                     .partial_cmp(&logits.data[row_start + a])
-                    .unwrap()
+                    .expect("gating logits should be comparable")
             });
             for &idx in indices[moe.top_k..].iter() {
                 logits.data[row_start + idx] = f32::NEG_INFINITY;
