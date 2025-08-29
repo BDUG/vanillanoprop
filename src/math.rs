@@ -3,6 +3,11 @@ use nalgebra::DMatrix;
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+#[cfg(feature = "cuda")]
+use cust::prelude::*;
+#[cfg(feature = "cuda")]
+use nvrtc::NvrtcProgram;
+
 // Separate counters for addition and multiplication operations.
 static ADD_OPS: AtomicUsize = AtomicUsize::new(0);
 static MUL_OPS: AtomicUsize = AtomicUsize::new(0);
@@ -132,6 +137,71 @@ pub(crate) fn matmul_cpu(a: &Matrix, b: &Matrix) -> Matrix {
     }
 
     Matrix::from_vec(m, n, out)
+}
+
+#[cfg(feature = "cuda")]
+pub(crate) fn matmul_cuda(a: &Matrix, b: &Matrix) -> Matrix {
+    let muls = a.rows * a.cols * b.cols;
+    let adds = muls;
+    inc_mul_ops_by(muls);
+    inc_add_ops_by(adds);
+    assert_eq!(a.cols, b.rows);
+
+    let m = a.rows as i32;
+    let n = b.cols as i32;
+    let k_dim = a.cols as i32;
+
+    let src = r#"
+extern "C" __global__ void matmul(const float* a, const float* b, float* c, int m, int n, int k) {
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row < m && col < n) {
+        float sum = 0.0f;
+        for (int i = 0; i < k; i++) {
+            sum += a[row * k + i] * b[i * n + col];
+        }
+        c[row * n + col] = sum;
+    }
+}
+"#;
+
+    let prog = NvrtcProgram::new(src, None, &[], &[]).expect("nvrtc program");
+    prog.compile(&[]).expect("nvrtc compile");
+    let ptx = prog.get_ptx().expect("nvrtc get ptx");
+
+    let _ctx = cust::quick_init().expect("CUDA init failed");
+    let module = Module::from_ptx(ptx.as_str(), &[]).expect("module from PTX");
+    let stream = Stream::new(StreamFlags::DEFAULT, None).expect("stream");
+    let func = module.get_function("matmul").expect("function");
+
+    let mut d_a = DeviceBuffer::from_slice(&a.data).expect("device buffer A");
+    let mut d_b = DeviceBuffer::from_slice(&b.data).expect("device buffer B");
+    let mut d_c = DeviceBuffer::<f32>::zeroed((m * n) as usize).expect("device buffer C");
+
+    let block = (16u32, 16u32, 1u32);
+    let grid = (
+        ((n as u32 + block.0 - 1) / block.0),
+        ((m as u32 + block.1 - 1) / block.1),
+        1u32,
+    );
+
+    unsafe {
+        launch!(func<<<grid, block, 0, stream>>>(
+            d_a.as_device_ptr(),
+            d_b.as_device_ptr(),
+            d_c.as_device_ptr(),
+            m,
+            n,
+            k_dim
+        ))
+        .expect("kernel launch failed");
+    }
+    stream.synchronize().expect("stream sync");
+
+    let mut out = vec![0.0f32; (m * n) as usize];
+    d_c.copy_to(&mut out).expect("copy from device");
+
+    Matrix::from_vec(m as usize, n as usize, out)
 }
 
 impl Matrix {

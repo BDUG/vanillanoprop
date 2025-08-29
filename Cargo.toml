@@ -8,6 +8,7 @@ build = "build.rs"
 default = []
 kai = []
 matrixmultiply = ["dep:matrixmultiply"]
+cuda = ["dep:cust", "dep:nvrtc"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -29,6 +30,8 @@ hf-hub = "0.4"
 ureq = "2"
 safetensors = "0.6"
 matrixmultiply = { version = "0.3", optional = true }
+cust = { version = "0.3", optional = true }
+nvrtc = { version = "0.1", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_System_ProcessStatus", "Win32_System_Threading"] }
