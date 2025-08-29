@@ -25,14 +25,27 @@ fn main() {
         log_dir,
         experiment,
         _export_onnx,
+        fine_tune,
+        freeze_layers,
         config,
         _,
     ) = common::parse_cli(env::args().skip(1));
 
-    run(log_dir, experiment, &config);
+    let ft = fine_tune
+        .map(|model_id| {
+            vanillanoprop::fine_tune::run(&model_id, freeze_layers, |_, _| Ok(()))
+                .expect("fine-tune load failed")
+        });
+
+    run(log_dir, experiment, &config, ft);
 }
 
-fn run(log_dir: Option<String>, experiment: Option<String>, config: &Config) {
+fn run(
+    log_dir: Option<String>,
+    experiment: Option<String>,
+    config: &Config,
+    fine_tune: Option<vanillanoprop::fine_tune::FineTune>,
+) {
     let batches = load_batches(config.batch_size);
     let vocab_size = 256; // pixel values 0-255
     let hidden_dim = 64;
@@ -79,7 +92,12 @@ fn run(log_dir: Option<String>, experiment: Option<String>, config: &Config) {
             batch_f1 /= bsz;
             last_loss = batch_loss;
             let mut params = rnn.parameters();
-            trainer.fit(&mut params);
+            if let Some(ft) = &fine_tune {
+                let mut filtered = ft.filter(params);
+                trainer.fit(&mut filtered);
+            } else {
+                trainer.fit(&mut params);
+            }
             println!("loss {batch_loss:.4} f1 {batch_f1:.4}");
             if let Some(l) = &mut logger {
                 l.log(&MetricRecord {

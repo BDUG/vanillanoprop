@@ -27,6 +27,8 @@ fn main() {
                 _log_dir,
                 _experiment,
                 _export_onnx,
+                _fine_tune,
+                _freeze_layers,
                 _config,
                 positional,
             ) = common::parse_cli(args[2..].iter().cloned());
@@ -50,6 +52,8 @@ fn main() {
                 _log_dir,
                 _experiment,
                 _export_onnx,
+                _fine_tune,
+                _freeze_layers,
                 _config,
                 _positional,
             ) = common::parse_cli(args[2..].iter().cloned());

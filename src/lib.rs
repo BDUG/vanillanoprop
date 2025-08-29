@@ -14,6 +14,7 @@ pub mod models;
 pub mod optim;
 pub mod positional;
 pub mod predict;
+pub mod fine_tune;
 pub mod rl;
 pub mod rng;
 pub mod tensor;
