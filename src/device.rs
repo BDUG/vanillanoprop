@@ -22,7 +22,7 @@ pub struct Cpu;
 
 impl Device for Cpu {
     fn matmul(&self, a: &Matrix, b: &Matrix) -> Matrix {
-        matmul_cpu(a, b)
+        matmul_cpu(a.as_view(), b.as_view())
     }
 }
 
