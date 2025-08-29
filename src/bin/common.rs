@@ -1,5 +1,6 @@
 use std::env;
 use vanillanoprop::config::Config;
+use vanillanoprop::fine_tune::FreezeSpec;
 use vanillanoprop::optim::lr_scheduler::LrScheduleConfig;
 
 /// Parses common CLI arguments across training binaries.
@@ -40,7 +41,7 @@ pub fn parse_cli<I>(
     Option<String>,
     Option<String>,
     Option<String>,
-    Vec<usize>,
+    Vec<FreezeSpec>,
     bool,
     Config,
     Vec<String>,
@@ -63,7 +64,7 @@ where
     let mut experiment_name = None;
     let mut export_onnx = None;
     let mut fine_tune = None;
-    let mut freeze_layers = Vec::new();
+    let mut freeze_layers: Vec<FreezeSpec> = Vec::new();
     let mut auto_ml = false;
     let mut epochs = None;
     let mut batch_size = None;
@@ -267,7 +268,7 @@ pub fn parse_env() -> (
     Option<String>,
     Option<String>,
     Option<String>,
-    Vec<usize>,
+    Vec<FreezeSpec>,
     bool,
     Config,
     Vec<String>,

@@ -3,6 +3,7 @@ use std::env;
 use indicatif::ProgressBar;
 use vanillanoprop::config::Config;
 use vanillanoprop::data::load_batches;
+use vanillanoprop::fine_tune::LayerKind;
 use vanillanoprop::layers::{Activation, LinearT};
 use vanillanoprop::logging::{Callback, Logger, MetricRecord};
 use vanillanoprop::math::{self, Matrix};
@@ -52,7 +53,16 @@ fn main() {
             Vec::<Box<dyn Callback>>::new(),
         );
     } else {
-        run(&opt, moe, num_experts, log_dir, experiment, &config, resume, ft);
+        run(
+            &opt,
+            moe,
+            num_experts,
+            log_dir,
+            experiment,
+            &config,
+            resume,
+            ft,
+        );
     }
 }
 
@@ -167,16 +177,21 @@ fn run(
             last_loss = batch_loss;
             f1_sum += batch_f1;
             sample_cnt += bsz;
-            let mut params = encoder.parameters();
+            let mut params: Vec<(LayerKind, &mut LinearT)> = encoder
+                .parameters()
+                .into_iter()
+                .map(|p| (LayerKind::Linear, p))
+                .collect();
             {
                 let dec_params = decoder.parameters();
-                params.extend(dec_params);
+                params.extend(dec_params.into_iter().map(|p| (LayerKind::Linear, p)));
             }
             if let Some(ft) = &fine_tune {
                 let mut filtered = ft.filter(params);
                 trainer.fit(&mut filtered);
             } else {
-                trainer.fit(&mut params);
+                let mut raw: Vec<&mut LinearT> = params.into_iter().map(|(_, p)| p).collect();
+                trainer.fit(&mut raw);
             }
             println!("loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
             if let Some(l) = &mut logger {
