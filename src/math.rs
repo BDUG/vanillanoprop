@@ -57,6 +57,78 @@ pub struct Matrix {
     pub data: Vec<f32>,
 }
 
+/// A lightweight view into a matrix's data that avoids allocation by
+/// borrowing from the original matrix.  The view supports arbitrary row and
+/// column strides which allows representing transposed matrices and slices of
+/// rows or columns without copying.
+#[derive(Clone, Copy, Debug)]
+pub struct MatrixView<'a> {
+    pub rows: usize,
+    pub cols: usize,
+    data: &'a [f32],
+    row_stride: usize,
+    col_stride: usize,
+    offset: usize,
+}
+
+impl<'a> MatrixView<'a> {
+    /// Return the element at the specified row and column.
+    #[inline(always)]
+    pub fn get(&self, r: usize, c: usize) -> f32 {
+        let idx = self.offset + r * self.row_stride + c * self.col_stride;
+        self.data[idx]
+    }
+
+    /// Create a transposed view of this matrix without copying data.
+    pub fn transpose(&self) -> MatrixView<'a> {
+        MatrixView {
+            rows: self.cols,
+            cols: self.rows,
+            data: self.data,
+            row_stride: self.col_stride,
+            col_stride: self.row_stride,
+            offset: self.offset,
+        }
+    }
+}
+
+/// Trait abstracting over owned matrices and borrowed matrix views.
+pub trait MatrixLike {
+    fn rows(&self) -> usize;
+    fn cols(&self) -> usize;
+    fn get(&self, r: usize, c: usize) -> f32;
+}
+
+impl MatrixLike for Matrix {
+    #[inline(always)]
+    fn rows(&self) -> usize {
+        self.rows
+    }
+    #[inline(always)]
+    fn cols(&self) -> usize {
+        self.cols
+    }
+    #[inline(always)]
+    fn get(&self, r: usize, c: usize) -> f32 {
+        self.get(r, c)
+    }
+}
+
+impl<'a> MatrixLike for MatrixView<'a> {
+    #[inline(always)]
+    fn rows(&self) -> usize {
+        self.rows
+    }
+    #[inline(always)]
+    fn cols(&self) -> usize {
+        self.cols
+    }
+    #[inline(always)]
+    fn get(&self, r: usize, c: usize) -> f32 {
+        self.get(r, c)
+    }
+}
+
 /// CPU implementation of matrix multiplication. This is used by the default
 /// [`Cpu`](crate::device::Cpu) device but exposed for other backends to reuse.
 pub(crate) fn matmul_cpu(a: &Matrix, b: &Matrix) -> Matrix {
@@ -231,9 +303,57 @@ impl Matrix {
         self.data[r * self.cols + c] = v;
     }
 
+    /// Borrow a range of columns without allocating.
+    pub fn view_cols(&self, start: usize, width: usize) -> MatrixView {
+        assert!(start + width <= self.cols);
+        MatrixView {
+            rows: self.rows,
+            cols: width,
+            data: &self.data,
+            row_stride: self.cols,
+            col_stride: 1,
+            offset: start,
+        }
+    }
+
+    /// Borrow a range of rows without allocating.
+    pub fn view_rows(&self, start: usize, count: usize) -> MatrixView {
+        assert!(start + count <= self.rows);
+        MatrixView {
+            rows: count,
+            cols: self.cols,
+            data: &self.data,
+            row_stride: self.cols,
+            col_stride: 1,
+            offset: start * self.cols,
+        }
+    }
+
     /// Multiply `a` and `b` using the default [`Cpu`] device.
     pub fn matmul(a: &Matrix, b: &Matrix) -> Matrix {
         Cpu.matmul(a, b)
+    }
+
+    /// Multiply matrices or views without requiring ownership.
+    pub fn matmul_views<A: MatrixLike, B: MatrixLike>(a: &A, b: &B) -> Matrix {
+        assert_eq!(a.cols(), b.rows());
+        let m = a.rows();
+        let n = b.cols();
+        let k_dim = a.cols();
+        let muls = m * k_dim * n;
+        let adds = muls;
+        inc_mul_ops_by(muls);
+        inc_add_ops_by(adds);
+        let mut out = vec![0.0; m * n];
+        for i in 0..m {
+            for k in 0..k_dim {
+                let a_val = a.get(i, k);
+                for j in 0..n {
+                    out[i * n + j] += a_val * b.get(k, j);
+                }
+            }
+        }
+        Matrix::from_vec(m, n, out)
     }
 
     /// Multiply `a` and `b` using the provided device implementation.
