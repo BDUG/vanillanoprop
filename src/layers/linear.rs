@@ -34,7 +34,12 @@ impl LinearT {
         let grad = Matrix::zeros(w.data.rows, w.data.cols);
         let m = Matrix::zeros(w.data.rows, w.data.cols);
         let v = Matrix::zeros(w.data.rows, w.data.cols);
-        let last_x = Matrix::zeros(0, 0);
+        // Pre-allocate with input dimensionality so most calls avoid resizing.
+        let last_x = Matrix {
+            rows: 0,
+            cols: in_dim,
+            data: Vec::with_capacity(in_dim),
+        };
         let fb = Matrix::from_vec(
             out_dim,
             in_dim,
@@ -51,8 +56,15 @@ impl LinearT {
 
     /// Forward pass storing the input for local/FA updates.
     pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
-        self.last_x = x.clone();
-        Matrix::matmul(x, &self.w.data)
+        if self.last_x.rows != x.rows || self.last_x.cols != x.cols {
+            self.last_x.rows = x.rows;
+            self.last_x.cols = x.cols;
+            self.last_x.data.resize(x.data.len(), 0.0);
+        } else if self.last_x.data.len() != x.data.len() {
+            self.last_x.data.resize(x.data.len(), 0.0);
+        }
+        self.last_x.data.clone_from_slice(&x.data);
+        Matrix::matmul(&self.last_x, &self.w.data)
     }
 
     /// Backward-compatible training forward used by backprop examples.
