@@ -42,6 +42,13 @@ Typical training commands:
 
 The `--moe` flag enables mixture-of-experts layers and `--num-experts` sets how many experts to use.
 
+### ONNX export
+
+Training binaries accept an optional `--export-onnx <FILE>` flag. When
+provided, the trained weights are exported to an ONNX model after
+training completes. Only a small subset of layers is supported (linear
+and convolution) and the generated model targets opset 13.
+
 ## Tree Policy Optimization (TreePO)
 
 TreePO combines tree-based planning with policy optimisation to update actions using advantages estimated from a search tree. See the [Tree Policy Optimization paper](https://arxiv.org/abs/2506.03736) for details.

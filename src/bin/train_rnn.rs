@@ -24,6 +24,7 @@ fn main() {
         _ckpt_dir,
         log_dir,
         experiment,
+        _export_onnx,
         config,
         _,
     ) = common::parse_cli(env::args().skip(1));

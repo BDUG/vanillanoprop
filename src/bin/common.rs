@@ -4,7 +4,7 @@ use vanillanoprop::optim::lr_scheduler::LrScheduleConfig;
 
 /// Parses common CLI arguments across training binaries.
 ///
-/// Returns a tuple `(model, optimizer, moe, num_experts, lr_schedule, resume, save_every, checkpoint_dir, log_dir, experiment_name, config, positional_args)`.
+/// Returns a tuple `(model, optimizer, moe, num_experts, lr_schedule, resume, save_every, checkpoint_dir, log_dir, experiment_name, export_onnx, config, positional_args)`.
 /// - `model` defaults to "transformer" if not specified. Supported models include
 ///   "transformer", "cnn" and the new "lcm" large concept model.
 /// - `optimizer` defaults to "sgd" if not specified.
@@ -33,6 +33,7 @@ pub fn parse_cli<I>(
     Option<String>,
     Option<String>,
     Option<String>,
+    Option<String>,
     Config,
     Vec<String>,
 )
@@ -52,6 +53,7 @@ where
     let mut checkpoint_dir = None;
     let mut log_dir = None;
     let mut experiment_name = None;
+    let mut export_onnx = None;
     let mut epochs = None;
     let mut batch_size = None;
     let mut gamma = None;
@@ -113,6 +115,11 @@ where
             "--experiment-name" => {
                 if let Some(v) = args.next() {
                     experiment_name = Some(v);
+                }
+            }
+            "--export-onnx" => {
+                if let Some(v) = args.next() {
+                    export_onnx = Some(v);
                 }
             }
             "--epochs" => {
@@ -212,6 +219,7 @@ where
         checkpoint_dir,
         log_dir,
         experiment_name,
+        export_onnx,
         config,
         positional,
     )
@@ -227,6 +235,7 @@ pub fn parse_env() -> (
     LrScheduleConfig,
     Option<String>,
     Option<usize>,
+    Option<String>,
     Option<String>,
     Option<String>,
     Option<String>,
