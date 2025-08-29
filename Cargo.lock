@@ -2570,6 +2570,7 @@ dependencies = [
  "serde_json",
  "toml",
  "ureq",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
