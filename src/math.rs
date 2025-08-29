@@ -1,5 +1,6 @@
 use crate::device::{Cpu, Device};
 use nalgebra::DMatrix;
+use rayon::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 // Separate counters for addition and multiplication operations.
@@ -278,60 +279,67 @@ pub fn softmax_cross_entropy(
     row_offset: usize,
 ) -> (f32, Matrix, Vec<usize>) {
     let mut grad = Matrix::zeros(logits.rows, logits.cols);
-    let mut loss = 0.0f32;
-    let mut preds = Vec::new();
-    let mut cnt = 0.0f32;
 
-    for (i, &tok) in targets.iter().enumerate() {
-        let row = i + row_offset;
-        if row >= logits.rows {
-            break;
-        }
+    // Number of rows we can actually process
+    let rows_to_process = targets.len().min(logits.rows.saturating_sub(row_offset));
+    let cols = logits.cols;
 
-        // Slice for the current row to avoid repeated index calculations
-        let row_slice = &logits.data[row * logits.cols..(row + 1) * logits.cols];
-        let grad_row = &mut grad.data[row * logits.cols..(row + 1) * logits.cols];
+    // Slices covering only the rows that will be processed
+    let logits_slice =
+        &logits.data[row_offset * cols..row_offset * cols + rows_to_process * cols];
+    let grad_slice =
+        &mut grad.data[row_offset * cols..row_offset * cols + rows_to_process * cols];
 
-        // First pass: determine maximum logit for numerical stability and
-        // simultaneously compute the argmax for predictions.
-        let mut max_val = f32::NEG_INFINITY;
-        let mut best_tok = 0usize;
-        for (t, &v) in row_slice.iter().enumerate() {
-            if v > max_val {
-                max_val = v;
-                best_tok = t;
+    // Process each row in parallel, computing per-row loss and prediction.
+    let results: Vec<(f32, usize)> = grad_slice
+        .par_chunks_mut(cols)
+        .zip(logits_slice.par_chunks(cols))
+        .enumerate()
+        .map(|(i, (grad_row, row_slice))| {
+            let tok = targets[i];
+
+            // First pass: determine maximum logit for numerical stability and
+            // simultaneously compute the argmax for predictions.
+            let mut max_val = f32::NEG_INFINITY;
+            let mut best_tok = 0usize;
+            for (t, &v) in row_slice.iter().enumerate() {
+                if v > max_val {
+                    max_val = v;
+                    best_tok = t;
+                }
             }
-        }
 
-        // Second pass: compute exponentials and their sum while storing them
-        // directly into the gradient buffer.
-        let mut sum = 0.0f32;
-        for (g, &v) in grad_row.iter_mut().zip(row_slice.iter()) {
-            let e = (v - max_val).exp();
-            *g = e;
-            sum += e;
-        }
-
-        // Normalize to obtain probabilities, accumulate loss and finalize
-        // gradient in-place.
-        let mut target_prob = 0.0f32;
-        for (t, g) in grad_row.iter_mut().enumerate() {
-            *g /= sum;
-            if t == tok {
-                target_prob = *g;
-                *g -= 1.0;
+            // Second pass: compute exponentials and their sum while storing
+            // them directly into the gradient buffer.
+            let mut sum = 0.0f32;
+            for (g, &v) in grad_row.iter_mut().zip(row_slice.iter()) {
+                let e = (v - max_val).exp();
+                *g = e;
+                sum += e;
             }
-        }
-        loss += -(target_prob + 1e-9).ln();
-        preds.push(best_tok);
-        cnt += 1.0;
-    }
+
+            // Normalize to obtain probabilities, accumulate loss and finalize
+            // gradient in-place.
+            let mut target_prob = 0.0f32;
+            for (t, g) in grad_row.iter_mut().enumerate() {
+                *g /= sum;
+                if t == tok {
+                    target_prob = *g;
+                    *g -= 1.0;
+                }
+            }
+
+            (-(target_prob + 1e-9).ln(), best_tok)
+        })
+        .collect();
+
+    let mut loss: f32 = results.iter().map(|(l, _)| *l).sum();
+    let preds: Vec<usize> = results.into_iter().map(|(_, p)| p).collect();
+    let cnt = rows_to_process as f32;
 
     if cnt > 0.0 {
         loss /= cnt;
-        for v in grad.data.iter_mut() {
-            *v /= cnt;
-        }
+        grad.data.par_iter_mut().for_each(|v| *v /= cnt);
     }
 
     (loss, grad, preds)

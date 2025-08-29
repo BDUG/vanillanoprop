@@ -49,8 +49,9 @@ fn softmax_cross_entropy_old(
 
 fn bench_softmax_ce(c: &mut Criterion) {
     // Use reasonably large matrices so memory usage differences are visible.
-    let rows = 512;
-    let cols = 512;
+    // Use large matrices to better demonstrate parallel throughput
+    let rows = 1024;
+    let cols = 1024;
     let mut rng = rand::thread_rng();
     let logits_vec: Vec<f32> = (0..rows * cols)
         .map(|_| rng.gen_range(-10.0..10.0))
