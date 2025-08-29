@@ -2,4 +2,5 @@ gamma = 0.99
 lam = 0.95
 max_depth = 10
 rollout_steps = 10
+learning_rate = 0.1
 episodes = 10

@@ -36,7 +36,7 @@ fn main() {
         position: 0,
         goal: 5,
     };
-    let mut agent = TreePoAgent::new(env, 0.9, 0.95, 10, 10);
+    let mut agent = TreePoAgent::new(env, 0.9, 0.95, 10, 10, 0.1);
     let actions = [-1, 1];
     let mut rng = rand::thread_rng();
     let episodes = 10;
@@ -56,6 +56,7 @@ fn main() {
                     state: next_state,
                     value: 0.0,
                     visits: 0,
+                    policy: 0.0,
                     children: HashMap::new(),
                 });
                 TreePoAgent::<LineWorld>::backup(child, reward);
