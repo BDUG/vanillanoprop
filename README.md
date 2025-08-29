@@ -68,8 +68,9 @@ See [Fine-tuning](docs/introduction.md#fine-tuning) for more details. ([example]
 
 Training binaries accept an optional `--export-onnx <FILE>` flag. When
 provided, the trained weights are exported to an ONNX model after
-training completes. Only a small subset of layers is supported (linear
-and convolution) and the generated model targets opset 13.
+training completes. Supported layers include linear, convolution,
+ReLU, max pooling and batch normalization. The generated model targets
+opset 13.
 
 See [ONNX export](docs/introduction.md#onnx-export) for details on the flag. ([example](docs/examples/onnx_export.md))
 

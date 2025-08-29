@@ -24,6 +24,13 @@ pub use linear::LinearT;
 pub use mixture_of_experts::MixtureOfExpertsT;
 pub use multi_head_attention::MultiHeadAttentionT;
 pub use normalization::{BatchNorm, LayerNorm};
-pub use pooling::{avg_pool2d, avg_pool2d_backward, max_pool2d, max_pool2d_backward};
+pub use pooling::{
+    avg_pool2d,
+    avg_pool2d_backward,
+    max_pool2d,
+    max_pool2d_backward,
+    MaxPool2d,
+};
 pub use rnn::{GRU, LSTM};
+pub use relu::ReLUT;
 pub use softmax::SoftmaxT;

@@ -83,6 +83,21 @@ impl BatchNorm {
         }
     }
 
+    /// Running mean used during inference.
+    pub fn running_mean(&self) -> &[f32] {
+        &self.running_mean
+    }
+
+    /// Running variance used during inference.
+    pub fn running_var(&self) -> &[f32] {
+        &self.running_var
+    }
+
+    /// Epsilon constant for numerical stability.
+    pub fn eps(&self) -> f32 {
+        self.eps
+    }
+
     pub fn forward(&self, x: &Tensor) -> Tensor {
         let rows = x.data.rows;
         let cols = x.data.cols;
