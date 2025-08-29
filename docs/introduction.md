@@ -1,8 +1,10 @@
-# Einführung
+# Introduction
 
-## Modellaufbau
+This guide introduces the core building blocks of the `vanillanoprop` framework and shows how to compose models, train networks, evaluate performance and persist learned parameters. Each section references an executable example to explore the concepts further.
 
-Mit `MixtureOfExpertsT` lassen sich mehrere Expertennetzwerke kombinieren:
+## Model Composition
+
+`MixtureOfExpertsT` combines several expert networks into a single layer:
 
 ```rust
 // examples/mixture_of_experts.rs
@@ -12,9 +14,11 @@ let experts: Vec<Box<dyn Layer>> = (0..3)
 let mut moe = MixtureOfExpertsT::new(4, experts, 1);
 ```
 
+The gating mechanism selects which expert should process each input, enabling sparse routing and efficient scaling.
+
 ## Training
 
-Das Training einer RNN für Textklassifikation:
+The following snippet trains a recurrent neural network for text classification:
 
 ```rust
 // examples/text_rnn.rs
@@ -31,9 +35,11 @@ for (seq, label) in batch {
 }
 ```
 
-## Evaluierung
+It constructs an input matrix, performs a forward pass, computes the loss and gradients, and updates the weights with Adam.
 
-Einfaches Messen des Verlusts während des MNIST-Trainings:
+## Evaluation
+
+During MNIST training you can monitor the loss like this:
 
 ```rust
 // examples/mnist_cnn.rs
@@ -45,9 +51,11 @@ loss_sum += loss;
 println!("batch {i} loss {}", loss_sum / batch.len() as f32);
 ```
 
-## Speichern
+Aggregating the loss across batches provides a simple sanity check for overfitting or convergence issues.
 
-Nach dem Training kann ein VAE auf die Platte geschrieben werden:
+## Saving
+
+After training, a variational autoencoder can be written to disk:
 
 ```rust
 // src/bin/train_vae.rs
@@ -55,3 +63,6 @@ if let Err(e) = save_vae("vae.json", &vae) {
     eprintln!("failed to save model: {e}");
 }
 ```
+
+Persisting models allows you to reload them later for inference or continued training.
+
