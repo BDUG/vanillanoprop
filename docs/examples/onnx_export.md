@@ -7,4 +7,5 @@ output path:
 ./run.sh train-noprop --export-onnx model.onnx
 ```
 
-Only a subset of layers is supported. The resulting model targets opset 13.
+The exporter supports linear, convolution, ReLU, max pooling and batch
+normalization layers. The resulting model targets opset 13.

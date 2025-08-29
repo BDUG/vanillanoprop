@@ -1,4 +1,7 @@
 use crate::math::Matrix;
+use crate::tensor::Tensor;
+use super::layer::Layer;
+use super::linear::LinearT;
 
 /// 2D max pooling forward pass.
 ///
@@ -107,4 +110,91 @@ pub fn avg_pool2d_backward(
         }
     }
     grad_input
+}
+
+/// Max pooling layer implementing the [`Layer`] trait.
+pub struct MaxPool2d {
+    kernel: usize,
+    stride: usize,
+    indices: Vec<usize>,
+    input_rows: usize,
+    input_cols: usize,
+}
+
+impl MaxPool2d {
+    /// Create a new max pooling layer.
+    pub fn new(kernel: usize, stride: usize) -> Self {
+        Self {
+            kernel,
+            stride,
+            indices: Vec::new(),
+            input_rows: 0,
+            input_cols: 0,
+        }
+    }
+
+    /// Access the kernel size.
+    pub fn kernel(&self) -> usize {
+        self.kernel
+    }
+
+    /// Access the stride.
+    pub fn stride(&self) -> usize {
+        self.stride
+    }
+
+    fn forward_internal(&self, x: &Tensor) -> Tensor {
+        let (out, _idx) = max_pool2d(&x.data, self.kernel, self.stride);
+        Tensor::from_matrix(out)
+    }
+
+    fn forward_train_internal(&mut self, x: &Matrix) -> Matrix {
+        self.input_rows = x.rows;
+        self.input_cols = x.cols;
+        let (out, idx) = max_pool2d(x, self.kernel, self.stride);
+        self.indices = idx;
+        out
+    }
+
+    fn backward_internal(&self, grad_out: &Matrix) -> Matrix {
+        max_pool2d_backward(
+            grad_out,
+            &self.indices,
+            self.input_rows,
+            self.input_cols,
+        )
+    }
+}
+
+impl Layer for MaxPool2d {
+    fn forward(&self, x: &Tensor) -> Tensor {
+        self.forward_internal(x)
+    }
+
+    fn forward_train(&mut self, x: &Matrix) -> Matrix {
+        self.forward_train_internal(x)
+    }
+
+    fn backward(&mut self, grad_out: &Matrix) -> Matrix {
+        self.backward_internal(grad_out)
+    }
+
+    fn zero_grad(&mut self) {}
+
+    fn fa_update(&mut self, grad_out: &Matrix, _lr: f32) -> Matrix {
+        self.backward_internal(grad_out)
+    }
+
+    fn adam_step(
+        &mut self,
+        _lr: f32,
+        _beta1: f32,
+        _beta2: f32,
+        _eps: f32,
+        _weight_decay: f32,
+    ) {}
+
+    fn parameters(&mut self) -> Vec<&mut LinearT> {
+        Vec::new()
+    }
 }

@@ -110,7 +110,9 @@ Further details in the [fine-tuning example](examples/fine_tuning.md).
 ```
 
 Training binaries accept `--export-onnx <FILE>` to write weights in the
-ONNX format. Check the [ONNX export example](examples/onnx_export.md).
+ONNX format. The exporter currently handles linear, convolution, ReLU,
+max pooling and batch normalization layers. Check the
+[ONNX export example](examples/onnx_export.md).
 
 ## TreePO
 
