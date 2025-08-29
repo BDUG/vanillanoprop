@@ -117,6 +117,8 @@ The `examples` directory contains small programs that showcase core features of 
 
 - **Autoencoder** – `cargo run --example autoencoder`
   Runs a small variational autoencoder to reconstruct MNIST images.
+- **Hugging Face Transformer** – `cargo run --example hf_transformer`
+  Downloads a tiny BERT model and runs a dummy inference to verify tensor shapes.
 
 ## Hugging Face models
 
