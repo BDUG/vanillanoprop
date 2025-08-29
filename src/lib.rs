@@ -1,7 +1,9 @@
 pub mod config;
 pub mod data;
 pub mod device;
+pub mod export;
 pub mod ffi;
+pub mod huggingface;
 pub mod layers;
 pub mod logging;
 pub mod math;
@@ -17,6 +19,7 @@ pub mod rng;
 pub mod tensor;
 pub mod train_cnn;
 pub mod weights;
-pub mod export;
 
 pub use data::{Cifar10, Dataset, Mnist};
+pub use huggingface::fetch_hf_files;
+pub use weights::load_transformer_from_hf;

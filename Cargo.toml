@@ -24,6 +24,9 @@ csv = "1"
 nalgebra = { version = "0.27" }
 onnx-pb = "0.1"
 prost = "0.6"
+hf-hub = "0.4"
+ureq = "2"
+safetensors = "0.6"
 
 [lib]
 name = "vanillanoprop"

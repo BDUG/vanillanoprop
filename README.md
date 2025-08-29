@@ -118,6 +118,18 @@ The `examples` directory contains small programs that showcase core features of 
 - **Autoencoder** – `cargo run --example autoencoder`
   Runs a small variational autoencoder to reconstruct MNIST images.
 
+## Hugging Face models
+
+Pretrained Transformers can be loaded directly from the Hugging Face Hub:
+
+```rust
+use vanillanoprop::{huggingface, weights, models::TransformerEncoder};
+
+let files = huggingface::fetch_hf_files("bert-base-uncased", None)?;
+let mut enc = TransformerEncoder::new(/* ... */);
+weights::load_transformer_from_hf(&files.config, &files.weights, &mut enc)?;
+```
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
