@@ -7,6 +7,7 @@ use crate::math::{self, Matrix};
 use crate::memory;
 use crate::metrics::f1_score;
 use crate::models::SimpleCNN;
+use crate::layers::{Layer, LinearT, MixtureOfExpertsT};
 use crate::optim::lr_scheduler::{
     ConstantLr, CosineLr, LearningRateSchedule, LrScheduleConfig, StepLr,
 };
@@ -19,8 +20,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Train a [`SimpleCNN`] on the MNIST data using a basic SGD loop.
 ///
-/// `opt` selects the optimisation algorithm.  `moe` and `num_experts` are
-/// accepted for API compatibility but currently unused.
+/// `opt` selects the optimisation algorithm.  When `moe` is set a
+/// [`MixtureOfExpertsT`] layer with `num_experts` experts replaces the
+/// final fully connected layer.
 #[derive(Serialize, Deserialize)]
 struct CnnCheckpoint {
     epoch: usize,
@@ -32,8 +34,8 @@ struct CnnCheckpoint {
 
 pub fn run(
     opt: &str,
-    _moe: bool,
-    _num_experts: usize,
+    moe: bool,
+    num_experts: usize,
     lr_cfg: LrScheduleConfig,
     resume: Option<String>,
     save_every: Option<usize>,
@@ -45,6 +47,15 @@ pub fn run(
 ) {
     let batches = load_batches(config.batch_size);
     let mut cnn = SimpleCNN::new(10);
+    let mut moe_layer = if moe {
+        let n = num_experts.max(1);
+        let experts: Vec<Box<dyn Layer>> = (0..n)
+            .map(|_| Box::new(LinearT::new(28 * 28, 10)) as Box<dyn Layer>)
+            .collect();
+        Some(MixtureOfExpertsT::new(28 * 28, experts, 1))
+    } else {
+        None
+    };
 
     let base_lr = 0.01f32;
     let mut hrm = Hrm::new(base_lr, 0.0);
@@ -111,46 +122,63 @@ pub fn run(
             let mut batch_f1 = 0.0f32;
 
             for (img, tgt) in batch {
-                let (feat, logits) = cnn.forward(img);
-
-                let logits_m = Matrix::from_vec(1, logits.len(), logits);
-                let (loss, grad_m, preds) =
-                    math::softmax_cross_entropy(&logits_m, &[*tgt as usize], 0);
+                let (feat, logits_fc) = cnn.forward(img);
+                let (loss, grad_m, preds) = if let Some(moe) = &mut moe_layer {
+                    let feat_m = Matrix::from_vec(1, feat.len(), feat.clone());
+                    let logits_m = moe.forward_train(&feat_m);
+                    math::softmax_cross_entropy(&logits_m, &[*tgt as usize], 0)
+                } else {
+                    let logits_m = Matrix::from_vec(1, logits_fc.len(), logits_fc);
+                    math::softmax_cross_entropy(&logits_m, &[*tgt as usize], 0)
+                };
                 batch_loss += loss;
-                let grad_logits = grad_m.data;
 
-                // Update weights
-                let (fc, bias) = cnn.parameters_mut();
                 let lr = scheduler.next_lr(step);
                 last_lr = lr;
-                if opt == "hrm" {
-                    hrm.lr = lr;
-                    hrm.update(fc, bias, &grad_logits, &feat);
-                } else {
-                    let rows = fc.rows;
-                    let cols = fc.cols;
-
-                    // Compute outer product of `feat` and `grad_logits`
-                    let mut grad_matrix = vec![0.0f32; rows * cols];
-                    for (c, &g) in grad_logits.iter().enumerate() {
-                        for (r, &f) in feat.iter().enumerate() {
-                            grad_matrix[r * cols + c] = f * g; // mul
+                if let Some(moe) = &mut moe_layer {
+                    moe.zero_grad();
+                    moe.backward(&grad_m);
+                    for p in moe.parameters() {
+                        if opt == "hrm" {
+                            // HRM is not defined for MoE; fall back to SGD
+                            p.sgd_step(lr, 0.0);
+                        } else {
+                            p.sgd_step(lr, 0.0);
                         }
                     }
+                } else {
+                    let grad_logits = grad_m.data;
+                    // Update weights
+                    let (fc, bias) = cnn.parameters_mut();
+                    if opt == "hrm" {
+                        hrm.lr = lr;
+                        hrm.update(fc, bias, &grad_logits, &feat);
+                    } else {
+                        let rows = fc.rows;
+                        let cols = fc.cols;
 
-                    // Update weights in a single pass
-                    for (w, &g) in fc.data.iter_mut().zip(grad_matrix.iter()) {
-                        *w -= lr * g; // mul + add
+                        // Compute outer product of `feat` and `grad_logits`
+                        let mut grad_matrix = vec![0.0f32; rows * cols];
+                        for (c, &g) in grad_logits.iter().enumerate() {
+                            for (r, &f) in feat.iter().enumerate() {
+                                grad_matrix[r * cols + c] = f * g; // mul
+                            }
+                        }
+
+                        // Update weights in a single pass
+                        for (w, &g) in fc.data.iter_mut().zip(grad_matrix.iter()) {
+                            *w -= lr * g; // mul + add
+                        }
+
+                        // Update bias using slice-based subtraction
+                        for (b, &g) in bias.iter_mut().zip(grad_logits.iter()) {
+                            *b -= lr * g; // mul + add
+                        }
+
+                        // bias update + outer product + weight update
+                        let ops = rows * cols * 3 + cols * 2;
+                        math::inc_ops_by(ops);
                     }
-
-                    // Update bias using slice-based subtraction
-                    for (b, &g) in bias.iter_mut().zip(grad_logits.iter()) {
-                        *b -= lr * g; // mul + add
-                    }
-
-                    // bias update + outer product + weight update
-                    let ops = rows * cols * 3 + cols * 2;
-                    math::inc_ops_by(ops);
                 }
                 step += 1;
 
