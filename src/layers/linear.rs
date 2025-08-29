@@ -116,12 +116,14 @@ impl LinearT {
         weight_decay: f32,
     ) {
         self.t += 1;
+        let beta1_t = beta1.powi(self.t as i32);
+        let beta2_t = beta2.powi(self.t as i32);
         for i in 0..self.grad.data.len() {
             let g = self.grad.data[i] + weight_decay * self.w.data.data[i];
             self.m.data[i] = beta1 * self.m.data[i] + (1.0 - beta1) * g;
             self.v.data[i] = beta2 * self.v.data[i] + (1.0 - beta2) * g * g;
-            let m_hat = self.m.data[i] / (1.0 - beta1.powi(self.t as i32));
-            let v_hat = self.v.data[i] / (1.0 - beta2.powi(self.t as i32));
+            let m_hat = self.m.data[i] / (1.0 - beta1_t);
+            let v_hat = self.v.data[i] / (1.0 - beta2_t);
             self.w.data.data[i] -= lr * m_hat / (v_hat.sqrt() + eps);
         }
     }
