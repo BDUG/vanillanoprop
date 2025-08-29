@@ -17,7 +17,7 @@ fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
 pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
     // pick a random image from the MNIST training pairs
     let pairs: Vec<(Vec<u8>, usize)> = DataLoader::<Mnist>::new(1, true, None)
-        .flat_map(|b| b.into_iter())
+        .flat_map(|b| b.iter().cloned())
         .collect();
     let mut rng = thread_rng();
     let idx = rng.gen_range(0..pairs.len());

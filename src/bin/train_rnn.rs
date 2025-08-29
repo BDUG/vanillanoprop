@@ -48,8 +48,6 @@ fn run(
     config: &Config,
     fine_tune: Option<vanillanoprop::fine_tune::FineTune>,
 ) {
-    let batches: Vec<Vec<(Vec<u8>, usize)>> =
-        DataLoader::<Mnist>::new(config.batch_size, true, None).collect();
     let vocab_size = 256; // pixel values 0-255
     let hidden_dim = 64;
     let num_classes = 10;
@@ -73,7 +71,7 @@ fn run(
 
     for epoch in 0..epochs {
         let mut last_loss = 0.0;
-        for batch in &batches {
+        for batch in DataLoader::<Mnist>::new(config.batch_size, true, None) {
             rnn.zero_grad();
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;

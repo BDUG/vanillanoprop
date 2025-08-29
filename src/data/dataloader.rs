@@ -14,13 +14,14 @@ pub trait Dataset {
 
 /// Generic data loader supporting batching, optional shuffling and
 /// preprocessing through user provided transforms.
-pub struct DataLoader<D: Dataset> {
+pub struct DataLoader<'a, D: Dataset> {
     data: Vec<D::Item>,
     batch_size: usize,
     index: usize,
+    _marker: std::marker::PhantomData<&'a D::Item>,
 }
 
-impl<D: Dataset> DataLoader<D> {
+impl<'a, D: Dataset> DataLoader<'a, D> {
     /// Create a new loader for `D`.
     ///
     /// `batch_size` controls how many samples are returned for each iteration.
@@ -45,21 +46,22 @@ impl<D: Dataset> DataLoader<D> {
             data,
             batch_size,
             index: 0,
+            _marker: std::marker::PhantomData,
         }
     }
 }
 
-impl<D: Dataset> Iterator for DataLoader<D> {
-    type Item = Vec<D::Item>;
+impl<'a, D: Dataset> Iterator for DataLoader<'a, D> {
+    type Item = &'a [D::Item];
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.data.len() {
             return None;
         }
         let end = (self.index + self.batch_size).min(self.data.len());
-        let batch = self.data[self.index..end].to_vec();
+        let batch = &self.data[self.index..end];
         self.index = end;
-        Some(batch)
+        Some(unsafe { std::mem::transmute(batch) })
     }
 }
 

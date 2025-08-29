@@ -11,7 +11,7 @@ use vanillanoprop::data::{DataLoader, Mnist};
 // and shuffling enabled.
 let loader = DataLoader::<Mnist>::new(32, true, None);
 for batch in loader {
-    // `batch` is a `Vec<(Vec<u8>, usize)>`
+    // `batch` is a `&[(Vec<u8>, usize)]`
     // ... perform training ...
 }
 ```

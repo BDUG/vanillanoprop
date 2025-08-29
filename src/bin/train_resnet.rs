@@ -48,8 +48,6 @@ fn run(
     experiment_name: Option<String>,
     config: &Config,
 ) {
-    let batches: Vec<Vec<(Vec<u8>, usize)>> =
-        DataLoader::<Mnist>::new(config.batch_size, true, None).collect();
     // 64 hidden units and 2 residual blocks as a default configuration.
     let mut net = ResNet::new(10, 64, 2);
 
@@ -80,7 +78,7 @@ fn run(
         let mut last_loss = 0.0f32;
         let mut f1_sum = 0.0f32;
         let mut sample_cnt = 0.0f32;
-        for batch in &batches {
+        for batch in DataLoader::<Mnist>::new(config.batch_size, true, None) {
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
             for (img, tgt) in batch {
