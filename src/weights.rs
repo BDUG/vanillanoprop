@@ -1,9 +1,13 @@
-use crate::math::Matrix;
-use crate::models::{DecoderT, EncoderT, LargeConceptModel, SimpleCNN, RNN, VAE, Sequential};
 use crate::export::onnx::export_to_onnx;
+use crate::layers::{LayerNorm, LinearT};
+use crate::math::Matrix;
+use crate::models::{
+    DecoderT, EncoderT, LargeConceptModel, Sequential, SimpleCNN, TransformerEncoder, RNN, VAE,
+};
 use crate::tensor::Tensor;
-use crate::layers::LinearT;
+use safetensors::tensor::{Dtype, SafeTensors};
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use std::{fs, io};
 
 #[derive(Serialize, Deserialize)]
@@ -75,8 +79,7 @@ struct WeightsBin {
 /// matrices will be serialised.  Only the raw weight matrices are persisted; any
 /// optimiser state is ignored.
 pub fn save_weights(path: &str, params: &[&LinearT]) -> Result<(), io::Error> {
-    let weights: Vec<Vec<Vec<f32>>> =
-        params.iter().map(|p| tensor_to_vec2(&p.w)).collect();
+    let weights: Vec<Vec<Vec<f32>>> = params.iter().map(|p| tensor_to_vec2(&p.w)).collect();
     let bin = bincode::serialize(&WeightsBin { weights })
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     if let Some(parent) = std::path::Path::new(path).parent() {
@@ -340,4 +343,213 @@ pub fn load_vae(
     }
     println!("Loaded VAE weights from {}", path);
     Ok(vae)
+}
+
+/// Load a Transformer encoder from Hugging Face configuration and weights files.
+///
+/// `cfg_path` should point to a `config.json` file and `weights_path` to a
+/// `model.safetensors` file. Only models following the BERT style naming
+/// convention are currently supported.
+pub fn load_transformer_from_hf(
+    cfg_path: &Path,
+    weights_path: &Path,
+    model: &mut TransformerEncoder,
+) -> Result<(), Box<dyn std::error::Error>> {
+    #[derive(Deserialize)]
+    struct HfConfig {
+        num_hidden_layers: usize,
+        hidden_size: usize,
+        num_attention_heads: usize,
+        intermediate_size: usize,
+        vocab_size: usize,
+    }
+
+    let cfg_text = fs::read_to_string(cfg_path)?;
+    let cfg: HfConfig = serde_json::from_str(&cfg_text)?;
+
+    if cfg.num_hidden_layers != model.layers.len() {
+        return Err(format!(
+            "layer count mismatch: config {} vs model {}",
+            cfg.num_hidden_layers,
+            model.layers.len()
+        )
+        .into());
+    }
+    if cfg.hidden_size != model.embedding.table.w.data.cols {
+        return Err(format!(
+            "hidden size mismatch: config {} vs model {}",
+            cfg.hidden_size, model.embedding.table.w.data.cols
+        )
+        .into());
+    }
+    if cfg.vocab_size != model.embedding.table.w.data.rows {
+        return Err(format!(
+            "vocab size mismatch: config {} vs model {}",
+            cfg.vocab_size, model.embedding.table.w.data.rows
+        )
+        .into());
+    }
+    if cfg.num_attention_heads != model.layers[0].attn.num_heads {
+        return Err(format!(
+            "attention heads mismatch: config {} vs model {}",
+            cfg.num_attention_heads, model.layers[0].attn.num_heads
+        )
+        .into());
+    }
+    if cfg.intermediate_size != model.layers[0].ff.w1.w.data.cols {
+        return Err(format!(
+            "feed-forward size mismatch: config {} vs model {}",
+            cfg.intermediate_size, model.layers[0].ff.w1.w.data.cols
+        )
+        .into());
+    }
+
+    let weight_bytes = fs::read(weights_path)?;
+    let tensors = SafeTensors::deserialize(&weight_bytes)?;
+
+    // Embedding matrix
+    load_embedding(
+        &mut model.embedding.table,
+        &tensors,
+        "embeddings.word_embeddings.weight",
+    )?;
+
+    for i in 0..cfg.num_hidden_layers {
+        let prefix = format!("encoder.layer.{}.", i);
+        load_linear(
+            &mut model.layers[i].attn.wq,
+            &tensors,
+            &(prefix.clone() + "attention.self.query.weight"),
+        )?;
+        load_linear(
+            &mut model.layers[i].attn.wk,
+            &tensors,
+            &(prefix.clone() + "attention.self.key.weight"),
+        )?;
+        load_linear(
+            &mut model.layers[i].attn.wv,
+            &tensors,
+            &(prefix.clone() + "attention.self.value.weight"),
+        )?;
+        load_linear(
+            &mut model.layers[i].attn.wo,
+            &tensors,
+            &(prefix.clone() + "attention.output.dense.weight"),
+        )?;
+        load_layernorm(
+            &mut model.layers[i].norm1,
+            &tensors,
+            &(prefix.clone() + "attention.output.LayerNorm.weight"),
+            &(prefix.clone() + "attention.output.LayerNorm.bias"),
+        )?;
+        load_linear(
+            &mut model.layers[i].ff.w1,
+            &tensors,
+            &(prefix.clone() + "intermediate.dense.weight"),
+        )?;
+        load_linear(
+            &mut model.layers[i].ff.w2,
+            &tensors,
+            &(prefix.clone() + "output.dense.weight"),
+        )?;
+        load_layernorm(
+            &mut model.layers[i].norm2,
+            &tensors,
+            &(prefix.clone() + "output.LayerNorm.weight"),
+            &(prefix.clone() + "output.LayerNorm.bias"),
+        )?;
+    }
+
+    Ok(())
+}
+
+fn to_f32_vec(t: &safetensors::tensor::TensorView) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
+    if t.dtype() != Dtype::F32 {
+        return Err("expected f32 tensor".into());
+    }
+    let mut out = Vec::with_capacity(t.data().len() / 4);
+    for chunk in t.data().chunks_exact(4) {
+        out.push(f32::from_le_bytes(chunk.try_into().unwrap()));
+    }
+    Ok(out)
+}
+
+fn load_embedding(
+    lin: &mut LinearT,
+    tensors: &SafeTensors,
+    name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let view = tensors
+        .tensor(name)
+        .map_err(|_| format!("missing tensor {name}"))?;
+    let shape = view.shape();
+    if shape.len() != 2 {
+        return Err(format!("tensor {name} is not 2D").into());
+    }
+    let rows = shape[0];
+    let cols = shape[1];
+    if lin.w.data.rows != rows || lin.w.data.cols != cols {
+        return Err(format!(
+            "shape mismatch for {name}: expected {}x{}, got {}x{}",
+            lin.w.data.rows, lin.w.data.cols, rows, cols
+        )
+        .into());
+    }
+    let data = to_f32_vec(&view)?;
+    lin.w = Tensor::from_matrix(Matrix::from_vec(rows, cols, data));
+    Ok(())
+}
+
+fn load_linear(
+    lin: &mut LinearT,
+    tensors: &SafeTensors,
+    name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let view = tensors
+        .tensor(name)
+        .map_err(|_| format!("missing tensor {name}"))?;
+    let shape = view.shape();
+    if shape.len() != 2 {
+        return Err(format!("tensor {name} is not 2D").into());
+    }
+    let out_dim = shape[0];
+    let in_dim = shape[1];
+    if lin.w.data.rows != in_dim || lin.w.data.cols != out_dim {
+        return Err(format!(
+            "shape mismatch for {name}: expected {}x{}, got {}x{}",
+            lin.w.data.rows, lin.w.data.cols, in_dim, out_dim
+        )
+        .into());
+    }
+    let data = to_f32_vec(&view)?;
+    let mut mat = Matrix::zeros(in_dim, out_dim);
+    for r in 0..out_dim {
+        for c in 0..in_dim {
+            mat.set(c, r, data[r * in_dim + c]);
+        }
+    }
+    lin.w = Tensor::from_matrix(mat);
+    Ok(())
+}
+
+fn load_layernorm(
+    norm: &mut LayerNorm,
+    tensors: &SafeTensors,
+    w_name: &str,
+    b_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let w_view = tensors
+        .tensor(w_name)
+        .map_err(|_| format!("missing tensor {w_name}"))?;
+    let b_view = tensors
+        .tensor(b_name)
+        .map_err(|_| format!("missing tensor {b_name}"))?;
+    let w = to_f32_vec(&w_view)?;
+    let b = to_f32_vec(&b_view)?;
+    if norm.gamma.w.len() != w.len() || norm.beta.w.len() != b.len() {
+        return Err(format!("LayerNorm shape mismatch for {w_name}").into());
+    }
+    norm.gamma.w.copy_from_slice(&w);
+    norm.beta.w.copy_from_slice(&b);
+    Ok(())
 }
