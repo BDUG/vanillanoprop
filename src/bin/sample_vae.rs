@@ -5,6 +5,7 @@ use vanillanoprop::weights::load_vae;
 use rand_distr::{Distribution, StandardNormal};
 
 fn main() {
+    env_logger::init();
     let path = env::args().nth(1).unwrap_or_else(|| "vae.json".to_string());
     let input_dim = 28 * 28;
     let hidden_dim = 400;

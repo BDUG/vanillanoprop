@@ -203,7 +203,7 @@ pub fn run(
             last_loss = batch_loss;
             f1_sum += batch_f1;
             sample_cnt += bsz;
-            println!("loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
+            log::info!("loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
             let record = MetricRecord {
                 epoch,
                 step,
@@ -254,7 +254,7 @@ pub fn run(
 
         let mut should_save = false;
         if avg_f1 > best_f1 {
-            println!("Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}");
+            log::info!("Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}");
             best_f1 = avg_f1;
             should_save = true;
         }
@@ -282,7 +282,7 @@ pub fn run(
             };
             let path = format!("{}/epoch_{}.json", ckpt_dir, epoch);
             if let Err(e) = save_checkpoint(&path, &cp) {
-                eprintln!("Failed to save checkpoint: {e}");
+                log::error!("Failed to save checkpoint: {e}");
             }
         }
     }
@@ -293,13 +293,13 @@ pub fn run(
 
     pb.finish_with_message("training done");
 
-    println!("Total matrix ops: {}", math::matrix_ops_count());
+    log::info!("Total matrix ops: {}", math::matrix_ops_count());
     let peak = memory::peak_memory_bytes();
-    println!(
+    log::info!(
         "Max memory usage: {:.2} MB",
         peak as f64 / (1024.0 * 1024.0)
     );
     if let Err(e) = save_cnn(&format!("{}/cnn.json", ckpt_dir), &cnn) {
-        eprintln!("Failed to save model: {e}");
+        log::error!("Failed to save model: {e}");
     }
 }

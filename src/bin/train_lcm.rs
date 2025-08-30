@@ -10,6 +10,7 @@ use vanillanoprop::weights::save_lcm;
 mod common;
 
 fn main() {
+    env_logger::init();
     let (
         _model,
         _opt,

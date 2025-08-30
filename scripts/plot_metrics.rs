@@ -15,6 +15,7 @@ struct MetricRecord {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
     let path = env::args()
         .nth(1)
         .unwrap_or_else(|| "runs/example/metrics.jsonl".to_string());

@@ -25,6 +25,7 @@ use vanillanoprop::weights::{
 mod common;
 
 fn main() {
+    env_logger::init();
     let (
         model,
         opt,

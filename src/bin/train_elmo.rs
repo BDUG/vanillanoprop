@@ -16,6 +16,7 @@ use vanillanoprop::weights::save_model;
 mod common;
 
 fn main() {
+    env_logger::init();
     let (
         model,
         _opt,

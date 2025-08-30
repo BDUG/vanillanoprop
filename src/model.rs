@@ -167,7 +167,7 @@ impl Model {
             fs::create_dir_all(parent)?;
         }
         fs::write(path, bin)?;
-        println!("Saved model to {}", path);
+        log::info!("Saved model to {}", path);
         Ok(())
     }
 
@@ -192,7 +192,7 @@ impl Model {
         for (p, w) in params.iter_mut().zip(state.weights.iter()) {
             p.w = Tensor::from_matrix(vec2_to_matrix(w));
         }
-        println!("Loaded model from {}", path);
+        log::info!("Loaded model from {}", path);
         Ok(Model {
             nodes: state.nodes,
             edges: state.edges,

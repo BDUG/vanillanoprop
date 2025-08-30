@@ -21,6 +21,8 @@ indicatif = "0.17"
 mnist = { version = "0.6", features = ["download"] }
 cifar_10_loader = "0.2"
 libc = "0.2"
+log = "0.4"
+env_logger = "0.11"
 rayon = "1.8"
 toml = "0.8"
 csv = "1"

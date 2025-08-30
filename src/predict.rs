@@ -47,7 +47,7 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
             );
 
             if let Err(e) = load_model("model.json", &mut encoder, &mut decoder) {
-                eprintln!("Failed to load model weights: {e}");
+                log::error!("Failed to load model weights: {e}");
             }
 
             math::reset_matrix_ops();
@@ -78,14 +78,14 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                 }
             }
 
-            println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
-            println!("Total matrix ops: {}", math::matrix_ops_count());
+            log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+            log::info!("Total matrix ops: {}", math::matrix_ops_count());
         }
         "lcm" => {
             let model = match load_lcm("lcm.json", 28 * 28, 128, 64, 10) {
                 Ok(m) => m,
                 Err(e) => {
-                    eprintln!("Using random LCM weights; failed to load lcm.json: {e}");
+                    log::warn!("Using random LCM weights; failed to load lcm.json: {e}");
                     LargeConceptModel::new(28 * 28, 128, 64, 10)
                 }
             };
@@ -94,7 +94,7 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                 let moe_layer = match load_moe("moe.json", 64, 10, n) {
                     Ok(m) => m,
                     Err(e) => {
-                        eprintln!("Using random MoE weights; failed to load moe.json: {e}");
+                        log::warn!("Using random MoE weights; failed to load moe.json: {e}");
                         let experts: Vec<Box<dyn Layer>> = (0..n)
                             .map(|_| Box::new(LinearT::new(64, 10)) as Box<dyn Layer>)
                             .collect();
@@ -114,10 +114,10 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                         best_tok = t;
                     }
                 }
-                println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+                log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
             } else {
                 let pred = model.predict(src);
-                println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
+                log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
             }
         }
         "rnn" => {
@@ -127,7 +127,7 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
             let model = match load_rnn("rnn.json", vocab_size, hidden_dim, num_classes) {
                 Ok(m) => m,
                 Err(e) => {
-                    eprintln!("Using random RNN weights; failed to load rnn.json: {e}");
+                    log::warn!("Using random RNN weights; failed to load rnn.json: {e}");
                     RNN::new_gru(vocab_size, hidden_dim, num_classes)
                 }
             };
@@ -137,7 +137,7 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                 let moe_layer = match load_moe("moe.json", hidden_dim, num_classes, n) {
                     Ok(m) => m,
                     Err(e) => {
-                        eprintln!("Using random MoE weights; failed to load moe.json: {e}");
+                        log::warn!("Using random MoE weights; failed to load moe.json: {e}");
                         let experts: Vec<Box<dyn Layer>> = (0..n)
                             .map(|_| {
                                 Box::new(LinearT::new(hidden_dim, num_classes)) as Box<dyn Layer>
@@ -168,7 +168,7 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                         best_tok = t;
                     }
                 }
-                println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+                log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
             } else {
                 let logits = model.forward(&Tensor::from_matrix(enc_x));
                 let probs = Tensor::softmax(&logits);
@@ -181,7 +181,7 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                         best_tok = t;
                     }
                 }
-                println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+                log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
             }
         }
         _ => {
@@ -189,7 +189,7 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
             let cnn = match load_cnn("cnn.json", 10) {
                 Ok(cnn) => cnn,
                 Err(e) => {
-                    eprintln!("Using random CNN weights; failed to load cnn.json: {e}");
+                    log::warn!("Using random CNN weights; failed to load cnn.json: {e}");
                     SimpleCNN::new(10)
                 }
             };
@@ -198,7 +198,7 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                 let moe_layer = match load_moe("moe.json", 28 * 28, 10, n) {
                     Ok(m) => m,
                     Err(e) => {
-                        eprintln!("Using random MoE weights; failed to load moe.json: {e}");
+                        log::warn!("Using random MoE weights; failed to load moe.json: {e}");
                         let experts: Vec<Box<dyn Layer>> = (0..n)
                             .map(|_| Box::new(LinearT::new(28 * 28, 10)) as Box<dyn Layer>)
                             .collect();
@@ -218,10 +218,10 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                         best_tok = t;
                     }
                 }
-                println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+                log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
             } else {
                 let pred = cnn.predict(src);
-                println!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
+                log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
             }
         }
     }

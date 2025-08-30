@@ -15,6 +15,7 @@ use vanillanoprop::weights::save_rnn;
 mod common;
 
 fn main() {
+    env_logger::init();
     let (
         _model,
         _opt,

@@ -16,6 +16,7 @@ use vanillanoprop::train_cnn;
 mod common;
 
 fn main() {
+    env_logger::init();
     let (
         model,
         opt,
