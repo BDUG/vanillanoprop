@@ -74,6 +74,28 @@ impl SimpleCNN {
         (feat, logits)
     }
 
+    /// Batched forward pass returning feature and logit matrices.
+    pub fn forward_batch(&self, imgs: &[Vec<u8>]) -> (Matrix, Matrix) {
+        let bsz = imgs.len();
+        let feat_dim = 28 * 28;
+        let mut feat = Matrix::zeros(bsz, feat_dim);
+        for (i, img) in imgs.iter().enumerate() {
+            let f = self.convolve(img);
+            let start = i * feat_dim;
+            feat.data[start..start + feat_dim].copy_from_slice(&f);
+        }
+
+        // Linear layer for all features in one matmul
+        let mut logits = Matrix::matmul(&feat, &self.fc);
+        for r in 0..logits.rows {
+            for c in 0..logits.cols {
+                logits.data[r * logits.cols + c] += self.bias[c];
+            }
+        }
+        math::inc_ops_by(logits.rows * logits.cols); // bias adds
+        (feat, logits)
+    }
+
     /// Predict the class for a single image.
     pub fn predict(&self, img: &[u8]) -> usize {
         let (_feat, logits) = self.forward(img);

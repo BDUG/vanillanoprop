@@ -135,6 +135,22 @@ impl ResNet {
         (feat, logits)
     }
 
+    /// Batched forward pass returning feature and logit matrices.
+    pub fn forward_batch(&self, imgs: &[Vec<u8>]) -> (Matrix, Matrix) {
+        let bsz = imgs.len();
+        let feat_dim = self.fc.rows;
+        let mut feat = Matrix::zeros(bsz, feat_dim);
+        let mut logits = Matrix::zeros(bsz, self.fc.cols);
+        for (i, img) in imgs.iter().enumerate() {
+            let (f, l) = self.forward(img);
+            let fs = i * feat_dim;
+            feat.data[fs..fs + feat_dim].copy_from_slice(&f);
+            let ls = i * self.fc.cols;
+            logits.data[ls..ls + self.fc.cols].copy_from_slice(&l);
+        }
+        (feat, logits)
+    }
+
     /// Mutable access to the final classification layer parameters.
     pub fn parameters_mut(&mut self) -> (&mut Matrix, &mut Vec<f32>) {
         (&mut self.fc, &mut self.bias)

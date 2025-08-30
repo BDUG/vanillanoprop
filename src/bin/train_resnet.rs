@@ -82,45 +82,40 @@ fn run(
         let mut f1_sum = 0.0f32;
         let mut sample_cnt = 0.0f32;
         for batch in loader.by_ref() {
-            let mut batch_loss = 0.0f32;
-            let mut batch_f1 = 0.0f32;
-            for (img, tgt) in batch {
-                let (feat, logits) = net.forward(img);
-                let logits_m = Matrix::from_vec(1, logits.len(), logits);
-                let (loss, grad_m, preds) =
-                    math::softmax_cross_entropy(&logits_m, &[*tgt as usize], 0);
-                batch_loss += loss;
-                let grad_logits = grad_m.data;
-
-                let (fc, bias) = net.parameters_mut();
-                let lr = scheduler.next_lr(step);
-                last_lr = lr;
-                // update optimizer learning rate if needed
-                if let Some(opt) = trainer.optimizer_mut() {
-                    if let Some(sgd) = opt.as_any_mut().downcast_mut::<SGD>() {
-                        sgd.lr = lr;
-                    } else if let Some(hrm) = opt.as_any_mut().downcast_mut::<Hrm>() {
-                        hrm.lr = lr;
-                    }
-                }
-                trainer.fit_fc(fc, bias, &grad_logits, &feat);
-
-                let f1 = trainer.evaluate(&preds, &[*tgt as usize]);
-                batch_f1 += f1;
-                step += 1;
+            let bsz = batch.len();
+            let mut images = Vec::with_capacity(bsz);
+            let mut targets = Vec::with_capacity(bsz);
+            for (img, tgt) in batch.iter() {
+                images.push(img.clone());
+                targets.push(*tgt as usize);
             }
-            let bsz = batch.len() as f32;
-            batch_loss /= bsz;
-            let batch_f1_avg = batch_f1 / bsz;
+            let (feat_m, logits) = net.forward_batch(&images);
+            let (batch_loss, grad_m, preds) =
+                math::softmax_cross_entropy(&logits, &targets, 0);
+
+            let (fc, bias) = net.parameters_mut();
+            let lr = scheduler.next_lr(step);
+            last_lr = lr;
+            if let Some(opt) = trainer.optimizer_mut() {
+                if let Some(sgd) = opt.as_any_mut().downcast_mut::<SGD>() {
+                    sgd.lr = lr;
+                } else if let Some(hrm) = opt.as_any_mut().downcast_mut::<Hrm>() {
+                    hrm.lr = lr;
+                }
+            }
+            trainer.fit_fc_batch(fc, bias, &grad_m, &feat_m);
+
+            let batch_f1 = trainer.evaluate(&preds, &targets);
+            step += 1;
             last_loss = batch_loss;
             f1_sum += batch_f1;
-            sample_cnt += bsz;
+            sample_cnt += 1.0;
             if let Some(l) = &mut logger {
                 l.log(&MetricRecord {
                     epoch,
                     step,
                     loss: batch_loss,
-                    f1: batch_f1_avg,
+                    f1: batch_f1,
                     lr: last_lr,
                     kind: "batch",
                 });
