@@ -1,8 +1,15 @@
 # DataLoader Usage
 
-The `DataLoader` trait and struct provide a unified way to work with
-datasets that fit in memory.  It supports batching, optional shuffling
-and an optional transform hook for preprocessing or data augmentation.
+## Overview
+
+The `DataLoader` trait and struct provide a unified way to work with datasets
+that fit in memory. It supports batching, optional shuffling and an optional
+transform hook for preprocessing or data augmentation.
+
+## Running the Example
+
+Embed the following snippet in a small binary crate and execute it with
+`cargo run`:
 
 ```rust
 use vanillanoprop::data::{DataLoader, Mnist};
@@ -16,7 +23,10 @@ for batch in loader {
 }
 ```
 
-A transform can be supplied to modify samples before batching:
+## Explanation
+
+Iterating over the loader yields mini-batches for training. A transform can be
+supplied to modify samples before batching:
 
 ```rust
 use vanillanoprop::data::{DataLoader, Cifar10};
@@ -28,3 +38,8 @@ let normalize = |sample: &mut (Vec<u8>, usize)| {
 };
 let loader = DataLoader::<Cifar10>::new(64, true, Some(Box::new(normalize)));
 ```
+
+## Next Steps
+
+See how batches feed into training loops in the
+[Training section](../introduction.md#training) of the introduction.

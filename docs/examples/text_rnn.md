@@ -1,11 +1,21 @@
 # Text RNN Example
 
-This walkthrough builds a simple LSTM for toy text classification. Invoke
-it with:
+## Overview
+
+Build a simple LSTM for toy text classification.
+
+## Running the Example
 
 ```bash
 cargo run --example text_rnn
 ```
 
-Inspect the source to see how inputs are encoded and passed through the
-network.
+## Explanation
+
+The program prints the loss for each sample as it trains, illustrating how
+inputs are encoded and passed through the network.
+
+## Next Steps
+
+Delve deeper into sequence training in the
+[Training section](../introduction.md#training) of the introduction.
