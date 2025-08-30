@@ -1,4 +1,3 @@
-use clap::{Arg, Command};
 use std::env;
 use std::str::FromStr;
 use vanillanoprop::config::Config;
@@ -11,34 +10,29 @@ use vanillanoprop::optim::lr_scheduler::LrScheduleConfig;
 /// options can be parsed by the caller.
 pub fn init_logging() -> Vec<String> {
     let mut args: Vec<String> = env::args().collect();
-    let cmd = Command::new("app")
-        .arg(
-            Arg::new("log-level")
-                .long("log-level")
-                .value_name("LEVEL")
-                .help("Set log verbosity (error, warn, info, debug, trace)")
-                .num_args(1),
-        )
-        .arg(Arg::new("quiet").long("quiet").help("Silence all log output"));
+    let mut level = log::LevelFilter::Info;
 
-    let matches = cmd
-        .clone()
-        .try_get_matches_from(&args)
-        .unwrap_or_else(|e| e.exit());
-
-    let level = if matches.get_flag("quiet") {
-        log::LevelFilter::Error
-    } else if let Some(lvl) = matches.get_one::<String>("log-level") {
-        log::LevelFilter::from_str(lvl).unwrap_or(log::LevelFilter::Info)
-    } else {
-        log::LevelFilter::Info
-    };
-
-    if let Some(idx) = args.iter().position(|a| a == "--log-level") {
-        args.drain(idx..=idx + 1);
-    }
-    if let Some(idx) = args.iter().position(|a| a == "--quiet") {
-        args.remove(idx);
+    // Manually scan for logging flags so we can ignore any other arguments
+    // (e.g. subcommands or training options) without erroring out.
+    let mut i = 1; // skip binary name
+    while i < args.len() {
+        match args[i].as_str() {
+            "--quiet" => {
+                level = log::LevelFilter::Error;
+                args.remove(i);
+            }
+            "--log-level" => {
+                if i + 1 < args.len() {
+                    if let Ok(lvl) = log::LevelFilter::from_str(&args[i + 1]) {
+                        level = lvl;
+                    }
+                    args.drain(i..=i + 1);
+                } else {
+                    args.remove(i);
+                }
+            }
+            _ => i += 1,
+        }
     }
 
     env_logger::Builder::from_env(env_logger::Env::default())
