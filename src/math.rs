@@ -3,6 +3,7 @@ use crate::tensor::Tensor;
 use nalgebra::DMatrix;
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use ndarray::{ArrayViewD, ArrayViewMutD, IxDyn, Zip};
 
 #[cfg(feature = "cuda")]
 use cust::prelude::*;
@@ -12,6 +13,14 @@ use nvrtc::NvrtcProgram;
 // Separate counters for addition and multiplication operations.
 static ADD_OPS: AtomicUsize = AtomicUsize::new(0);
 static MUL_OPS: AtomicUsize = AtomicUsize::new(0);
+
+// Threshold above which elementwise operations use Rayon parallelism.
+static TENSOR_ADD_PAR_THRESHOLD: AtomicUsize = AtomicUsize::new(1 << 16);
+
+/// Update the parallelisation threshold for tensor elementwise addition.
+pub fn set_tensor_add_par_threshold(n: usize) {
+    TENSOR_ADD_PAR_THRESHOLD.store(n, Ordering::Relaxed);
+}
 
 /// Reset the operation counters.
 pub fn reset_matrix_ops() {
@@ -628,53 +637,24 @@ fn broadcast_shape(a: &[usize], b: &[usize]) -> Vec<usize> {
 /// Elementwise addition supporting broadcasting.
 pub fn tensor_add(a: &Tensor, b: &Tensor) -> Tensor {
     let shape = broadcast_shape(&a.shape, &b.shape);
-    let rank = shape.len();
-    let out_len: usize = shape.iter().product();
-    let mut out = vec![0.0; out_len];
+    let len: usize = shape.iter().product();
+    let mut out = vec![0.0; len];
 
-    // Prepare padded shapes so both tensors share the same rank.
-    let mut a_shape = vec![1; rank];
-    a_shape[rank - a.shape.len()..].copy_from_slice(&a.shape);
-    let mut b_shape = vec![1; rank];
-    b_shape[rank - b.shape.len()..].copy_from_slice(&b.shape);
+    let a_view = ArrayViewD::from_shape(IxDyn(&a.shape), &a.data).expect("shape mismatch");
+    let b_view = ArrayViewD::from_shape(IxDyn(&b.shape), &b.data).expect("shape mismatch");
+    let mut out_view =
+        ArrayViewMutD::from_shape(IxDyn(&shape), &mut out).expect("shape mismatch");
 
-    // Compute strides with zero stride for broadcast dimensions.
-    let mut a_stride = vec![0; rank];
-    let mut s = 1;
-    for i in (0..rank).rev() {
-        if a_shape[i] != 1 {
-            a_stride[i] = s;
-        }
-        s *= a_shape[i];
-    }
-    let mut b_stride = vec![0; rank];
-    s = 1;
-    for i in (0..rank).rev() {
-        if b_shape[i] != 1 {
-            b_stride[i] = s;
-        }
-        s *= b_shape[i];
-    }
-
-    // Iterate over the output tensor computing indices on the fly.
-    let mut a_idx = 0usize;
-    let mut b_idx = 0usize;
-    let mut counters = vec![0usize; rank];
-    for i in 0..out_len {
-        out[i] = a.data[a_idx] + b.data[b_idx];
-
-        // Update indices in a row-major fashion.
-        for d in (0..rank).rev() {
-            counters[d] += 1;
-            if counters[d] < shape[d] {
-                a_idx += a_stride[d];
-                b_idx += b_stride[d];
-                break;
-            }
-            counters[d] = 0;
-            a_idx -= a_stride[d] * (shape[d] - 1);
-            b_idx -= b_stride[d] * (shape[d] - 1);
-        }
+    if len > TENSOR_ADD_PAR_THRESHOLD.load(Ordering::Relaxed) {
+        Zip::from(&mut out_view)
+            .and_broadcast(a_view)
+            .and_broadcast(b_view)
+            .par_for_each(|o, &av, &bv| *o = av + bv);
+    } else {
+        Zip::from(&mut out_view)
+            .and_broadcast(a_view)
+            .and_broadcast(b_view)
+            .for_each(|o, &av, &bv| *o = av + bv);
     }
 
     Tensor { data: out, shape }

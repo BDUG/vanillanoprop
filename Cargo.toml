@@ -32,6 +32,7 @@ prost = "0.6"
 hf-hub = "0.4"
 ureq = "2"
 safetensors = "0.6"
+ndarray = { version = "0.15", features = ["rayon"] }
 matrixmultiply = { version = "0.3", optional = true }
 cust = { version = "0.3", optional = true }
 nvrtc = { version = "0.1", optional = true }
@@ -93,4 +94,8 @@ harness = false
 
 [[bench]]
 name = "softmax_ce"
+harness = false
+
+[[bench]]
+name = "tensor_add"
 harness = false
