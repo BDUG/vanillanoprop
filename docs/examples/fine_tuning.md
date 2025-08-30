@@ -6,6 +6,10 @@ Initialise a model from the Hugging Face Hub and continue training while
 optionally freezing specific layers.
 
 ## Running the Example
+=======
+**Prerequisites:** internet access to fetch the specified checkpoint.
+
+**Training command:** (use `./run.sh`; demos run with `cargo run --example`)
 
 ```bash
 ./run.sh train-backprop --fine-tune bert-base-uncased --freeze-layers 0,1,2

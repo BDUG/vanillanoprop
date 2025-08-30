@@ -11,6 +11,12 @@ transform hook for preprocessing or data augmentation.
 Embed the following snippet in a small binary crate and execute it with
 `cargo run`:
 
+**Prerequisites:** datasets such as MNIST or CIFAR10; they are downloaded on
+first use.
+
+This page shows library snippets only. To see a runnable demo, execute
+`cargo run --example mnist_cnn`. Training binaries are invoked with `./run.sh`.
+
 ```rust
 use vanillanoprop::data::{DataLoader, Mnist};
 

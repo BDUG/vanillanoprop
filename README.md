@@ -1,6 +1,6 @@
 # vanillanoprop
 
-Vanillanoprop is a vanilla machine learning library implementation.
+Vanillanoprop is a vanilla machine learning library implementation started with a wipe coding session.
 
 ## Features
 
@@ -18,6 +18,13 @@ vanillanoprop is tested on Linux, macOS and Windows. Memory tracking utilities
 such as `memory::peak_memory_bytes` report actual values on these platforms and
 return `0` elsewhere.
 
+## Prerequisites
+
+Examples that train on datasets like MNIST download them on first use and
+require an active internet connection. Training binaries read configuration
+files such as `noprop_config.toml` or `treepo_config.toml` from the repository
+root.
+
 ## Installation
 
 Clone the repository and build the project using cargo:
@@ -28,7 +35,9 @@ cd vanillanoprop
 cargo build
 ```
 
-The `run.sh` script exposes a convenience CLI that lists available commands.
+The `run.sh` script exposes a convenience CLI for training binaries. Standalone
+examples under `examples/` are run with `cargo run --example <NAME>`. List the
+available training commands with:
 
 ```bash
 ./run.sh
@@ -58,7 +67,8 @@ let c = Matrix::matmul_with(&a, &b, &dev);
 
 ## Usage
 
-Typical training commands:
+Use `./run.sh` for training pipelines and `cargo run --example <NAME>` for
+standalone demos. Typical training commands:
 
 ```bash
 ./run.sh train-noprop cnn --moe --num-experts 4
@@ -179,7 +189,9 @@ Pass `--config <FILE>` to load a different file or override specific settings fr
 
 ## Examples
 
-The `examples` directory contains small programs that showcase core features of the framework.
+Run standalone demos with `cargo run --example <NAME>`; use `./run.sh` for the
+training binaries. The `examples` directory contains small programs that
+showcase core features of the framework.
 
 - **Mixture of Experts** – `cargo run --example mixture_of_experts` ([walkthrough](docs/examples/mixture_of_experts.md))
   Builds a tiny mixture‑of‑experts network and prints gating probabilities.

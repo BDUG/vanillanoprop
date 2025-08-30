@@ -5,6 +5,12 @@
 The training binaries support a simple random search over hyperparameters.
 
 ## Running the Example
+=======
+**Prerequisites:** a configuration file listing hyperparameters (e.g.,
+`config.toml`).
+
+**Training command:** (use `./run.sh`; standalone demos are run with
+`cargo run --example`)
 
 ```bash
 ./run.sh train-noprop --auto-ml --config config.toml
