@@ -37,7 +37,8 @@ impl SoftmaxT {
     }
 
     pub fn forward(&self, x: &Tensor) -> Tensor {
-        let data = Self::forward_internal(&x.data);
+        let m = Matrix::from_vec(x.shape[0], x.shape[1], x.data.clone());
+        let data = Self::forward_internal(&m);
         Tensor::from_matrix(data)
     }
 

@@ -3,7 +3,7 @@ use crate::tensor::Tensor;
 
 /// Apply sigmoid activation in place on a tensor.
 pub fn forward_tensor(t: &mut Tensor) {
-    for v in t.data.data.iter_mut() {
+    for v in t.data.iter_mut() {
         *v = 1.0 / (1.0 + (-*v).exp());
     }
 }
