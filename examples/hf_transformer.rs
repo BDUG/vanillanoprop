@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let h = enc.forward(x, None);
-    println!("Output shape: {}x{}", h.data.rows, h.data.cols);
+    println!("Output shape: {}x{}", h.shape[0], h.shape[1]);
 
     Ok(())
 }

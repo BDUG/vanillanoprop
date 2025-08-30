@@ -55,21 +55,23 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
             let enc_out = encoder.forward(enc_x);
 
             // Average encoder activations across the sequence
-            let mut avg = Matrix::zeros(1, enc_out.data.cols);
-            for c in 0..enc_out.data.cols {
+            let mut avg = Matrix::zeros(1, enc_out.shape[1]);
+            for c in 0..enc_out.shape[1] {
                 let mut sum = 0f32;
-                for r in 0..enc_out.data.rows {
-                    sum += enc_out.data.get(r, c);
+                for r in 0..enc_out.shape[0] {
+                    let idx = r * enc_out.shape[1] + c;
+                    sum += enc_out.data[idx];
                 }
-                avg.set(0, c, sum / enc_out.data.rows as f32);
+                avg.set(0, c, sum / enc_out.shape[0] as f32);
             }
 
             let probs = Tensor::softmax(&Tensor::from_matrix(avg));
 
             let mut best_tok = 0usize;
             let mut best_val = f32::NEG_INFINITY;
-            for t in 0..probs.data.cols {
-                let p = probs.data.get(0, t);
+            for t in 0..probs.shape[1] {
+                let idx = t;
+                let p = probs.data[idx];
                 if p > best_val {
                     best_val = p;
                     best_tok = t;
@@ -105,8 +107,8 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                 let probs = Tensor::softmax(&logits);
                 let mut best_tok = 0usize;
                 let mut best_val = f32::NEG_INFINITY;
-                for t in 0..probs.data.cols {
-                    let p = probs.data.get(0, t);
+                for t in 0..probs.shape[1] {
+                    let p = probs.data[t];
                     if p > best_val {
                         best_val = p;
                         best_tok = t;
@@ -149,17 +151,18 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                     RnnCell::LSTM(l) => l.forward(&enc_x),
                     RnnCell::GRU(g) => g.forward(&enc_x),
                 };
-                let last_row = h.data.rows - 1;
-                let mut last = Matrix::zeros(1, h.data.cols);
-                for c in 0..h.data.cols {
-                    last.set(0, c, h.data.get(last_row, c));
+                let last_row = h.shape[0] - 1;
+                let mut last = Matrix::zeros(1, h.shape[1]);
+                for c in 0..h.shape[1] {
+                    let idx = last_row * h.shape[1] + c;
+                    last.set(0, c, h.data[idx]);
                 }
                 let logits = moe_layer.forward(&Tensor::from_matrix(last));
                 let probs = Tensor::softmax(&logits);
                 let mut best_tok = 0usize;
                 let mut best_val = f32::NEG_INFINITY;
-                for t in 0..probs.data.cols {
-                    let p = probs.data.get(0, t);
+                for t in 0..probs.shape[1] {
+                    let p = probs.data[t];
                     if p > best_val {
                         best_val = p;
                         best_tok = t;
@@ -171,8 +174,8 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                 let probs = Tensor::softmax(&logits);
                 let mut best_tok = 0usize;
                 let mut best_val = f32::NEG_INFINITY;
-                for t in 0..probs.data.cols {
-                    let p = probs.data.get(0, t);
+                for t in 0..probs.shape[1] {
+                    let p = probs.data[t];
                     if p > best_val {
                         best_val = p;
                         best_tok = t;
@@ -208,8 +211,8 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
                 let probs = Tensor::softmax(&logits);
                 let mut best_tok = 0usize;
                 let mut best_val = f32::NEG_INFINITY;
-                for t in 0..probs.data.cols {
-                    let p = probs.data.get(0, t);
+                for t in 0..probs.shape[1] {
+                    let p = probs.data[t];
                     if p > best_val {
                         best_val = p;
                         best_tok = t;

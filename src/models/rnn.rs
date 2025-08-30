@@ -50,10 +50,11 @@ impl RNN {
             RnnCell::GRU(g) => g.forward(x),
         };
         // take last hidden state
-        let last_row = h.data.rows - 1;
-        let mut last = Matrix::zeros(1, h.data.cols);
-        for c in 0..h.data.cols {
-            last.set(0, c, h.data.get(last_row, c));
+        let last_row = h.shape[0] - 1;
+        let mut last = Matrix::zeros(1, h.shape[1]);
+        for c in 0..h.shape[1] {
+            let idx = last_row * h.shape[1] + c;
+            last.set(0, c, h.data[idx]);
         }
         self.fc.forward(&Tensor::from_matrix(last))
     }

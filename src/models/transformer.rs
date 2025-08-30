@@ -138,7 +138,7 @@ impl TransformerEncoder {
     pub fn forward(&mut self, one_hot_x: Matrix, mask: Option<&Matrix>) -> Tensor {
         let mut h = Tensor::from_matrix(one_hot_x);
         h = self.embedding.forward(&h);
-        let pos = positional_encoding(h.data.rows, h.data.cols);
+        let pos = positional_encoding(h.shape[0], h.shape[1]);
         let p = Tensor::from_matrix(pos);
         h = Tensor::add(&h, &p);
         for layer in self.layers.iter_mut() {
