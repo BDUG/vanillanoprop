@@ -18,6 +18,9 @@ pub struct LinearT {
     t: usize,
     last_x: Matrix,
     fb: Matrix,
+    w_q: Vec<i8>,
+    w_scale: f32,
+    w_cached: bool,
 }
 
 impl LinearT {
@@ -57,6 +60,9 @@ impl LinearT {
             t: 0,
             last_x,
             fb,
+            w_q: Vec::new(),
+            w_scale: 0.0,
+            w_cached: false,
         }
     }
 
@@ -64,26 +70,68 @@ impl LinearT {
         Tensor::matmul(x, &self.w)
     }
 
-    /// Perform a quantized matrix multiplication using int8 operands.
-    /// The input and weight tensors are quantized on the fly and the result is
-    /// dequantized back to `f32` values.
-    pub fn quantized_matmul(&self, x: &Tensor) -> Tensor {
-        let (x_q, x_scale) = x.quantize();
+    fn quantize_weights(&mut self) {
         let (w_q, w_scale) = self.w.quantize();
+        self.w_q = w_q;
+        self.w_scale = w_scale;
+        self.w_cached = true;
+    }
+
+    /// Perform a quantized matrix multiplication using int8 operands.
+    /// The input tensor is quantized on the fly. Quantized weights are cached
+    /// so repeated calls avoid recomputing the quantization. When the
+    /// `matrixmultiply` feature is enabled the multiply is delegated to the
+    /// optimized `matrixmultiply` crate, otherwise a simple loop is used.
+    pub fn quantized_matmul(&mut self, x: &Tensor) -> Tensor {
+        let (x_q, x_scale) = x.quantize();
+        if !self.w_cached {
+            self.quantize_weights();
+        }
         let rows = x.shape[0];
         let k = x.shape[1];
         let cols = self.w.shape[1];
         let mut out = vec![0f32; rows * cols];
-        for i in 0..rows {
-            for j in 0..cols {
-                let mut sum = 0i32;
-                for p in 0..k {
-                    let a = x_q[i * k + p] as i32;
-                    let b = w_q[p * cols + j] as i32;
-                    sum += a * b;
+
+        #[cfg(feature = "matrixmultiply")]
+        unsafe {
+            let x_f: Vec<f32> = x_q.iter().map(|&v| v as f32).collect();
+            let w_f: Vec<f32> = self.w_q.iter().map(|&v| v as f32).collect();
+            matrixmultiply::sgemm(
+                rows,
+                k,
+                cols,
+                1.0,
+                x_f.as_ptr(),
+                k as isize,
+                1,
+                w_f.as_ptr(),
+                cols as isize,
+                1,
+                0.0,
+                out.as_mut_ptr(),
+                cols as isize,
+                1,
+            );
+        }
+
+        #[cfg(not(feature = "matrixmultiply"))]
+        {
+            for i in 0..rows {
+                for j in 0..cols {
+                    let mut sum = 0i32;
+                    for p in 0..k {
+                        let a = x_q[i * k + p] as i32;
+                        let b = self.w_q[p * cols + j] as i32;
+                        sum += a * b;
+                    }
+                    out[i * cols + j] = sum as f32;
                 }
-                out[i * cols + j] = sum as f32 / (x_scale * w_scale);
             }
+        }
+
+        let scale = x_scale * self.w_scale;
+        for val in &mut out {
+            *val /= scale;
         }
         Tensor::new(out, vec![rows, cols])
     }
@@ -117,6 +165,7 @@ impl LinearT {
         for i in 0..self.w.data.len() {
             self.w.data[i] -= lr * grad_w.data[i];
         }
+        self.w_cached = false;
         Matrix::matmul(grad_out, &self.fb)
     }
 
@@ -141,6 +190,7 @@ impl LinearT {
             let g = self.grad.data[i] + weight_decay * self.w.data[i];
             self.w.data[i] -= lr * g;
         }
+        self.w_cached = false;
     }
 
     pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
@@ -155,6 +205,7 @@ impl LinearT {
             let v_hat = self.v.data[i] / (1.0 - beta2_t);
             self.w.data[i] -= lr * m_hat / (v_hat.sqrt() + eps);
         }
+        self.w_cached = false;
     }
 
     pub fn parameters(&mut self) -> Vec<&mut LinearT> {

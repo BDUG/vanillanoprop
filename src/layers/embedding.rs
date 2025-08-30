@@ -21,7 +21,7 @@ impl EmbeddingT {
     }
 
     /// Quantized inference helper performing int8 matrix multiplication.
-    pub fn quantized_matmul(&self, x: &Tensor) -> Tensor {
+    pub fn quantized_matmul(&mut self, x: &Tensor) -> Tensor {
         self.table.quantized_matmul(x)
     }
 
