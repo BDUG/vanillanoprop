@@ -1,6 +1,6 @@
 # vanillanoprop
 
-Vanillanoprop is a vanilla machine learning library implementation.
+Vanillanoprop is a vanilla machine learning library implementation started with a wipe coding session.
 
 ## Features
 
