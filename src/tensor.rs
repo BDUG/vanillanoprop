@@ -3,6 +3,7 @@ use crate::math::Matrix;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
+use ndarray::{ArrayViewD, IxDyn};
 
 /// N-dimensional tensor backed by a flat `Vec<f32>`.
 ///
@@ -102,43 +103,11 @@ impl Tensor {
             assert!(src == dst || src == 1, "cannot broadcast dimension");
         }
 
-        let out_len: usize = target.iter().product();
-        let mut out = vec![0.0; out_len];
-
-        // Prepare padded shapes and strides for easier index mapping.
-        let mut src_shape = vec![1; target.len()];
-        let offset = target.len() - self.shape.len();
-        for (i, &dim) in self.shape.iter().enumerate() {
-            src_shape[offset + i] = dim;
-        }
-        let mut src_stride = vec![0; target.len()];
-        let mut stride = 1;
-        for (i, dim) in src_shape.iter().rev().enumerate() {
-            src_stride[src_shape.len() - 1 - i] = stride;
-            stride *= *dim;
-        }
-
-        for i in 0..out_len {
-            // Decode `i` into indices of the target shape and compute the
-            // corresponding source index.
-            let mut tmp = i;
-            let mut src_index = 0usize;
-            for ((&t_dim, &s_dim), &s_stride) in target
-                .iter()
-                .rev()
-                .zip(src_shape.iter().rev())
-                .zip(src_stride.iter().rev())
-            {
-                let idx = tmp % t_dim;
-                tmp /= t_dim;
-                let s_idx = if s_dim == 1 { 0 } else { idx };
-                src_index += s_idx * s_stride;
-            }
-            out[i] = self.data[src_index];
-        }
-
+        let view = ArrayViewD::from_shape(IxDyn(&self.shape), &self.data)
+            .expect("shape mismatch");
+        let bcast = view.broadcast(IxDyn(target)).expect("cannot broadcast");
         Tensor {
-            data: out,
+            data: bcast.iter().cloned().collect(),
             shape: target.to_vec(),
         }
     }
