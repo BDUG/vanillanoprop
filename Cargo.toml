@@ -37,6 +37,8 @@ matrixmultiply = { version = "0.3", optional = true }
 cust = { version = "0.3", optional = true }
 nvrtc = { version = "0.1", optional = true }
 wide = "0.7"
+actix-web = "4"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_System_ProcessStatus", "Win32_System_Threading"] }
@@ -77,6 +79,10 @@ path = "src/bin/train_vae.rs"
 [[bin]]
 name = "sample_vae"
 path = "src/bin/sample_vae.rs"
+
+[[bin]]
+name = "web_server"
+path = "src/bin/web_server.rs"
 
 [dev-dependencies]
 criterion = "0.5"
