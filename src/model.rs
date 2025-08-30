@@ -118,6 +118,20 @@ impl Model {
         self.flow_edges.push((from, to));
     }
 
+    /// Add a hybrid RNN -> Transformer block to the graph.
+    ///
+    /// `input` is the index of the preceding node. The function creates two
+    /// new nodes labelled `rnn` and `transformer`, connects them in sequence
+    /// and attaches the RNN to `input`. The index of the transformer node is
+    /// returned allowing further composition.
+    pub fn add_hybrid_block(&mut self, input: usize) -> usize {
+        let rnn = self.add("rnn");
+        let transformer = self.add("transformer");
+        self.connect(input, rnn);
+        self.connect(rnn, transformer);
+        transformer
+    }
+
     /// Annotate a node with a time attribute used for flow based models.
     pub fn set_time(&mut self, node: usize, time: f32) {
         let entry = self.metadata.entry(node).or_insert_with(HashMap::new);
