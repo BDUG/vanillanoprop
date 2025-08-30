@@ -1,7 +1,52 @@
+use clap::{Arg, Command};
 use std::env;
+use std::str::FromStr;
 use vanillanoprop::config::Config;
 use vanillanoprop::fine_tune::FreezeSpec;
 use vanillanoprop::optim::lr_scheduler::LrScheduleConfig;
+
+/// Parse `--log-level`/`--quiet` flags and initialise logging.
+///
+/// Returns the argument vector with logging flags removed so remaining
+/// options can be parsed by the caller.
+pub fn init_logging() -> Vec<String> {
+    let mut args: Vec<String> = env::args().collect();
+    let cmd = Command::new("app")
+        .arg(
+            Arg::new("log-level")
+                .long("log-level")
+                .value_name("LEVEL")
+                .help("Set log verbosity (error, warn, info, debug, trace)")
+                .num_args(1),
+        )
+        .arg(Arg::new("quiet").long("quiet").help("Silence all log output"));
+
+    let matches = cmd
+        .clone()
+        .try_get_matches_from(&args)
+        .unwrap_or_else(|e| e.exit());
+
+    let level = if matches.get_flag("quiet") {
+        log::LevelFilter::Error
+    } else if let Some(lvl) = matches.get_one::<String>("log-level") {
+        log::LevelFilter::from_str(lvl).unwrap_or(log::LevelFilter::Info)
+    } else {
+        log::LevelFilter::Info
+    };
+
+    if let Some(idx) = args.iter().position(|a| a == "--log-level") {
+        args.drain(idx..=idx + 1);
+    }
+    if let Some(idx) = args.iter().position(|a| a == "--quiet") {
+        args.remove(idx);
+    }
+
+    env_logger::Builder::from_env(env_logger::Env::default())
+        .filter_level(level)
+        .init();
+
+    args
+}
 
 /// Parses common CLI arguments across training binaries.
 ///
@@ -278,5 +323,5 @@ pub fn parse_env() -> (
 }
 
 fn main() {
-    env_logger::init();
+    init_logging();
 }

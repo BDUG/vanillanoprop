@@ -1,5 +1,3 @@
-use std::env;
-
 use indicatif::ProgressBar;
 use vanillanoprop::config::Config;
 use vanillanoprop::data::{DataLoader, Mnist};
@@ -16,7 +14,7 @@ use vanillanoprop::train_cnn;
 mod common;
 
 fn main() {
-    env_logger::init();
+    let args = common::init_logging();
     let (
         model,
         opt,
@@ -34,7 +32,7 @@ fn main() {
         _auto_ml,
         config,
         _,
-    ) = common::parse_cli(env::args().skip(1));
+    ) = common::parse_cli(args.into_iter().skip(1));
     let ft = fine_tune.map(|model_id| {
         vanillanoprop::fine_tune::run(&model_id, freeze_layers, |_, _| Ok(()))
             .expect("fine-tune load failed")
@@ -114,11 +112,11 @@ fn run(
         }
         match Model::load(path, &mut params) {
             Ok(m) => {
-                println!("Resumed model from {path}");
+                log::info!("Resumed model from {path}");
                 m
             }
             Err(e) => {
-                eprintln!("Failed to load model {path}: {e}");
+                log::error!("Failed to load model {path}: {e}");
                 Model::new()
             }
         }
@@ -193,7 +191,6 @@ fn run(
                 let mut raw: Vec<&mut LinearT> = params.into_iter().map(|(_, p)| p).collect();
                 trainer.fit(&mut raw);
             }
-            println!("loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
             if let Some(l) = &mut logger {
                 l.log(&MetricRecord {
                     epoch,
@@ -208,6 +205,7 @@ fn run(
         }
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
+        log::info!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}");
         if let Some(l) = &mut logger {
             l.log(&MetricRecord {
                 epoch,
@@ -221,7 +219,7 @@ fn run(
         pb.inc(1);
 
         if avg_f1 > best_f1 {
-            println!("Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}");
+            log::info!("Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}");
             best_f1 = avg_f1;
             let mut params = encoder.parameters();
             {
@@ -230,15 +228,15 @@ fn run(
             }
             let param_refs: Vec<&LinearT> = params.iter().map(|p| &**p).collect();
             if let Err(e) = trainer.save("checkpoint.bin", &param_refs) {
-                eprintln!("Failed to save checkpoint: {e}");
+                log::error!("Failed to save checkpoint: {e}");
             }
         }
     }
     pb.finish_with_message("training done");
 
-    println!("Total matrix ops: {}", math::matrix_ops_count());
+    log::info!("Total matrix ops: {}", math::matrix_ops_count());
     let peak = memory::peak_memory_bytes();
-    println!(
+    log::info!(
         "Max memory usage: {:.2} MB",
         peak as f64 / (1024.0 * 1024.0)
     );
@@ -251,6 +249,6 @@ fn run(
     }
     let param_refs: Vec<&LinearT> = params.iter().map(|p| &**p).collect();
     if let Err(e) = trainer.save("model.bin", &param_refs) {
-        eprintln!("Failed to save model: {e}");
+        log::error!("Failed to save model: {e}");
     }
 }

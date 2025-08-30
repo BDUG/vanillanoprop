@@ -74,14 +74,17 @@ When predicting with `--moe`, a corresponding `moe.json` file is read to load th
 
 ### Logging
 
-All binaries use the [`log`](https://crates.io/crates/log) facade with `env_logger` for output.
-Set the desired level with the `RUST_LOG` environment variable:
+All binaries use the [`log`](https://crates.io/crates/log) facade with
+`env_logger` for output. Set the desired verbosity with the new
+`--log-level` flag or silence logs with `--quiet`:
 
 ```bash
-RUST_LOG=info ./run.sh train-noprop
+./run.sh train-noprop --log-level debug
+./run.sh train-noprop --quiet
 ```
 
-Levels such as `debug`, `warn` or `error` are also supported.
+The `RUST_LOG` environment variable is still honoured when the flag is
+omitted.
 
 ### AutoML
 

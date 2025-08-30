@@ -2,6 +2,8 @@ use rand::Rng;
 use vanillanoprop::rl::treepo::TreeNode;
 use vanillanoprop::rl::{Env, TreePoAgent};
 
+mod common;
+
 struct LineWorld {
     position: i32,
     goal: i32,
@@ -32,7 +34,7 @@ impl Env for LineWorld {
 }
 
 fn main() {
-    env_logger::init();
+    let _ = common::init_logging();
     let env = LineWorld {
         position: 0,
         goal: 5,
@@ -67,6 +69,6 @@ fn main() {
                 break;
             }
         }
-        println!("Episode {} complete", episode + 1);
+        log::info!("Episode {} complete", episode + 1);
     }
 }

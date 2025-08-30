@@ -1,12 +1,13 @@
-use std::env;
 use vanillanoprop::math::Matrix;
 use vanillanoprop::rng::rng_from_env;
 use vanillanoprop::weights::load_vae;
 use rand_distr::{Distribution, StandardNormal};
 
+mod common;
+
 fn main() {
-    env_logger::init();
-    let path = env::args().nth(1).unwrap_or_else(|| "vae.json".to_string());
+    let args = common::init_logging();
+    let path = args.into_iter().nth(1).unwrap_or_else(|| "vae.json".to_string());
     let input_dim = 28 * 28;
     let hidden_dim = 400;
     let latent_dim = 20;
@@ -18,5 +19,5 @@ fn main() {
         z.set(0, i, e);
     }
     let sample = vae.decode(&z);
-    println!("sample first values: {:?}", &sample.data[..10.min(sample.data.len())]);
+    log::info!("sample first values: {:?}", &sample.data[..10.min(sample.data.len())]);
 }

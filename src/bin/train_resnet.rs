@@ -1,5 +1,3 @@
-use std::env;
-
 use indicatif::ProgressBar;
 use vanillanoprop::config::Config;
 use vanillanoprop::data::{DataLoader, Mnist};
@@ -16,7 +14,7 @@ use vanillanoprop::optim::{Hrm, MseLoss, SGD};
 mod common;
 
 fn main() {
-    env_logger::init();
+    let args = common::init_logging();
     let (
         _model,
         opt,
@@ -34,7 +32,7 @@ fn main() {
         _auto_ml,
         config,
         _,
-    ) = common::parse_cli(env::args().skip(1));
+    ) = common::parse_cli(args.into_iter().skip(1));
     let _ft = fine_tune.map(|model_id| {
         vanillanoprop::fine_tune::run(&model_id, freeze_layers, |_, _| Ok(()))
             .expect("fine-tune load failed")
@@ -113,7 +111,6 @@ fn run(
             last_loss = batch_loss;
             f1_sum += batch_f1;
             sample_cnt += bsz;
-            println!("loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
             if let Some(l) = &mut logger {
                 l.log(&MetricRecord {
                     epoch,
@@ -127,6 +124,7 @@ fn run(
         }
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
+        log::info!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}");
         if let Some(l) = &mut logger {
             l.log(&MetricRecord {
                 epoch,
@@ -141,9 +139,9 @@ fn run(
     }
 
     pb.finish_with_message("training done");
-    println!("Total matrix ops: {}", math::matrix_ops_count());
+    log::info!("Total matrix ops: {}", math::matrix_ops_count());
     let peak = memory::peak_memory_bytes();
-    println!(
+    log::info!(
         "Max memory usage: {:.2} MB",
         peak as f64 / (1024.0 * 1024.0)
     );

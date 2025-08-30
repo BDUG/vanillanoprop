@@ -8,6 +8,8 @@ use vanillanoprop::memory;
 use vanillanoprop::metrics::f1_score;
 use vanillanoprop::models::SimpleCNN;
 
+mod common;
+
 // Train a SimpleCNN with standard backpropagation using a basic SGD loop.
 fn train_backprop(epochs: usize) -> (f32, usize, usize, u64) {
     let mut cnn = SimpleCNN::new(10);
@@ -55,16 +57,17 @@ fn train_backprop(epochs: usize) -> (f32, usize, usize, u64) {
 
             let bsz = batch.len() as f32;
             batch_loss /= bsz;
-            let batch_f1_avg = batch_f1 / bsz;
             last_loss = batch_loss;
             f1_sum += batch_f1;
             sample_cnt += bsz;
-            println!("backprop epoch {epoch} batch loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
         }
 
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
         pb.inc(1);
+        log::info!(
+            "backprop epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"
+        );
         if avg_f1 > best_f1 {
             best_f1 = avg_f1;
         }
@@ -137,16 +140,15 @@ fn train_noprop(epochs: usize) -> (f32, usize, usize, u64) {
 
             let bsz = batch.len() as f32;
             batch_loss /= bsz;
-            let batch_f1_avg = batch_f1 / bsz;
             last_loss = batch_loss;
             f1_sum += batch_f1;
             sample_cnt += bsz;
-            println!("noprop epoch {epoch} batch loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
         }
 
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
         pb.inc(1);
+        log::info!("noprop epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}");
         if avg_f1 > best_f1 {
             best_f1 = avg_f1;
         }
@@ -159,19 +161,19 @@ fn train_noprop(epochs: usize) -> (f32, usize, usize, u64) {
 }
 
 fn main() {
-    env_logger::init();
+    let _ = common::init_logging();
     download_mnist();
     let epochs = 5;
-    println!("Running backpropagation for {epochs} epochs...");
+    log::info!("Running backpropagation for {epochs} epochs...");
     let (bp_f1, bp_add, bp_mul, bp_mem) = train_backprop(epochs);
-    println!("Running noprop for {epochs} epochs...");
+    log::info!("Running noprop for {epochs} epochs...");
     let (np_f1, np_add, np_mul, np_mem) = train_noprop(epochs);
-    println!("\nComparison after {epochs} epochs:");
-    println!(
+    log::info!("\nComparison after {epochs} epochs:");
+    log::info!(
         "Backprop -> Best F1: {bp_f1:.4}, Adds: {bp_add}, Muls: {bp_mul}, Peak Mem: {:.2} MB",
         bp_mem as f64 / (1024.0 * 1024.0)
     );
-    println!(
+    log::info!(
         "Noprop   -> Best F1: {np_f1:.4}, Adds: {np_add}, Muls: {np_mul}, Peak Mem: {:.2} MB",
         np_mem as f64 / (1024.0 * 1024.0)
     );

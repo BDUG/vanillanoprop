@@ -1,13 +1,12 @@
-use std::{env, process::Command};
+use std::process::Command;
 use vanillanoprop::{data, predict};
 
 mod common;
 
 fn main() {
-    env_logger::init();
-    let args: Vec<String> = env::args().collect();
+    let args = common::init_logging();
     if args.len() < 2 {
-        eprintln!("Usage: {} <mode>", args[0]);
+        eprintln!("Usage: {} [--log-level <LEVEL>|--quiet] <mode>", args[0]);
         eprintln!(
             "Modes: predict | predict-rnn | download | train-backprop | train-elmo | train-noprop | train-lcm | train-rnn | train-treepo | automl",
         );
