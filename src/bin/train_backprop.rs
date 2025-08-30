@@ -12,6 +12,7 @@ use vanillanoprop::optim::{Adam, MseLoss, SGD};
 use vanillanoprop::train_cnn;
 use vanillanoprop::util::logging::{log_checkpoint_saved, log_total_ops};
 
+#[path = "common.rs"]
 mod common;
 
 fn main() {
@@ -69,7 +70,7 @@ fn main() {
 
 // Tensor Backprop Training (simplified Adam hook)
 // now using Embedding => model_dim independent of vocab_size
-fn run(
+pub fn run(
     opt: &str,
     moe: bool,
     num_experts: usize,
