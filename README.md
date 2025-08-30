@@ -10,7 +10,7 @@ Vanillanoprop is a vanilla machine learning library implementation.
 - Configuration via TOML or JSON files with command‑line overrides.
 - Collection of examples demonstrating core components.
 
-A more thorough introduction with additional examples can be found in [docs/introduction.md](docs/introduction.md).
+A more thorough introduction with additional examples can be found in the [documentation index](docs/README.md).
 
 ## Supported operating systems
 
