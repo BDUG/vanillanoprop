@@ -1,8 +1,8 @@
-use crate::tensor::Tensor;
-use crate::math::Matrix;
 use super::layer::Layer;
-use rand::Rng;
+use crate::math::Matrix;
 use crate::rng::rng_from_env;
+use crate::tensor::Tensor;
+use rand::Rng;
 
 // Simple linear module with rudimentary autograd support.  During training
 // each `LinearT` stores the last input that was seen so that a backward pass
@@ -47,11 +47,43 @@ impl LinearT {
                 .map(|_| (rng.gen::<f32>() - 0.5) * 0.02)
                 .collect(),
         );
-        Self { w, grad, m, v, t: 0, last_x, fb }
+        Self {
+            w,
+            grad,
+            m,
+            v,
+            t: 0,
+            last_x,
+            fb,
+        }
     }
 
     pub fn forward(&self, x: &Tensor) -> Tensor {
         Tensor::matmul(x, &self.w)
+    }
+
+    /// Perform a quantized matrix multiplication using int8 operands.
+    /// The input and weight tensors are quantized on the fly and the result is
+    /// dequantized back to `f32` values.
+    pub fn quantized_matmul(&self, x: &Tensor) -> Tensor {
+        let (x_q, x_scale) = x.quantize();
+        let (w_q, w_scale) = self.w.quantize();
+        let rows = x.shape[0];
+        let k = x.shape[1];
+        let cols = self.w.shape[1];
+        let mut out = vec![0f32; rows * cols];
+        for i in 0..rows {
+            for j in 0..cols {
+                let mut sum = 0i32;
+                for p in 0..k {
+                    let a = x_q[i * k + p] as i32;
+                    let b = w_q[p * cols + j] as i32;
+                    sum += a * b;
+                }
+                out[i * cols + j] = sum as f32 / (x_scale * w_scale);
+            }
+        }
+        Tensor::new(out, vec![rows, cols])
     }
 
     /// Forward pass storing the input for local/FA updates.
@@ -107,14 +139,7 @@ impl LinearT {
         }
     }
 
-    pub fn adam_step(
-        &mut self,
-        lr: f32,
-        beta1: f32,
-        beta2: f32,
-        eps: f32,
-        weight_decay: f32,
-    ) {
+    pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
         self.t += 1;
         let beta1_t = beta1.powi(self.t as i32);
         let beta2_t = beta2.powi(self.t as i32);
@@ -154,14 +179,7 @@ impl Layer for LinearT {
         LinearT::fa_update(self, grad_out, lr)
     }
 
-    fn adam_step(
-        &mut self,
-        lr: f32,
-        beta1: f32,
-        beta2: f32,
-        eps: f32,
-        weight_decay: f32,
-    ) {
+    fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
         LinearT::adam_step(self, lr, beta1, beta2, eps, weight_decay);
     }
 
@@ -169,4 +187,3 @@ impl Layer for LinearT {
         LinearT::parameters(self)
     }
 }
-
