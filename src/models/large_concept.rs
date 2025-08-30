@@ -190,6 +190,27 @@ impl LargeConceptModel {
         (loss, preds[0])
     }
 
+    /// Batched training step operating on a collection of images and targets.
+    pub fn train_batch(
+        &mut self,
+        imgs: &[Vec<u8>],
+        targets: &[usize],
+        lr: f32,
+        l2: f32,
+    ) -> (f32, Vec<usize>) {
+        let mut loss = 0.0f32;
+        let mut preds = Vec::with_capacity(imgs.len());
+        for (img, &t) in imgs.iter().zip(targets.iter()) {
+            let (l, p) = self.train_step(img, t, lr, l2);
+            loss += l;
+            preds.push(p);
+        }
+        if !imgs.is_empty() {
+            loss /= imgs.len() as f32;
+        }
+        (loss, preds)
+    }
+
     /// Access immutable parameters for serialisation.
     pub fn parameters(
         &self,

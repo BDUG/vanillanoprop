@@ -78,6 +78,23 @@ impl Model {
         }
     }
 
+    /// Optimization step for batched feature and gradient matrices.
+    pub fn fit_fc_batch(
+        &mut self,
+        fc: &mut Matrix,
+        bias: &mut [f32],
+        grad: &Matrix,
+        feat: &Matrix,
+    ) {
+        if let Some(opt) = &mut self.optimizer {
+            for i in 0..grad.rows {
+                let g_row = &grad.data[i * grad.cols..(i + 1) * grad.cols];
+                let f_row = &feat.data[i * feat.cols..(i + 1) * feat.cols];
+                opt.update_fc(fc, bias, g_row, f_row);
+            }
+        }
+    }
+
     /// Evaluate predictions against targets using the F1 score metric.
     pub fn evaluate(&self, pred: &[usize], tgt: &[usize]) -> f32 {
         metrics::f1_score(pred, tgt)

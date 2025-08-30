@@ -131,88 +131,77 @@ pub fn run(
         let mut sample_cnt = 0.0f32;
 
         for batch in loader.by_ref() {
-            let mut batch_loss = 0.0f32;
-            let mut batch_f1 = 0.0f32;
-
-            for (img, tgt) in batch {
-                let (feat, logits_fc) = cnn.forward(img);
-                let flow_target = vec![0.0f32; logits_fc.len()];
-                let flow_loss = flow_model.time_loss(&logits_fc, &flow_target, 0.0, 1.0, 10);
-                let (ce_loss, grad_m, preds) = if let Some(moe) = &mut moe_layer {
-                    let feat_m = Matrix::from_vec(1, feat.len(), feat.clone());
-                    let logits_m = moe.forward_train(&feat_m);
-                    math::softmax_cross_entropy(&logits_m, &[*tgt as usize], 0)
-                } else {
-                    let logits_m = Matrix::from_vec(1, logits_fc.len(), logits_fc.clone());
-                    math::softmax_cross_entropy(&logits_m, &[*tgt as usize], 0)
-                };
-                let loss = ce_loss + flow_loss;
-                batch_loss += loss;
-
-                let lr = scheduler.next_lr(step);
-                last_lr = lr;
-                if let Some(moe) = &mut moe_layer {
-                    moe.zero_grad();
-                    moe.backward(&grad_m);
-                    for p in moe.parameters() {
-                        if opt == "hrm" {
-                            // HRM is not defined for MoE; fall back to SGD
-                            p.sgd_step(lr, 0.0);
-                        } else {
-                            p.sgd_step(lr, 0.0);
-                        }
-                    }
-                } else {
-                    let grad_logits = grad_m.data;
-                    // Update weights
-                    let (fc, bias) = cnn.parameters_mut();
-                    if opt == "hrm" {
-                        hrm.lr = lr;
-                        hrm.update(fc, bias, &grad_logits, &feat);
-                    } else {
-                        let rows = fc.rows;
-                        let cols = fc.cols;
-
-                        // Compute outer product of `feat` and `grad_logits`
-                        let mut grad_matrix = vec![0.0f32; rows * cols];
-                        for (c, &g) in grad_logits.iter().enumerate() {
-                            for (r, &f) in feat.iter().enumerate() {
-                                grad_matrix[r * cols + c] = f * g; // mul
-                            }
-                        }
-
-                        // Update weights in a single pass
-                        for (w, &g) in fc.data.iter_mut().zip(grad_matrix.iter()) {
-                            *w -= lr * g; // mul + add
-                        }
-
-                        // Update bias using slice-based subtraction
-                        for (b, &g) in bias.iter_mut().zip(grad_logits.iter()) {
-                            *b -= lr * g; // mul + add
-                        }
-
-                        // bias update + outer product + weight update
-                        let ops = rows * cols * 3 + cols * 2;
-                        math::inc_ops_by(ops);
-                    }
-                }
-                step += 1;
-
-                batch_f1 += f1_score(&preds, &[*tgt as usize]);
+            let bsz = batch.len();
+            let mut images = Vec::with_capacity(bsz);
+            let mut targets = Vec::with_capacity(bsz);
+            for (img, tgt) in batch.iter() {
+                images.push(img.clone());
+                targets.push(*tgt as usize);
             }
 
-            let bsz = batch.len() as f32;
-            batch_loss /= bsz;
-            let batch_f1_avg = batch_f1 / bsz;
+            let (feat_m, logits_fc) = cnn.forward_batch(&images);
+            let flow_target = vec![0.0f32; logits_fc.cols];
+            let mut flow_loss = 0.0f32;
+            for r in 0..logits_fc.rows {
+                let row = &logits_fc.data[r * logits_fc.cols..(r + 1) * logits_fc.cols];
+                flow_loss += flow_model.time_loss(row, &flow_target, 0.0, 1.0, 10);
+            }
+            flow_loss /= bsz as f32;
+
+            let logits = if let Some(moe) = &mut moe_layer {
+                moe.forward_train(&feat_m)
+            } else {
+                logits_fc.clone()
+            };
+            let (ce_loss, grad_m, preds) = math::softmax_cross_entropy(&logits, &targets, 0);
+            let loss = ce_loss + flow_loss;
+            let mut batch_loss = loss;
+
+            let lr = scheduler.next_lr(step);
+            last_lr = lr;
+            if let Some(moe) = &mut moe_layer {
+                moe.zero_grad();
+                moe.backward(&grad_m);
+                for p in moe.parameters() {
+                    p.sgd_step(lr, 0.0);
+                }
+            } else {
+                let (fc, bias) = cnn.parameters_mut();
+                if opt == "hrm" {
+                    for i in 0..grad_m.rows {
+                        let g_row = &grad_m.data[i * grad_m.cols..(i + 1) * grad_m.cols];
+                        let f_row = &feat_m.data[i * feat_m.cols..(i + 1) * feat_m.cols];
+                        hrm.lr = lr;
+                        hrm.update(fc, bias, g_row, f_row);
+                    }
+                } else {
+                    let grad_fc = Matrix::matmul(&feat_m.transpose(), &grad_m);
+                    for (w, g) in fc.data.iter_mut().zip(grad_fc.data.iter()) {
+                        *w -= lr * g;
+                    }
+                    let mut grad_bias = vec![0.0f32; grad_m.cols];
+                    for r in 0..grad_m.rows {
+                        for c in 0..grad_m.cols {
+                            grad_bias[c] += grad_m.get(r, c);
+                        }
+                    }
+                    for (b, g) in bias.iter_mut().zip(grad_bias.iter()) {
+                        *b -= lr * g;
+                    }
+                }
+            }
+            step += 1;
+
+            let batch_f1 = f1_score(&preds, &targets);
             last_loss = batch_loss;
             f1_sum += batch_f1;
-            sample_cnt += bsz;
-            log::info!("loss {batch_loss:.4} f1 {batch_f1_avg:.4}");
+            sample_cnt += 1.0;
+            log::info!("loss {batch_loss:.4} f1 {batch_f1:.4}");
             let record = MetricRecord {
                 epoch,
                 step,
                 loss: batch_loss,
-                f1: batch_f1_avg,
+                f1: batch_f1,
                 lr: last_lr,
                 kind: "batch",
             };

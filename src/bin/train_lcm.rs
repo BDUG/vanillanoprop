@@ -48,18 +48,18 @@ fn run(config: &Config) {
         let mut f1_sum = 0.0f32;
         let mut sample_cnt = 0.0f32;
         for batch in loader.by_ref() {
-            let mut batch_loss = 0.0f32;
-            let mut batch_f1 = 0.0f32;
-            for (img, tgt) in batch {
-                let (loss, pred) = model.train_step(img, *tgt, lr, l2);
-                batch_loss += loss;
-                batch_f1 += evaluator.evaluate(&[pred], &[*tgt]);
+            let bsz = batch.len();
+            let mut images = Vec::with_capacity(bsz);
+            let mut targets = Vec::with_capacity(bsz);
+            for (img, tgt) in batch.iter() {
+                images.push(img.clone());
+                targets.push(*tgt);
             }
-            let bsz = batch.len() as f32;
-            batch_loss /= bsz;
+            let (batch_loss, preds) = model.train_batch(&images, &targets, lr, l2);
+            let batch_f1 = evaluator.evaluate(&preds, &targets);
             last_loss = batch_loss;
             f1_sum += batch_f1;
-            sample_cnt += bsz;
+            sample_cnt += 1.0;
         }
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));

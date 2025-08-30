@@ -28,39 +28,37 @@ fn train_backprop(epochs: usize) -> (f32, usize, usize, u64) {
         let mut sample_cnt = 0.0f32;
         loader.reset(true);
         for batch in loader.by_ref() {
-            let mut batch_loss = 0.0f32;
-            let mut batch_f1 = 0.0f32;
-
-            for (img, tgt) in batch {
-                let (feat, logits) = cnn.forward(img);
-
-                let logits_m = Matrix::from_vec(1, logits.len(), logits);
-                let (loss, grad_m, preds) =
-                    math::softmax_cross_entropy(&logits_m, &[*tgt as usize], 0);
-                batch_loss += loss;
-                let grad_logits = grad_m.data;
-
-                // Update weights
-                let (fc, bias) = cnn.parameters_mut();
-                let rows = fc.rows;
-                let cols = fc.cols;
-                for c in 0..cols {
-                    let g = grad_logits[c];
-                    bias[c] -= lr * g;
-                    for r in 0..rows {
-                        let val = fc.get(r, c) - lr * g * feat[r];
-                        fc.set(r, c, val);
-                    }
-                }
-
-                batch_f1 += f1_score(&preds, &[*tgt as usize]);
+            let bsz = batch.len();
+            let mut images = Vec::with_capacity(bsz);
+            let mut targets = Vec::with_capacity(bsz);
+            for (img, tgt) in batch.iter() {
+                images.push(img.clone());
+                targets.push(*tgt as usize);
             }
 
-            let bsz = batch.len() as f32;
-            batch_loss /= bsz;
+            let (feat_m, logits) = cnn.forward_batch(&images);
+            let (batch_loss, grad_m, preds) =
+                math::softmax_cross_entropy(&logits, &targets, 0);
+
+            let (fc, bias) = cnn.parameters_mut();
+            let grad_fc = Matrix::matmul(&feat_m.transpose(), &grad_m);
+            for (w, g) in fc.data.iter_mut().zip(grad_fc.data.iter()) {
+                *w -= lr * g;
+            }
+            let mut grad_bias = vec![0.0f32; grad_m.cols];
+            for r in 0..grad_m.rows {
+                for c in 0..grad_m.cols {
+                    grad_bias[c] += grad_m.get(r, c);
+                }
+            }
+            for (b, g) in bias.iter_mut().zip(grad_bias.iter()) {
+                *b -= lr * g;
+            }
+
+            let batch_f1 = f1_score(&preds, &targets);
             last_loss = batch_loss;
             f1_sum += batch_f1;
-            sample_cnt += bsz;
+            sample_cnt += 1.0;
         }
 
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
@@ -99,52 +97,56 @@ fn train_noprop(epochs: usize) -> (f32, usize, usize, u64) {
         let mut sample_cnt = 0.0f32;
         loader.reset(true);
         for batch in loader.by_ref() {
+            let bsz = batch.len();
+            let mut images = Vec::with_capacity(bsz);
+            let mut targets = Vec::with_capacity(bsz);
+            for (img, tgt) in batch.iter() {
+                images.push(img.clone());
+                targets.push(*tgt as usize);
+            }
+
+            let (feat_m, logits) = cnn.forward_batch(&images);
+            let mut delta = Matrix::zeros(bsz, logits.cols);
             let mut batch_loss = 0.0f32;
-            let mut batch_f1 = 0.0f32;
-
-            for (img, tgt) in batch {
-                let (feat, logits) = cnn.forward(img);
-
-                // Create noisy one-hot target
-                let mut target = vec![0f32; logits.len()];
-                target[*tgt as usize] = 1.0;
+            for i in 0..bsz {
+                let mut target = vec![0f32; logits.cols];
+                target[targets[i]] = 1.0;
                 for v in &mut target {
                     *v += (rng.gen::<f32>() - 0.5) * 0.1;
                 }
-
-                let mut delta = vec![0f32; logits.len()];
-                let mut loss = 0.0f32;
-                for i in 0..logits.len() {
-                    let d = logits[i] - target[i];
-                    loss += d * d;
-                    delta[i] = 2.0 * d / logits.len() as f32;
+                for c in 0..logits.cols {
+                    let l = logits.get(i, c);
+                    let d = l - target[c];
+                    batch_loss += d * d / logits.cols as f32;
+                    delta.set(i, c, 2.0 * d / logits.cols as f32);
                 }
-                loss /= logits.len() as f32;
-                batch_loss += loss;
+            }
+            batch_loss /= bsz as f32;
 
-                // Local weight update
-                let (fc, bias) = cnn.parameters_mut();
-                let rows = fc.rows;
-                let cols = fc.cols;
-                for c in 0..cols {
-                    let g = delta[c];
-                    bias[c] -= lr * g;
-                    for r in 0..rows {
-                        let val = fc.get(r, c) - lr * g * feat[r];
-                        fc.set(r, c, val);
-                    }
+            let (fc, bias) = cnn.parameters_mut();
+            let grad_fc = Matrix::matmul(&feat_m.transpose(), &delta);
+            for (w, g) in fc.data.iter_mut().zip(grad_fc.data.iter()) {
+                *w -= lr * g;
+            }
+            let mut grad_bias = vec![0.0f32; delta.cols];
+            for r in 0..delta.rows {
+                for c in 0..delta.cols {
+                    grad_bias[c] += delta.get(r, c);
                 }
-
-                // Metrics
-                let best = math::argmax(&logits);
-                batch_f1 += f1_score(&[best], &[*tgt as usize]);
+            }
+            for (b, g) in bias.iter_mut().zip(grad_bias.iter()) {
+                *b -= lr * g;
             }
 
-            let bsz = batch.len() as f32;
-            batch_loss /= bsz;
+            let mut preds = Vec::with_capacity(bsz);
+            for i in 0..bsz {
+                let row = &logits.data[i * logits.cols..(i + 1) * logits.cols];
+                preds.push(math::argmax(row));
+            }
+            let batch_f1 = f1_score(&preds, &targets);
             last_loss = batch_loss;
             f1_sum += batch_f1;
-            sample_cnt += bsz;
+            sample_cnt += 1.0;
         }
 
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
