@@ -123,8 +123,12 @@ impl LSTM {
         let mut h_prev = Matrix::zeros(1, self.hidden_dim);
         let mut c_prev = Matrix::zeros(1, self.hidden_dim);
         let mut outs = Vec::new();
-        for t in 0..x.data.rows {
-            let x_t = Matrix::from_vec(1, self.input_dim, x.data.data[t*self.input_dim..(t+1)*self.input_dim].to_vec());
+        for t in 0..x.shape[0] {
+            let x_t = Matrix::from_vec(
+                1,
+                self.input_dim,
+                x.data[t * self.input_dim..(t + 1) * self.input_dim].to_vec(),
+            );
             let (h_t, c_t, _, _, _, _) = self.step(&x_t, &h_prev, &c_prev);
             h_prev = h_t.clone();
             c_prev = c_t;
@@ -324,8 +328,12 @@ impl GRU {
     pub fn forward(&self, x: &Tensor) -> Tensor {
         let mut h_prev = Matrix::zeros(1, self.hidden_dim);
         let mut outs = Vec::new();
-        for t in 0..x.data.rows {
-            let x_t = Matrix::from_vec(1, self.input_dim, x.data.data[t*self.input_dim..(t+1)*self.input_dim].to_vec());
+        for t in 0..x.shape[0] {
+            let x_t = Matrix::from_vec(
+                1,
+                self.input_dim,
+                x.data[t * self.input_dim..(t + 1) * self.input_dim].to_vec(),
+            );
             let (h_t, _, _, _) = self.step(&x_t, &h_prev);
             h_prev = h_t.clone();
             outs.push(h_prev.clone());
