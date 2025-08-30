@@ -5,7 +5,7 @@ use super::linear::LinearT;
 
 /// Apply ReLU activation in place on a tensor.
 pub fn forward_tensor(t: &mut Tensor) {
-    for v in t.data.data.iter_mut() {
+    for v in t.data.iter_mut() {
         if *v < 0.0 {
             *v = 0.0;
         }

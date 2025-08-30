@@ -137,8 +137,8 @@ fn run(
         if let Ok(cp) = load_checkpoint::<NopropCheckpoint>(path) {
             if !cp.model.encoder_embedding.is_empty() {
                 let mut params = encoder.embedding.parameters();
-                let exp_rows = params[0].w.data.rows;
-                let exp_cols = params[0].w.data.cols;
+                let exp_rows = params[0].w.shape[0];
+                let exp_cols = params[0].w.shape[1];
                 let loaded = vec2_to_matrix(&cp.model.encoder_embedding);
                 let mut mat = Matrix::zeros(exp_rows, exp_cols);
                 for r in 0..loaded.rows.min(exp_rows) {
@@ -191,7 +191,7 @@ fn run(
                 let mut tgt_mat = Matrix::zeros(1, vocab_size);
                 tgt_mat.set(0, tgt as usize, 1.0);
                 let mut noisy = encoder.forward(tgt_mat);
-                for v in &mut noisy.data.data {
+                for v in &mut noisy.data {
                     *v += (rng.gen::<f32>() - 0.5) * 0.1;
                 }
 
@@ -199,7 +199,7 @@ fn run(
                 let mut delta = Matrix::zeros(enc_out.rows, enc_out.cols);
                 let mut loss = 0.0f32;
                 for i in 0..len * model_dim {
-                    let d = enc_out.data[i] - noisy.data.data[i];
+                    let d = enc_out.data[i] - noisy.data[i];
                     loss += d * d;
                     delta.data[i] = 2.0 * d;
                 }

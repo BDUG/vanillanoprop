@@ -1,14 +1,13 @@
 use rand::Rng;
-use vanillanoprop::data::{Dataset, Mnist};
+use vanillanoprop::data::{DataLoader, Mnist};
 use vanillanoprop::math::Matrix;
 use vanillanoprop::models::GAN;
 use vanillanoprop::rng::rng_from_env;
 
 fn main() {
-    let batches = Mnist::batch(32);
     let mut gan = GAN::new(100);
     let mut rng = rng_from_env();
-    for (i, batch) in batches.iter().take(2).enumerate() {
+    for (i, batch) in DataLoader::<Mnist>::new(32, true, None).take(2).enumerate() {
         let mut d_loss_sum = 0.0f32;
         let mut g_loss_sum = 0.0f32;
         for (img, _) in batch {

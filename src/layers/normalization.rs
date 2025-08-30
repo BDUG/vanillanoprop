@@ -99,13 +99,13 @@ impl BatchNorm {
     }
 
     pub fn forward(&self, x: &Tensor) -> Tensor {
-        let rows = x.data.rows;
-        let cols = x.data.cols;
+        let rows = x.shape[0];
+        let cols = x.shape[1];
         let mut out = Matrix::zeros(rows, cols);
         for r in 0..rows {
             for c in 0..cols {
                 let idx = r * cols + c;
-                let x_hat = (x.data.data[idx] - self.running_mean[c])
+                let x_hat = (x.data[idx] - self.running_mean[c])
                     / (self.running_var[c] + self.eps).sqrt();
                 out.data[idx] = self.gamma.w[c] * x_hat + self.beta.w[c];
             }
@@ -260,25 +260,25 @@ impl LayerNorm {
     }
 
     pub fn forward(&self, x: &Tensor) -> Tensor {
-        let rows = x.data.rows;
-        let cols = x.data.cols;
+        let rows = x.shape[0];
+        let cols = x.shape[1];
         let mut out = Matrix::zeros(rows, cols);
         for r in 0..rows {
             let mut mean = 0.0;
             for c in 0..cols {
-                mean += x.data.data[r * cols + c];
+                mean += x.data[r * cols + c];
             }
             mean /= cols as f32;
             let mut var = 0.0;
             for c in 0..cols {
-                let v = x.data.data[r * cols + c] - mean;
+                let v = x.data[r * cols + c] - mean;
                 var += v * v;
             }
             var /= cols as f32;
             let inv_std = 1.0 / (var + self.eps).sqrt();
             for c in 0..cols {
                 let idx = r * cols + c;
-                let x_hat = (x.data.data[idx] - mean) * inv_std;
+                let x_hat = (x.data[idx] - mean) * inv_std;
                 out.data[idx] = self.gamma.w[c] * x_hat + self.beta.w[c];
             }
         }

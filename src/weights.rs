@@ -169,8 +169,8 @@ pub fn load_model(
         serde_json::from_str(&txt).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     if !model.encoder_embedding.is_empty() {
         let mut params = encoder.embedding.parameters();
-        let exp_rows = params[0].w.data.rows;
-        let exp_cols = params[0].w.data.cols;
+        let exp_rows = params[0].w.shape[0];
+        let exp_cols = params[0].w.shape[1];
         let loaded = vec2_to_matrix(&model.encoder_embedding);
         let mut mat = Matrix::zeros(exp_rows, exp_cols);
         for r in 0..loaded.rows.min(exp_rows) {
@@ -182,8 +182,8 @@ pub fn load_model(
     }
     if !model.decoder_embedding.is_empty() {
         let mut params = decoder.embedding.parameters();
-        let exp_rows = params[0].w.data.rows;
-        let exp_cols = params[0].w.data.cols;
+        let exp_rows = params[0].w.shape[0];
+        let exp_cols = params[0].w.shape[1];
         let loaded = vec2_to_matrix(&model.decoder_embedding);
         let mut mat = Matrix::zeros(exp_rows, exp_cols);
         for r in 0..loaded.rows.min(exp_rows) {
@@ -457,17 +457,17 @@ pub fn load_transformer_from_hf(
         )
         .into());
     }
-    if cfg.hidden_size != model.embedding.table.w.data.cols {
+    if cfg.hidden_size != model.embedding.table.w.shape[1] {
         return Err(format!(
             "hidden size mismatch: config {} vs model {}",
-            cfg.hidden_size, model.embedding.table.w.data.cols
+            cfg.hidden_size, model.embedding.table.w.shape[1]
         )
         .into());
     }
-    if cfg.vocab_size != model.embedding.table.w.data.rows {
+    if cfg.vocab_size != model.embedding.table.w.shape[0] {
         return Err(format!(
             "vocab size mismatch: config {} vs model {}",
-            cfg.vocab_size, model.embedding.table.w.data.rows
+            cfg.vocab_size, model.embedding.table.w.shape[0]
         )
         .into());
     }
@@ -478,10 +478,10 @@ pub fn load_transformer_from_hf(
         )
         .into());
     }
-    if cfg.intermediate_size != model.layers[0].ff.w1.w.data.cols {
+    if cfg.intermediate_size != model.layers[0].ff.w1.w.shape[1] {
         return Err(format!(
             "feed-forward size mismatch: config {} vs model {}",
-            cfg.intermediate_size, model.layers[0].ff.w1.w.data.cols
+            cfg.intermediate_size, model.layers[0].ff.w1.w.shape[1]
         )
         .into());
     }
@@ -570,10 +570,10 @@ fn load_embedding(
     }
     let rows = shape[0];
     let cols = shape[1];
-    if lin.w.data.rows != rows || lin.w.data.cols != cols {
+    if lin.w.shape[0] != rows || lin.w.shape[1] != cols {
         return Err(format!(
             "shape mismatch for {name}: expected {}x{}, got {}x{}",
-            lin.w.data.rows, lin.w.data.cols, rows, cols
+            lin.w.shape[0], lin.w.shape[1], rows, cols
         )
         .into());
     }
@@ -596,10 +596,10 @@ fn load_linear(
     }
     let out_dim = shape[0];
     let in_dim = shape[1];
-    if lin.w.data.rows != in_dim || lin.w.data.cols != out_dim {
+    if lin.w.shape[0] != in_dim || lin.w.shape[1] != out_dim {
         return Err(format!(
             "shape mismatch for {name}: expected {}x{}, got {}x{}",
-            lin.w.data.rows, lin.w.data.cols, in_dim, out_dim
+            lin.w.shape[0], lin.w.shape[1], in_dim, out_dim
         )
         .into());
     }

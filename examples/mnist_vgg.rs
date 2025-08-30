@@ -1,14 +1,13 @@
-use vanillanoprop::data::{Dataset, Mnist};
+use vanillanoprop::data::{DataLoader, Mnist};
 use vanillanoprop::math::{self, Matrix};
 use vanillanoprop::models::VGG;
 
 fn main() {
     // Use a small VGG-style network with three blocks of [1,1,2] conv layers.
-    let batches = Mnist::batch(32);
     let mut vgg = VGG::new(&[1, 1, 2], 10);
     let lr = 0.01f32;
 
-    for (i, batch) in batches.iter().take(5).enumerate() {
+    for (i, batch) in DataLoader::<Mnist>::new(32, true, None).take(5).enumerate() {
         let mut loss_sum = 0.0f32;
         for (img, label) in batch {
             let (feat, logits) = vgg.forward(img);

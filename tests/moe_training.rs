@@ -18,7 +18,7 @@ fn moe_layer_updates_parameters() {
     let mut params = moe.parameters();
     let before: Vec<Vec<f32>> = params
         .iter()
-        .map(|p| p.w.data.data.clone())
+        .map(|p| p.w.data.clone())
         .collect();
     for p in params.iter_mut() {
         p.sgd_step(0.1, 0.0);
@@ -27,7 +27,6 @@ fn moe_layer_updates_parameters() {
     for (after, b) in params_after.iter().zip(before.iter()) {
         let changed = after
             .w
-            .data
             .data
             .iter()
             .zip(b.iter())

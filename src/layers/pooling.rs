@@ -144,7 +144,8 @@ impl MaxPool2d {
     }
 
     fn forward_internal(&self, x: &Tensor) -> Tensor {
-        let (out, _idx) = max_pool2d(&x.data, self.kernel, self.stride);
+        let x_m = Matrix::from_vec(x.shape[0], x.shape[1], x.data.clone());
+        let (out, _idx) = max_pool2d(&x_m, self.kernel, self.stride);
         Tensor::from_matrix(out)
     }
 

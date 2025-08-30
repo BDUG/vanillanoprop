@@ -319,10 +319,13 @@ impl Conv2d {
     }
 
     pub fn forward(&self, x: &Tensor) -> Result<Tensor, ConvError> {
-        let (batch, in_h, in_w, out_h, out_w) = self.compute_shapes(&x.data)?;
-        let cols = self.im2col(&x.data, in_h, in_w, out_h, out_w);
-        let out_cols = self.w.forward(&Tensor::from_matrix(cols));
-        let out = self.reshape_output(&out_cols.data, batch, out_h, out_w);
+        let x_m = Matrix::from_vec(x.shape[0], x.shape[1], x.data.clone());
+        let (batch, in_h, in_w, out_h, out_w) = self.compute_shapes(&x_m)?;
+        let cols = self.im2col(&x_m, in_h, in_w, out_h, out_w);
+        let out_cols_t = self.w.forward(&Tensor::from_matrix(cols));
+        let out_cols =
+            Matrix::from_vec(out_cols_t.shape[0], out_cols_t.shape[1], out_cols_t.data.clone());
+        let out = self.reshape_output(&out_cols, batch, out_h, out_w);
         Ok(Tensor::from_matrix(out))
     }
 

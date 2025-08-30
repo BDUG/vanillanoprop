@@ -70,18 +70,21 @@ impl MultiHeadAttentionT {
     }
 
     pub fn forward(&self, x: &Tensor) -> Tensor {
-        let q = self.wq.forward(x);
-        let k = self.wk.forward(x);
-        let v = self.wv.forward(x);
-        let seq_len = q.data.rows;
-        let model_dim = q.data.cols;
+        let q_t = self.wq.forward(x);
+        let k_t = self.wk.forward(x);
+        let v_t = self.wv.forward(x);
+        let q = Matrix::from_vec(q_t.shape[0], q_t.shape[1], q_t.data.clone());
+        let k = Matrix::from_vec(k_t.shape[0], k_t.shape[1], k_t.data.clone());
+        let v = Matrix::from_vec(v_t.shape[0], v_t.shape[1], v_t.data.clone());
+        let seq_len = q.rows;
+        let model_dim = q.cols;
         let head_dim = model_dim / self.num_heads;
         let scale = 1.0 / (head_dim as f32).sqrt();
         let mut concat = Matrix::zeros(seq_len, model_dim);
         for h in 0..self.num_heads {
-            let qh = q.data.view_cols(h * head_dim, head_dim);
-            let kh = k.data.view_cols(h * head_dim, head_dim);
-            let vh = v.data.view_cols(h * head_dim, head_dim);
+            let qh = q.view_cols(h * head_dim, head_dim);
+            let kh = k.view_cols(h * head_dim, head_dim);
+            let vh = v.view_cols(h * head_dim, head_dim);
             let mut scores = Matrix::matmul_views(&qh, &kh.transpose());
             for s in scores.data.iter_mut() {
                 *s *= scale;
@@ -269,10 +272,11 @@ mod tests {
         for i in 0..4 {
             for j in 0..4 {
                 let v = if i == j { 1.0 } else { 0.0 };
-                attn.wq.w.data.set(i, j, v);
-                attn.wk.w.data.set(i, j, v);
-                attn.wv.w.data.set(i, j, v);
-                attn.wo.w.data.set(i, j, v);
+                let idx = i * 4 + j;
+                attn.wq.w.data[idx] = v;
+                attn.wk.w.data[idx] = v;
+                attn.wv.w.data[idx] = v;
+                attn.wo.w.data[idx] = v;
             }
         }
         let x = Matrix::from_vec(2, 4, vec![1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
@@ -280,10 +284,10 @@ mod tests {
         let mask = Matrix::from_vec(2, 2, vec![0.0, -1e9, -1e9, 0.0]);
         attn.set_mask(mask);
         let out = attn.forward(&Tensor::from_matrix(x.clone()));
-        assert_eq!(out.data.rows, 2);
-        assert_eq!(out.data.cols, 4);
-        for i in 0..out.data.data.len() {
-            assert!((out.data.data[i] - x.data[i]).abs() < 1e-6);
+        assert_eq!(out.shape[0], 2);
+        assert_eq!(out.shape[1], 4);
+        for i in 0..out.data.len() {
+            assert!((out.data[i] - x.data[i]).abs() < 1e-6);
         }
     }
 }

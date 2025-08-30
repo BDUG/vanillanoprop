@@ -35,5 +35,5 @@ fn main() {
     // Inference with Tensor input
     let tensor_input = Tensor::from_matrix(input);
     let output = mlp.forward(&tensor_input);
-    println!("model output: {:?}", output.data.data);
+    println!("model output: {:?}", output.data);
 }

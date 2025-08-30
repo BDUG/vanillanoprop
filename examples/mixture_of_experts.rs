@@ -36,5 +36,5 @@ fn main() {
         }
     }
     let probs = moe.softmax.forward(&Tensor::from_matrix(logits));
-    println!("Gating probabilities: {:?}", probs.data.data);
+    println!("Gating probabilities: {:?}", probs.data);
 }
