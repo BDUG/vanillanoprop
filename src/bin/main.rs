@@ -1,5 +1,5 @@
 use std::process::Command;
-use vanillanoprop::{data, predict};
+use vanillanoprop::{data, predict, DatasetKind};
 
 mod common;
 
@@ -38,7 +38,7 @@ fn main() {
             } else {
                 Some(model.as_str())
             };
-            predict::run(model_opt, moe, num_experts);
+            predict::run(DatasetKind::Mnist, model_opt, moe, num_experts);
         }
         "predict-rnn" => {
             let (
@@ -59,7 +59,7 @@ fn main() {
                 _config,
                 _positional,
             ) = common::parse_cli(args[2..].iter().cloned());
-            predict::run(Some("rnn"), moe, num_experts);
+            predict::run(DatasetKind::Mnist, Some("rnn"), moe, num_experts);
         }
         "download" => data::download_mnist(),
         "train-backprop" | "train-elmo" | "train-noprop" | "train-lcm" | "train-rnn"

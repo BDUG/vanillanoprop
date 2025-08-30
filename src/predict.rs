@@ -1,4 +1,4 @@
-use crate::data::{DataLoader, Mnist};
+use crate::data::{Cifar10, DataLoader, DatasetKind, Mnist};
 use crate::layers::{Activation, Layer, LinearT, MixtureOfExpertsT};
 use crate::math::{self, Matrix};
 use crate::models::{DecoderT, EncoderT, LargeConceptModel, RnnCell, SimpleCNN, RNN};
@@ -15,11 +15,16 @@ fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
     m
 }
 
-pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
-    // pick a random image from the MNIST training pairs
-    let pairs: Vec<(Vec<u8>, usize)> = DataLoader::<Mnist>::new(1, true, None)
-        .flat_map(|b| b.iter().cloned())
-        .collect();
+pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: usize) {
+    // pick a random image from the requested dataset
+    let pairs: Vec<(Vec<u8>, usize)> = match dataset {
+        DatasetKind::Mnist => DataLoader::<Mnist>::new(1, true, None)
+            .flat_map(|b| b.iter().cloned())
+            .collect(),
+        DatasetKind::Cifar10 => DataLoader::<Cifar10>::new(1, true, None)
+            .flat_map(|b| b.iter().cloned())
+            .collect(),
+    };
     let mut rng = thread_rng();
     let idx = rng.gen_range(0..pairs.len());
     let (src, tgt) = &pairs[idx];
