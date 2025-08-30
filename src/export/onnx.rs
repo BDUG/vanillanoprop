@@ -85,8 +85,8 @@ fn add_linear(layer: &LinearT, input: &str, output: &str, graph: &mut GraphProto
     let weight = TensorProto {
         name: weight_name.clone(),
         data_type: DataType::Float as i32,
-        dims: vec![layer.w.data.rows as i64, layer.w.data.cols as i64],
-        float_data: layer.w.data.data.clone(),
+        dims: vec![layer.w.shape[0] as i64, layer.w.shape[1] as i64],
+        float_data: layer.w.data.clone(),
         ..Default::default()
     };
     graph.initializer.push(weight);
@@ -110,7 +110,7 @@ fn add_conv(layer: &Conv2d, input: &str, output: &str, graph: &mut GraphProto) {
             layer.kernel_size() as i64,
             layer.kernel_size() as i64,
         ],
-        float_data: layer.w.w.data.data.clone(),
+        float_data: layer.w.w.data.clone(),
         ..Default::default()
     };
     graph.initializer.push(weight);

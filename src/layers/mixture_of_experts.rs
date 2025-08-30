@@ -59,14 +59,22 @@ impl MixtureOfExpertsT {
     pub fn forward(&self, x: &Tensor) -> Tensor {
         let num_exp = self.experts.len();
         let logits_t = self.gate.forward(x);
-        let mut logits = logits_t.data.clone();
+        let mut logits =
+            Matrix::from_vec(logits_t.shape[0], logits_t.shape[1], logits_t.data.clone());
         self.mask_topk(&mut logits);
-        let probs_t = self.softmax.forward(&Tensor::from_matrix(logits));
-        let probs = probs_t.data;
+        let probs_t = self.softmax.forward(&Tensor::from_matrix(logits.clone()));
+        let probs =
+            Matrix::from_vec(probs_t.shape[0], probs_t.shape[1], probs_t.data.clone());
 
         // Compute all expert outputs first so we can combine them uniformly
-        let expert_outs: Vec<Matrix> =
-            self.experts.iter().map(|e| e.forward(x).data).collect();
+        let expert_outs: Vec<Matrix> = self
+            .experts
+            .iter()
+            .map(|e| {
+                let t = e.forward(x);
+                Matrix::from_vec(t.shape[0], t.shape[1], t.data)
+            })
+            .collect();
         let batch = expert_outs[0].rows;
         let dim = expert_outs[0].cols;
         let mut out = Matrix::zeros(batch, dim);
@@ -138,7 +146,7 @@ impl MixtureOfExpertsT {
         let batch = grad_out.rows;
         let dim = grad_out.cols;
         let num_exp = self.experts.len();
-        let mut grad_input = Matrix::zeros(batch, self.gate.w.data.rows);
+        let mut grad_input = Matrix::zeros(batch, self.gate.w.shape[0]);
         let mut gate_grad = Matrix::zeros(batch, num_exp);
         let mut grad_exp = Matrix::zeros(batch, dim);
 
@@ -174,7 +182,7 @@ impl MixtureOfExpertsT {
         let batch = grad_out.rows;
         let dim = grad_out.cols;
         let num_exp = self.experts.len();
-        let mut grad_input = Matrix::zeros(batch, self.gate.w.data.rows);
+        let mut grad_input = Matrix::zeros(batch, self.gate.w.shape[0]);
         let mut gate_grad = Matrix::zeros(batch, num_exp);
         let mut grad_exp = Matrix::zeros(batch, dim);
 

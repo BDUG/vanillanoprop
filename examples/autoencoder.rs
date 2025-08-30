@@ -1,13 +1,12 @@
-use vanillanoprop::data::{Dataset, Mnist};
+use vanillanoprop::data::{DataLoader, Mnist};
 use vanillanoprop::math::Matrix;
 use vanillanoprop::models::VAE;
 
 fn main() {
     // Use dataset utilities to load MNIST in mini-batches
-    let batches = Mnist::batch(16);
     let mut vae = VAE::new(28 * 28, 128, 32);
 
-    for (i, batch) in batches.iter().take(3).enumerate() {
+    for (i, batch) in DataLoader::<Mnist>::new(16, true, None).take(3).enumerate() {
         let mut loss_sum = 0.0f32;
         for (img, _) in batch {
             let input: Vec<f32> = img.iter().map(|&p| p as f32 / 255.0).collect();

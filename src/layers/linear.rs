@@ -31,9 +31,11 @@ impl LinearT {
                 .collect(),
         );
         let w = Tensor::from_matrix(data);
-        let grad = Matrix::zeros(w.data.rows, w.data.cols);
-        let m = Matrix::zeros(w.data.rows, w.data.cols);
-        let v = Matrix::zeros(w.data.rows, w.data.cols);
+        let rows = w.shape[0];
+        let cols = w.shape[1];
+        let grad = Matrix::zeros(rows, cols);
+        let m = Matrix::zeros(rows, cols);
+        let v = Matrix::zeros(rows, cols);
         // Pre-allocate with input dimensionality so most calls avoid resizing.
         let last_x = Matrix {
             rows: 0,
@@ -96,7 +98,8 @@ impl LinearT {
             self.last_x.data.resize(x.data.len(), 0.0);
         }
         self.last_x.data.clone_from_slice(&x.data);
-        Matrix::matmul(&self.last_x, &self.w.data)
+        let w_m = Matrix::from_vec(self.w.shape[0], self.w.shape[1], self.w.data.clone());
+        Matrix::matmul(&self.last_x, &w_m)
     }
 
     /// Backward-compatible training forward used by backprop examples.
@@ -111,8 +114,8 @@ impl LinearT {
     pub fn fa_update(&mut self, grad_out: &Matrix, lr: f32) -> Matrix {
         let x_t = self.last_x.transpose();
         let grad_w = Matrix::matmul(&x_t, grad_out);
-        for i in 0..self.w.data.data.len() {
-            self.w.data.data[i] -= lr * grad_w.data[i];
+        for i in 0..self.w.data.len() {
+            self.w.data[i] -= lr * grad_w.data[i];
         }
         Matrix::matmul(grad_out, &self.fb)
     }
@@ -122,7 +125,8 @@ impl LinearT {
         let x_t = self.last_x.transpose();
         let grad_w = Matrix::matmul(&x_t, grad_out);
         self.grad = self.grad.add(&grad_w);
-        Matrix::matmul(grad_out, &self.w.data.transpose())
+        let w_m = Matrix::from_vec(self.w.shape[0], self.w.shape[1], self.w.data.clone());
+        Matrix::matmul(grad_out, &w_m.transpose())
     }
 
     pub fn zero_grad(&mut self) {
@@ -134,8 +138,8 @@ impl LinearT {
     /// repository.
     pub fn sgd_step(&mut self, lr: f32, weight_decay: f32) {
         for i in 0..self.grad.data.len() {
-            let g = self.grad.data[i] + weight_decay * self.w.data.data[i];
-            self.w.data.data[i] -= lr * g;
+            let g = self.grad.data[i] + weight_decay * self.w.data[i];
+            self.w.data[i] -= lr * g;
         }
     }
 
@@ -144,12 +148,12 @@ impl LinearT {
         let beta1_t = beta1.powi(self.t as i32);
         let beta2_t = beta2.powi(self.t as i32);
         for i in 0..self.grad.data.len() {
-            let g = self.grad.data[i] + weight_decay * self.w.data.data[i];
+            let g = self.grad.data[i] + weight_decay * self.w.data[i];
             self.m.data[i] = beta1 * self.m.data[i] + (1.0 - beta1) * g;
             self.v.data[i] = beta2 * self.v.data[i] + (1.0 - beta2) * g * g;
             let m_hat = self.m.data[i] / (1.0 - beta1_t);
             let v_hat = self.v.data[i] / (1.0 - beta2_t);
-            self.w.data.data[i] -= lr * m_hat / (v_hat.sqrt() + eps);
+            self.w.data[i] -= lr * m_hat / (v_hat.sqrt() + eps);
         }
     }
 

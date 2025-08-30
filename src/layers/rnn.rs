@@ -80,17 +80,21 @@ impl LSTM {
     }
 
     fn step(&self, x_t: &Matrix, h_prev: &Matrix, c_prev: &Matrix) -> (Matrix, Matrix, Matrix, Matrix, Matrix, Matrix) {
-        let mut i = Matrix::matmul(x_t, &self.w_ii.w.data)
-            .add(&Matrix::matmul(h_prev, &self.w_hi.w.data));
+        let w_ii = Matrix::from_vec(self.w_ii.w.shape[0], self.w_ii.w.shape[1], self.w_ii.w.data.clone());
+        let w_hi = Matrix::from_vec(self.w_hi.w.shape[0], self.w_hi.w.shape[1], self.w_hi.w.data.clone());
+        let mut i = Matrix::matmul(x_t, &w_ii).add(&Matrix::matmul(h_prev, &w_hi));
         sigmoid::forward_matrix(&mut i);
-        let mut f = Matrix::matmul(x_t, &self.w_if.w.data)
-            .add(&Matrix::matmul(h_prev, &self.w_hf.w.data));
+        let w_if = Matrix::from_vec(self.w_if.w.shape[0], self.w_if.w.shape[1], self.w_if.w.data.clone());
+        let w_hf = Matrix::from_vec(self.w_hf.w.shape[0], self.w_hf.w.shape[1], self.w_hf.w.data.clone());
+        let mut f = Matrix::matmul(x_t, &w_if).add(&Matrix::matmul(h_prev, &w_hf));
         sigmoid::forward_matrix(&mut f);
-        let mut o = Matrix::matmul(x_t, &self.w_io.w.data)
-            .add(&Matrix::matmul(h_prev, &self.w_ho.w.data));
+        let w_io = Matrix::from_vec(self.w_io.w.shape[0], self.w_io.w.shape[1], self.w_io.w.data.clone());
+        let w_ho = Matrix::from_vec(self.w_ho.w.shape[0], self.w_ho.w.shape[1], self.w_ho.w.data.clone());
+        let mut o = Matrix::matmul(x_t, &w_io).add(&Matrix::matmul(h_prev, &w_ho));
         sigmoid::forward_matrix(&mut o);
-        let mut g = Matrix::matmul(x_t, &self.w_ig.w.data)
-            .add(&Matrix::matmul(h_prev, &self.w_hg.w.data));
+        let w_ig = Matrix::from_vec(self.w_ig.w.shape[0], self.w_ig.w.shape[1], self.w_ig.w.data.clone());
+        let w_hg = Matrix::from_vec(self.w_hg.w.shape[0], self.w_hg.w.shape[1], self.w_hg.w.data.clone());
+        let mut g = Matrix::matmul(x_t, &w_ig).add(&Matrix::matmul(h_prev, &w_hg));
         tanh::forward_matrix(&mut g);
         let c = elem_mul(&f, c_prev).add(&elem_mul(&i, &g));
         let mut h = c.clone();
@@ -294,15 +298,18 @@ impl GRU {
     }
 
     fn step(&self, x_t: &Matrix, h_prev: &Matrix) -> (Matrix, Matrix, Matrix, Matrix) {
-        let mut r = Matrix::matmul(x_t, &self.w_ir.w.data)
-            .add(&Matrix::matmul(h_prev, &self.w_hr.w.data));
+        let w_ir = Matrix::from_vec(self.w_ir.w.shape[0], self.w_ir.w.shape[1], self.w_ir.w.data.clone());
+        let w_hr = Matrix::from_vec(self.w_hr.w.shape[0], self.w_hr.w.shape[1], self.w_hr.w.data.clone());
+        let mut r = Matrix::matmul(x_t, &w_ir).add(&Matrix::matmul(h_prev, &w_hr));
         sigmoid::forward_matrix(&mut r);
-        let mut z = Matrix::matmul(x_t, &self.w_iz.w.data)
-            .add(&Matrix::matmul(h_prev, &self.w_hz.w.data));
+        let w_iz = Matrix::from_vec(self.w_iz.w.shape[0], self.w_iz.w.shape[1], self.w_iz.w.data.clone());
+        let w_hz = Matrix::from_vec(self.w_hz.w.shape[0], self.w_hz.w.shape[1], self.w_hz.w.data.clone());
+        let mut z = Matrix::matmul(x_t, &w_iz).add(&Matrix::matmul(h_prev, &w_hz));
         sigmoid::forward_matrix(&mut z);
         let rh = elem_mul(&r, h_prev);
-        let mut n = Matrix::matmul(x_t, &self.w_in.w.data)
-            .add(&Matrix::matmul(&rh, &self.w_hn.w.data));
+        let w_in = Matrix::from_vec(self.w_in.w.shape[0], self.w_in.w.shape[1], self.w_in.w.data.clone());
+        let w_hn = Matrix::from_vec(self.w_hn.w.shape[0], self.w_hn.w.shape[1], self.w_hn.w.data.clone());
+        let mut n = Matrix::matmul(x_t, &w_in).add(&Matrix::matmul(&rh, &w_hn));
         tanh::forward_matrix(&mut n);
         let one_minus_z = elem_sub_from_one(&z);
         let h = elem_mul(&z, h_prev).add(&elem_mul(&one_minus_z, &n));

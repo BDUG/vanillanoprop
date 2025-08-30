@@ -26,23 +26,23 @@ fn hf_loading() {
         .expect("failed to load transformer weights");
 
     // Check embedding dimensions
-    assert_eq!(enc.embedding.table.w.data.rows, 1000);
-    assert_eq!(enc.embedding.table.w.data.cols, 32);
+    assert_eq!(enc.embedding.table.w.shape[0], 1000);
+    assert_eq!(enc.embedding.table.w.shape[1], 32);
 
     // Check layer parameters
     for layer in &enc.layers {
-        assert_eq!(layer.attn.wq.w.data.rows, 32);
-        assert_eq!(layer.attn.wq.w.data.cols, 32);
-        assert_eq!(layer.attn.wk.w.data.rows, 32);
-        assert_eq!(layer.attn.wk.w.data.cols, 32);
-        assert_eq!(layer.attn.wv.w.data.rows, 32);
-        assert_eq!(layer.attn.wv.w.data.cols, 32);
-        assert_eq!(layer.attn.wo.w.data.rows, 32);
-        assert_eq!(layer.attn.wo.w.data.cols, 32);
-        assert_eq!(layer.ff.w1.w.data.rows, 32);
-        assert_eq!(layer.ff.w1.w.data.cols, 64);
-        assert_eq!(layer.ff.w2.w.data.rows, 64);
-        assert_eq!(layer.ff.w2.w.data.cols, 32);
+        assert_eq!(layer.attn.wq.w.shape[0], 32);
+        assert_eq!(layer.attn.wq.w.shape[1], 32);
+        assert_eq!(layer.attn.wk.w.shape[0], 32);
+        assert_eq!(layer.attn.wk.w.shape[1], 32);
+        assert_eq!(layer.attn.wv.w.shape[0], 32);
+        assert_eq!(layer.attn.wv.w.shape[1], 32);
+        assert_eq!(layer.attn.wo.w.shape[0], 32);
+        assert_eq!(layer.attn.wo.w.shape[1], 32);
+        assert_eq!(layer.ff.w1.w.shape[0], 32);
+        assert_eq!(layer.ff.w1.w.shape[1], 64);
+        assert_eq!(layer.ff.w2.w.shape[0], 64);
+        assert_eq!(layer.ff.w2.w.shape[1], 32);
     }
 
     // Prepare one-hot inputs for token sequence [1,2,3,4]
@@ -61,7 +61,8 @@ fn hf_loading() {
 
     for i in 0..tokens.len() {
         for j in 0..32 {
-            let diff = (out.data.get(i, j) - reference[i][j]).abs();
+            let idx = i * 32 + j;
+            let diff = (out.data[idx] - reference[i][j]).abs();
             assert!(diff < 1e-4, "mismatch at ({},{}) diff {}", i, j, diff);
         }
     }
