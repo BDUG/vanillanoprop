@@ -1,5 +1,11 @@
 # MNIST CNN Example
 
+## Overview
+
+Train a small convolutional network on the MNIST digits dataset.
+
+## Running the Example
+=======
 Trains a small convolutional network on the MNIST digits dataset.
 
 **Prerequisites:** downloads the MNIST dataset on first run.
@@ -10,5 +16,12 @@ Trains a small convolutional network on the MNIST digits dataset.
 cargo run --example mnist_cnn
 ```
 
-The program prints the loss after each batch, giving a quick signal of
-training progress.
+## Explanation
+
+The program prints the loss after each batch, giving a quick signal of training
+progress and helping you monitor convergence.
+
+## Next Steps
+
+Learn about interpreting these metrics in the
+[Evaluation section](../introduction.md#evaluation) of the introduction.
