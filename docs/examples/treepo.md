@@ -1,7 +1,11 @@
 # TreePO Example
 
 Tree Policy Optimisation (TreePO) combines planning with policy
-optimisation. Start a training run with:
+optimisation.
+
+**Prerequisites:** `treepo_config.toml` in the repository root.
+
+**Training command:** (use `./run.sh`; demos run with `cargo run --example`)
 
 ```bash
 ./run.sh train-treepo --config treepo_config.toml
