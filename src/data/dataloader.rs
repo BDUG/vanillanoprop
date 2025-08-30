@@ -49,6 +49,14 @@ impl<'a, D: Dataset> DataLoader<'a, D> {
             _marker: std::marker::PhantomData,
         }
     }
+
+    /// Reset the internal iteration state and optionally shuffle the data.
+    pub fn reset(&mut self, shuffle: bool) {
+        self.index = 0;
+        if shuffle {
+            self.data.shuffle(&mut thread_rng());
+        }
+    }
 }
 
 impl<'a, D: Dataset> Iterator for DataLoader<'a, D> {
