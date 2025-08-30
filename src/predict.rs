@@ -6,6 +6,7 @@ use crate::tensor::Tensor;
 use crate::util::logging::log_total_ops;
 use crate::weights::{load_cnn, load_lcm, load_model, load_moe, load_rnn};
 use rand::{thread_rng, Rng};
+use serde_json::json;
 
 fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
     let mut m = Matrix::zeros(seq.len(), vocab_size);
@@ -15,7 +16,7 @@ fn to_matrix(seq: &[u8], vocab_size: usize) -> Matrix {
     m
 }
 
-pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: usize) {
+pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: usize) -> serde_json::Value {
     // pick a random image from the requested dataset
     let pairs: Vec<(Vec<u8>, usize)> = match dataset {
         DatasetKind::Mnist => DataLoader::<Mnist>::new(1, true, None)
@@ -29,7 +30,7 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
     let idx = rng.gen_range(0..pairs.len());
     let (src, tgt) = &pairs[idx];
 
-    match model.unwrap_or("cnn") {
+    let prediction = match model.unwrap_or("cnn") {
         "transformer" => {
             let vocab_size = 256;
             let model_dim = 64;
@@ -86,6 +87,7 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
 
             log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
             log_total_ops(math::matrix_ops_count());
+            best_tok
         }
         "lcm" => {
             let model = match load_lcm("lcm.json", 28 * 28, 128, 64, 10) {
@@ -121,9 +123,11 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
                     }
                 }
                 log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+                best_tok
             } else {
                 let pred = model.predict(src);
                 log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
+                pred
             }
         }
         "rnn" => {
@@ -175,6 +179,7 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
                     }
                 }
                 log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+                best_tok
             } else {
                 let logits = model.forward(&Tensor::from_matrix(enc_x));
                 let probs = Tensor::softmax(&logits);
@@ -188,6 +193,7 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
                     }
                 }
                 log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+                best_tok
             }
         }
         _ => {
@@ -225,10 +231,13 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
                     }
                 }
                 log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+                best_tok
             } else {
                 let pred = cnn.predict(src);
                 log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
+                pred
             }
         }
-    }
+    };
+    json!({"actual": tgt, "prediction": prediction})
 }
