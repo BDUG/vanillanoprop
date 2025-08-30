@@ -65,7 +65,7 @@ Typical training commands:
 ./run.sh predict --moe --num-experts 4
 ./run.sh train-lcm
 ./run.sh predict lcm
-./run.sh train-treepo --config treepo_config.toml
+./run.sh train-treepo
 ```
 
 The `--moe` flag enables mixture-of-experts layers and `--num-experts` sets how many experts to use.
@@ -122,10 +122,10 @@ See [ONNX export](docs/introduction.md#onnx-export) for details on the flag. ([e
 
 TreePO combines tree-based planning with policy optimisation to update actions using advantages estimated from a search tree. See the [Tree Policy Optimization paper](https://arxiv.org/abs/2506.03736) for details.
 
-Run a training session with the `train-treepo` command and a required `--config <FILE>` flag:
+Run a training session with the `train-treepo` command. It loads `treepo_config.toml` by default; pass `--config <FILE>` to use a different configuration:
 
 ```bash
-./run.sh train-treepo --config treepo_config.toml
+./run.sh train-treepo
 ```
 
 `treepo_config.toml` introduces several hyperparameters:
@@ -158,22 +158,23 @@ batch_size = 8
 ```
 
 Example configuration files for each training variant are included in the
-repository root. Run a training binary with one of them via `--config`:
+repository root and are loaded automatically:
 
 ```bash
-./run.sh train-backprop --config backprop_config.toml
-./run.sh train-elmo --config elmo_config.toml
-./run.sh train-noprop --config noprop_config.toml
-./run.sh train-lcm --config lcm_config.toml
-./run.sh train-resnet --config resnet_config.toml
-./run.sh train-rnn --config rnn_config.toml
-./run.sh train-treepo --config treepo_config.toml
+./run.sh train-backprop
+./run.sh train-elmo
+./run.sh train-noprop
+./run.sh train-lcm
+./run.sh train-resnet
+./run.sh train-rnn
+./run.sh train-treepo
 ```
 
-Or override specific settings from the command line:
+Pass `--config <FILE>` to load a different file or override specific settings from the command line:
 
 ```bash
-./run.sh train-noprop --config noprop_config.toml --epochs 20 --batch-size 16
+./run.sh train-backprop --config custom.toml
+./run.sh train-noprop --epochs 20 --batch-size 16
 ```
 
 ## Examples
