@@ -82,6 +82,18 @@ The `--moe` flag enables mixture-of-experts layers and `--num-experts` sets how 
 
 When predicting with `--moe`, a corresponding `moe.json` file is read to load the gating and expert weights.
 
+### Supported models
+
+The library includes multiple built-in models. Training support varies across binaries:
+
+- **Transformer encoder/decoder** – default model for `train-backprop` and `train-noprop`. It is not supported by `train-elmo`, `train-lcm`, `train-resnet`, `train-rnn` or `train-treepo`.
+- **Convolutional neural network (CNN)** – pass `cnn` as the model to `train-backprop`, `train-elmo` or `train-noprop`. CNNs are not available in `train-resnet`, `train-rnn`, `train-lcm` or `train-treepo`.
+- **Large Concept Model (LCM)** – trained exclusively via `train-lcm`; other training commands do not handle this model.
+- **ResNet** – supported only by `train-resnet`. Backprop, Elmo, NoProp, LCM, RNN and TreePO trainings do not support ResNets.
+- **Recurrent neural network (RNN)** – trained with `train-rnn` only; it is unsupported in backprop, elmo, noprop, lcm, resnet and treepo binaries.
+- **ELMo encoder** – available through `train-elmo`. It cannot be trained with backprop, noprop, lcm, resnet, rnn or treepo commands.
+- **Tree Policy Optimization agent** – used by `train-treepo` and does not accept CNN, transformer, LCM, ResNet, RNN or ELMo models.
+
 ### Logging
 
 All binaries use the [`log`](https://crates.io/crates/log) facade with
