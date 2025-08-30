@@ -159,6 +159,7 @@ fn train_noprop(epochs: usize) -> (f32, usize, usize, u64) {
 }
 
 fn main() {
+    env_logger::init();
     download_mnist();
     let epochs = 5;
     println!("Running backpropagation for {epochs} epochs...");

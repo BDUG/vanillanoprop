@@ -32,6 +32,7 @@ impl Env for LineWorld {
 }
 
 fn main() {
+    env_logger::init();
     let env = LineWorld {
         position: 0,
         goal: 5,

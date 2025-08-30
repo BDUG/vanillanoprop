@@ -16,6 +16,7 @@ use vanillanoprop::optim::{Hrm, MseLoss, SGD};
 mod common;
 
 fn main() {
+    env_logger::init();
     let (
         _model,
         opt,

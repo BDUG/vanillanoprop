@@ -6,6 +6,7 @@ use vanillanoprop::optim::{Adam, MseLoss};
 use vanillanoprop::weights::save_vae;
 
 fn main() {
+    env_logger::init();
     let pairs: Vec<(Vec<u8>, usize)> = DataLoader::<Mnist>::new(1, true, None)
         .take(10)
         .flat_map(|b| b.iter().cloned())

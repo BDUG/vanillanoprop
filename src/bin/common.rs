@@ -277,4 +277,6 @@ pub fn parse_env() -> (
     parse_cli(args)
 }
 
-fn main() {}
+fn main() {
+    env_logger::init();
+}

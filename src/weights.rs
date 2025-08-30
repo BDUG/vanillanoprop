@@ -114,7 +114,7 @@ pub fn save_weights(path: &str, params: &[&LinearT]) -> Result<(), io::Error> {
         fs::create_dir_all(parent)?;
     }
     fs::write(path, bin)?;
-    println!("Saved weights to {}", path);
+    log::info!("Saved weights to {}", path);
     Ok(())
 }
 
@@ -130,7 +130,7 @@ pub fn load_weights(path: &str, params: &mut [&mut LinearT]) -> Result<(), io::E
     for (p, w) in params.iter_mut().zip(wb.weights.iter()) {
         p.w = Tensor::from_matrix(vec2_to_matrix(w));
     }
-    println!("Loaded weights from {}", path);
+    log::info!("Loaded weights from {}", path);
     Ok(())
 }
 
@@ -155,7 +155,7 @@ pub fn save_model(
     };
     let txt = serde_json::to_string(&model).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     fs::write(path, txt)?;
-    println!("Saved weights to {}", path);
+    log::info!("Saved weights to {}", path);
     Ok(())
 }
 
@@ -193,7 +193,7 @@ pub fn load_model(
         }
         params[0].w = Tensor::from_matrix(mat);
     }
-    println!("Loaded weights from {}", path);
+    log::info!("Loaded weights from {}", path);
     Ok(())
 }
 
@@ -212,7 +212,7 @@ pub fn save_cnn(path: &str, cnn: &SimpleCNN) -> Result<(), io::Error> {
     };
     let txt = serde_json::to_string(&model).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     fs::write(path, txt)?;
-    println!("Saved CNN weights to {}", path);
+    log::info!("Saved CNN weights to {}", path);
     Ok(())
 }
 
@@ -228,7 +228,7 @@ pub fn load_cnn(path: &str, num_classes: usize) -> Result<SimpleCNN, io::Error> 
     if !model.bias.is_empty() {
         *bias = model.bias;
     }
-    println!("Loaded CNN weights from {}", path);
+    log::info!("Loaded CNN weights from {}", path);
     Ok(cnn)
 }
 
@@ -247,7 +247,7 @@ pub fn save_moe(path: &str, moe: &mut MixtureOfExpertsT) -> Result<(), io::Error
     };
     let txt = serde_json::to_string(&json).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     fs::write(path, txt)?;
-    println!("Saved MoE weights to {}", path);
+    log::info!("Saved MoE weights to {}", path);
     Ok(())
 }
 
@@ -273,7 +273,7 @@ pub fn load_moe(
             p.w = Tensor::from_matrix(vec2_to_matrix(data));
         }
     }
-    println!("Loaded MoE weights from {}", path);
+    log::info!("Loaded MoE weights from {}", path);
     Ok(moe)
 }
 
@@ -297,7 +297,7 @@ pub fn save_lcm(path: &str, model: &LargeConceptModel) -> Result<(), io::Error> 
     };
     let txt = serde_json::to_string(&json).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     fs::write(path, txt)?;
-    println!("Saved LCM weights to {}", path);
+    log::info!("Saved LCM weights to {}", path);
     Ok(())
 }
 
@@ -331,7 +331,7 @@ pub fn load_lcm(
     if !json.b3.is_empty() {
         *b3 = json.b3.clone();
     }
-    println!("Loaded LCM weights from {}", path);
+    log::info!("Loaded LCM weights from {}", path);
     Ok(model)
 }
 
@@ -343,7 +343,7 @@ pub fn save_rnn(path: &str, model: &mut RNN) -> Result<(), io::Error> {
     let json = RnnJson { params };
     let txt = serde_json::to_string(&json).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     fs::write(path, txt)?;
-    println!("Saved RNN weights to {}", path);
+    log::info!("Saved RNN weights to {}", path);
     Ok(())
 }
 
@@ -361,7 +361,7 @@ pub fn load_rnn(
     for (p, data) in params.iter_mut().zip(json.params.iter()) {
         p.w = Tensor::from_matrix(vec2_to_matrix(data));
     }
-    println!("Loaded RNN weights from {}", path);
+    log::info!("Loaded RNN weights from {}", path);
     Ok(model)
 }
 
@@ -372,7 +372,7 @@ pub fn save_checkpoint<T: Serialize>(path: &str, state: &T) -> Result<(), io::Er
         fs::create_dir_all(parent)?;
     }
     fs::write(path, txt)?;
-    println!("Saved checkpoint to {}", path);
+    log::info!("Saved checkpoint to {}", path);
     Ok(())
 }
 
@@ -380,7 +380,7 @@ pub fn save_checkpoint<T: Serialize>(path: &str, state: &T) -> Result<(), io::Er
 pub fn load_checkpoint<T: for<'de> Deserialize<'de>>(path: &str) -> Result<T, io::Error> {
     let txt = fs::read_to_string(path)?;
     let state = serde_json::from_str(&txt).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-    println!("Loaded checkpoint from {}", path);
+    log::info!("Loaded checkpoint from {}", path);
     Ok(state)
 }
 
@@ -394,7 +394,7 @@ pub fn save_vae(path: &str, vae: &VAE) -> Result<(), io::Error> {
     };
     let txt = serde_json::to_string(&json).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     fs::write(path, txt)?;
-    println!("Saved VAE weights to {}", path);
+    log::info!("Saved VAE weights to {}", path);
     Ok(())
 }
 
@@ -423,7 +423,7 @@ pub fn load_vae(
     if !json.dec_fc2.is_empty() {
         vae.dec_fc2.w = Tensor::from_matrix(vec2_to_matrix(&json.dec_fc2));
     }
-    println!("Loaded VAE weights from {}", path);
+    log::info!("Loaded VAE weights from {}", path);
     Ok(vae)
 }
 

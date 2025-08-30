@@ -72,6 +72,17 @@ The `--moe` flag enables mixture-of-experts layers and `--num-experts` sets how 
 
 When predicting with `--moe`, a corresponding `moe.json` file is read to load the gating and expert weights.
 
+### Logging
+
+All binaries use the [`log`](https://crates.io/crates/log) facade with `env_logger` for output.
+Set the desired level with the `RUST_LOG` environment variable:
+
+```bash
+RUST_LOG=info ./run.sh train-noprop
+```
+
+Levels such as `debug`, `warn` or `error` are also supported.
+
 ### AutoML
 
 Enable random search over hyperparameters with `--auto-ml` and a config file:
