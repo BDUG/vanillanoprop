@@ -9,6 +9,7 @@ use vanillanoprop::model::Model;
 use vanillanoprop::models::EncoderT;
 use vanillanoprop::optim::{Adam, MseLoss};
 use vanillanoprop::train_cnn;
+use vanillanoprop::util::logging::{log_checkpoint_saved, log_total_ops};
 use vanillanoprop::weights::save_model;
 
 mod common;
@@ -151,7 +152,7 @@ fn run(
         pb.inc(1);
 
         if avg_f1 > best_f1 {
-            log::info!("Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}");
+            log_checkpoint_saved(epoch, avg_f1);
             best_f1 = avg_f1;
             if let Err(e) = save_model("checkpoint.json", &mut encoder, None) {
                 log::error!("Failed to save checkpoint: {e}");
@@ -160,7 +161,7 @@ fn run(
     }
     pb.finish_with_message("training done");
 
-    log::info!("Total matrix ops: {}", math::matrix_ops_count());
+    log_total_ops(math::matrix_ops_count());
     let peak = memory::peak_memory_bytes();
     log::info!(
         "Max memory usage: {:.2} MB",

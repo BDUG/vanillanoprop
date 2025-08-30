@@ -3,6 +3,7 @@ use crate::layers::{Activation, Layer, LinearT, MixtureOfExpertsT};
 use crate::math::{self, Matrix};
 use crate::models::{DecoderT, EncoderT, LargeConceptModel, RnnCell, SimpleCNN, RNN};
 use crate::tensor::Tensor;
+use crate::util::logging::log_total_ops;
 use crate::weights::{load_cnn, load_lcm, load_model, load_moe, load_rnn};
 use rand::{thread_rng, Rng};
 
@@ -79,7 +80,7 @@ pub fn run(model: Option<&str>, moe: bool, num_experts: usize) {
             }
 
             log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
-            log::info!("Total matrix ops: {}", math::matrix_ops_count());
+            log_total_ops(math::matrix_ops_count());
         }
         "lcm" => {
             let model = match load_lcm("lcm.json", 28 * 28, 128, 64, 10) {
