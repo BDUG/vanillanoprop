@@ -38,7 +38,8 @@ fn main() {
             } else {
                 Some(model.as_str())
             };
-            predict::run(DatasetKind::Mnist, model_opt, moe, num_experts);
+            let res = predict::run(DatasetKind::Mnist, model_opt, moe, num_experts);
+            println!("{}", res);
         }
         "predict-rnn" => {
             let (
@@ -59,7 +60,8 @@ fn main() {
                 _config,
                 _positional,
             ) = common::parse_cli(args[2..].iter().cloned());
-            predict::run(DatasetKind::Mnist, Some("rnn"), moe, num_experts);
+            let res = predict::run(DatasetKind::Mnist, Some("rnn"), moe, num_experts);
+            println!("{}", res);
         }
         "download" => data::download_mnist(),
         "train-backprop" | "train-elmo" | "train-noprop" | "train-lcm" | "train-rnn"
