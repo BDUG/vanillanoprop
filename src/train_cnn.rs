@@ -2,12 +2,13 @@ use indicatif::ProgressBar;
 
 use crate::config::Config;
 use crate::data::{DataLoader, Mnist};
+use crate::flow_matching::FlowModel;
 use crate::layers::{Layer, LinearT, MixtureOfExpertsT};
 use crate::logging::{Callback, CallbackSignal, Logger, MetricRecord};
 use crate::math::{self, Matrix};
 use crate::memory;
 use crate::metrics::f1_score;
-use crate::models::SimpleCNN;
+use crate::models::{HybridRnnTransformer, SimpleCNN};
 use crate::optim::lr_scheduler::{
     ConstantLr, CosineLr, LearningRateSchedule, LrScheduleConfig, StepLr,
 };
@@ -15,7 +16,6 @@ use crate::optim::Hrm;
 use crate::weights::{
     load_checkpoint, matrix_to_vec2, save_checkpoint, save_cnn, vec2_to_matrix, CnnJson,
 };
-use crate::flow_matching::FlowModel;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -47,6 +47,14 @@ pub fn run(
     mut callbacks: Vec<Box<dyn Callback>>,
 ) {
     let mut cnn = SimpleCNN::new(10);
+
+    // Hyperparameters for hybrid RNN + Transformer block
+    let rnn_hidden_dim = 32usize;
+    let num_heads = 2usize;
+    let ff_hidden = 64usize;
+    // Instantiate the hybrid block (unused in the CNN training loop but
+    // demonstrates configuration of the sequence model components).
+    let _hybrid = HybridRnnTransformer::new(28 * 28, rnn_hidden_dim, 32, num_heads, ff_hidden, 0.1);
     let mut moe_layer = if moe {
         let n = num_experts.max(1);
         let experts: Vec<Box<dyn Layer>> = (0..n)
