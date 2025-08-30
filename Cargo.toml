@@ -99,3 +99,7 @@ harness = false
 [[bench]]
 name = "tensor_add"
 harness = false
+
+[[bench]]
+name = "linear"
+harness = false
