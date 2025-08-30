@@ -1,7 +1,12 @@
 # ONNX Export Example
 
 Training binaries can export weights to the ONNX format by providing an
-output path:
+output path.
+
+**Prerequisites:** choose an output file for the exported model.
+
+**Training command:** (use `./run.sh`; demos are run with
+`cargo run --example`)
 
 ```bash
 ./run.sh train-noprop --export-onnx model.onnx

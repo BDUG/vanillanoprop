@@ -1,7 +1,12 @@
 # Autoencoder Example
 
 Demonstrates a tiny variational autoencoder that reconstructs MNIST
-images. Launch it with:
+images.
+
+**Prerequisites:** downloads the MNIST dataset on first run.
+
+**Demo command:** (use `cargo run --example`; training binaries use
+`./run.sh`)
 
 ```bash
 cargo run --example autoencoder

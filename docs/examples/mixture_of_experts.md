@@ -1,7 +1,12 @@
 # Mixture of Experts Example
 
 This walkthrough builds a tiny mixture-of-experts layer and prints the
-routing probabilities for each input. Run it with cargo:
+routing probabilities for each input.
+
+**Prerequisites:** none beyond the standard Rust toolchain.
+
+**Demo command:** (use `cargo run --example`; training binaries use
+`./run.sh`)
 
 ```bash
 cargo run --example mixture_of_experts

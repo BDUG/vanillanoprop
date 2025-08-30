@@ -4,6 +4,12 @@ The `DataLoader` trait and struct provide a unified way to work with
 datasets that fit in memory.  It supports batching, optional shuffling
 and an optional transform hook for preprocessing or data augmentation.
 
+**Prerequisites:** datasets such as MNIST or CIFAR10; they are downloaded on
+first use.
+
+This page shows library snippets only. To see a runnable demo, execute
+`cargo run --example mnist_cnn`. Training binaries are invoked with `./run.sh`.
+
 ```rust
 use vanillanoprop::data::{DataLoader, Mnist};
 
