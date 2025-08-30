@@ -94,11 +94,13 @@ fn run(
     let pb = ProgressBar::new(epochs as u64);
     let mut best_f1 = f32::NEG_INFINITY;
     let mut step = 0usize;
+    let mut loader = DataLoader::<Mnist>::new(config.batch_size, false, None);
     for epoch in 0..epochs {
+        loader.reset(true);
         let mut last_loss = 0.0;
         let mut f1_sum = 0.0;
         let mut sample_cnt: f32 = 0.0;
-        for batch in DataLoader::<Mnist>::new(config.batch_size, true, None) {
+        for batch in loader.by_ref() {
             encoder.zero_grad();
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;

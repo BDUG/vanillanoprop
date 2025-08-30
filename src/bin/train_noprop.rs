@@ -169,11 +169,13 @@ fn run(
     math::reset_matrix_ops();
     let pb = ProgressBar::new(config.epochs as u64);
     pb.set_position(start_epoch as u64);
+    let mut loader = DataLoader::<Mnist>::new(config.batch_size, false, None);
     for epoch in start_epoch..config.epochs {
+        loader.reset(true);
         let mut last_loss = 0.0;
         let mut f1_sum = 0.0;
         let mut sample_cnt: f32 = 0.0;
-        for batch in DataLoader::<Mnist>::new(config.batch_size, true, None) {
+        for batch in loader.by_ref() {
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
             for (src, tgt) in batch {

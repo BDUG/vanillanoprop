@@ -74,11 +74,14 @@ fn run(
 
     math::reset_matrix_ops();
 
+    let mut loader = DataLoader::<Mnist>::new(config.batch_size, false, None);
+
     for epoch in 0..epochs {
+        loader.reset(true);
         let mut last_loss = 0.0f32;
         let mut f1_sum = 0.0f32;
         let mut sample_cnt = 0.0f32;
-        for batch in DataLoader::<Mnist>::new(config.batch_size, true, None) {
+        for batch in loader.by_ref() {
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
             for (img, tgt) in batch {

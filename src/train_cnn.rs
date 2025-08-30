@@ -114,6 +114,8 @@ pub fn run(
     let pb = ProgressBar::new(epochs as u64);
     pb.set_position(start_epoch as u64);
 
+    let mut loader = DataLoader::<Mnist>::new(config.batch_size, false, None);
+
     for cb in callbacks.iter_mut() {
         cb.on_train_begin();
     }
@@ -123,11 +125,12 @@ pub fn run(
         for cb in callbacks.iter_mut() {
             cb.on_epoch_begin(epoch);
         }
+        loader.reset(true);
         let mut last_loss = 0.0f32;
         let mut f1_sum = 0.0f32;
         let mut sample_cnt = 0.0f32;
 
-        for batch in DataLoader::<Mnist>::new(config.batch_size, true, None) {
+        for batch in loader.by_ref() {
             let mut batch_loss = 0.0f32;
             let mut batch_f1 = 0.0f32;
 
