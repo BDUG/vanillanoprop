@@ -1,6 +1,10 @@
 pub mod dataloader;
+pub mod text;
+pub mod audio;
 
 pub use dataloader::{Cifar10, DataLoader, Dataset, Mnist};
+pub use text::TextDataset;
+pub use audio::AudioDataset;
 
 use mnist::MnistBuilder;
 
