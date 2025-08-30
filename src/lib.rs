@@ -21,6 +21,7 @@ pub mod rl;
 pub mod rng;
 pub mod tensor;
 pub mod train_cnn;
+pub mod train_fusion;
 pub mod weights;
 
 pub use data::{Cifar10, Dataset, Mnist};
