@@ -1,0 +1,5 @@
+# Example configuration for backprop training
+epochs = 10
+batch_size = 32
+dataset = "mnist"
+learning_rate = [0.001]
