@@ -4,6 +4,8 @@ use nalgebra::DMatrix;
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use ndarray::{ArrayViewD, ArrayViewMutD, IxDyn, Zip};
+use std::convert::TryInto;
+use wide::f32x8;
 
 #[cfg(feature = "cuda")]
 use cust::prelude::*;
@@ -404,22 +406,63 @@ impl Matrix {
         // One addition per element when accumulating the sum
         inc_add_ops_by(self.rows * self.cols);
         let mut v = vec![0.0; self.data.len()];
-        for (out_row, row_slice) in v.chunks_mut(self.cols).zip(self.data.chunks(self.cols)) {
-            // stabilizes against overflow
-            let max = row_slice.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-            // compute exponentials directly into the output buffer while accumulating the sum
-            let mut sum = 0.0f32;
-            for (out, &x) in out_row.iter_mut().zip(row_slice.iter()) {
-                let e = (x - max).exp();
-                *out = e;
-                sum += e;
+        let rows = self.rows;
+        let cols = self.cols;
+        const PAR_THRESHOLD: usize = 32;
+
+        if rows < PAR_THRESHOLD {
+            // Sequential path for small matrices to avoid rayon overhead
+            for (out_row, row_slice) in v.chunks_mut(cols).zip(self.data.chunks(cols)) {
+                let max = row_slice.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                let mut sum = 0.0f32;
+                for (out, &x) in out_row.iter_mut().zip(row_slice.iter()) {
+                    let e = (x - max).exp();
+                    *out = e;
+                    sum += e;
+                }
+                for out in out_row.iter_mut() {
+                    *out /= sum;
+                }
             }
-            // normalize in-place
-            for out in out_row.iter_mut() {
-                *out /= sum;
-            }
+        } else {
+            // Parallelised path using Rayon and SIMD via `wide`.
+            v.par_chunks_mut(cols)
+                .zip(self.data.par_chunks(cols))
+                .for_each(|(out_row, row_slice)| {
+                    let max = row_slice.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                    let max_v = f32x8::splat(max);
+                    let mut sum_v = f32x8::splat(0.0);
+                    let mut i = 0;
+                    while i + 8 <= cols {
+                        let chunk: [f32; 8] = row_slice[i..i + 8].try_into().unwrap();
+                        let e = (f32x8::new(chunk) - max_v).exp();
+                        out_row[i..i + 8].copy_from_slice(&e.to_array());
+                        sum_v += e;
+                        i += 8;
+                    }
+                    let mut sum = sum_v.reduce_add();
+                    for (out, &x) in out_row[i..].iter_mut().zip(row_slice[i..].iter()) {
+                        let e = (x - max).exp();
+                        *out = e;
+                        sum += e;
+                    }
+                    let inv_sum = 1.0 / sum;
+                    let inv_sum_v = f32x8::splat(inv_sum);
+                    let mut j = 0;
+                    while j + 8 <= cols {
+                        let chunk: [f32; 8] = out_row[j..j + 8].try_into().unwrap();
+                        let mut x = f32x8::new(chunk);
+                        x *= inv_sum_v;
+                        out_row[j..j + 8].copy_from_slice(&x.to_array());
+                        j += 8;
+                    }
+                    for out in &mut out_row[j..] {
+                        *out *= inv_sum;
+                    }
+                });
         }
-        Matrix::from_vec(self.rows, self.cols, v)
+
+        Matrix::from_vec(rows, cols, v)
     }
 
     /// Compute the singular value decomposition of the matrix using the

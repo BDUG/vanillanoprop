@@ -36,6 +36,7 @@ ndarray = { version = "0.15", features = ["rayon"] }
 matrixmultiply = { version = "0.3", optional = true }
 cust = { version = "0.3", optional = true }
 nvrtc = { version = "0.1", optional = true }
+wide = "0.7"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_System_ProcessStatus", "Win32_System_Threading"] }
