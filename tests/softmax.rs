@@ -24,6 +24,22 @@ fn softmax_matches_reference() {
 }
 
 #[test]
+fn softmax_matches_reference_parallel() {
+    // Larger matrix to trigger the parallel SIMD path.
+    let rows = 64;
+    let cols = 10;
+    let data: Vec<f32> = (0..rows * cols)
+        .map(|i| (i % cols) as f32 - 5.0)
+        .collect();
+    let m = Matrix::from_vec(rows, cols, data);
+    let expected = softmax_reference(&m);
+    let actual = m.softmax();
+    for (a, b) in actual.data.iter().zip(expected.data.iter()) {
+        assert!((a - b).abs() < 1e-6);
+    }
+}
+
+#[test]
 fn softmax_rows_sum_to_one() {
     let m = Matrix::from_vec(2, 3, vec![1.0, 2.0, 3.0, -1.0, 0.0, 1.0]);
     let sm = m.softmax();
