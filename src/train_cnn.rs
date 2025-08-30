@@ -8,7 +8,7 @@ use crate::logging::{Callback, CallbackSignal, Logger, MetricRecord};
 use crate::math::{self, Matrix};
 use crate::memory;
 use crate::metrics::f1_score;
-use crate::models::{HybridRnnTransformer, SimpleCNN};
+use crate::models::{HybridRnnTransformer, MobileNet, SimpleCNN};
 use crate::optim::lr_scheduler::{
     ConstantLr, CosineLr, LearningRateSchedule, LrScheduleConfig, StepLr,
 };
@@ -19,6 +19,43 @@ use crate::weights::{
 };
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+trait CnnModel {
+    fn forward_batch(&mut self, imgs: &[Vec<u8>]) -> (Matrix, Matrix);
+    fn parameters_mut(&mut self) -> (&mut Matrix, &mut Vec<f32>);
+    fn parameters(&self) -> (&Matrix, &Vec<f32>);
+    fn as_any(&self) -> &dyn std::any::Any;
+}
+
+impl CnnModel for SimpleCNN {
+    fn forward_batch(&mut self, imgs: &[Vec<u8>]) -> (Matrix, Matrix) {
+        SimpleCNN::forward_batch(self, imgs)
+    }
+    fn parameters_mut(&mut self) -> (&mut Matrix, &mut Vec<f32>) {
+        SimpleCNN::parameters_mut(self)
+    }
+    fn parameters(&self) -> (&Matrix, &Vec<f32>) {
+        SimpleCNN::parameters(self)
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl CnnModel for MobileNet {
+    fn forward_batch(&mut self, imgs: &[Vec<u8>]) -> (Matrix, Matrix) {
+        MobileNet::forward_batch(self, imgs)
+    }
+    fn parameters_mut(&mut self) -> (&mut Matrix, &mut Vec<f32>) {
+        MobileNet::parameters_mut(self)
+    }
+    fn parameters(&self) -> (&Matrix, &Vec<f32>) {
+        MobileNet::parameters(self)
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
 
 /// Train a [`SimpleCNN`] on the MNIST data using a basic SGD loop.
 ///
@@ -35,6 +72,7 @@ struct CnnCheckpoint {
 }
 
 pub fn run(
+    model: &str,
     opt: &str,
     moe: bool,
     num_experts: usize,
@@ -47,7 +85,11 @@ pub fn run(
     config: &Config,
     mut callbacks: Vec<Box<dyn Callback>>,
 ) {
-    let mut cnn = SimpleCNN::new(10);
+    let mut cnn: Box<dyn CnnModel> = if model == "mobilenet" {
+        Box::new(MobileNet::new(10))
+    } else {
+        Box::new(SimpleCNN::new(10))
+    };
 
     // Hyperparameters for hybrid RNN + Transformer block
     let rnn_hidden_dim = 32usize;
@@ -292,7 +334,11 @@ pub fn run(
         "Max memory usage: {:.2} MB",
         peak as f64 / (1024.0 * 1024.0)
     );
-    if let Err(e) = save_cnn(&format!("{}/cnn.json", ckpt_dir), &cnn) {
-        log::error!("Failed to save model: {e}");
+    if model == "cnn" {
+        if let Some(sc) = cnn.as_any().downcast_ref::<SimpleCNN>() {
+            if let Err(e) = save_cnn(&format!("{}/cnn.json", ckpt_dir), sc) {
+                log::error!("Failed to save model: {e}");
+            }
+        }
     }
 }

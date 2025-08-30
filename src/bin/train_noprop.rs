@@ -60,8 +60,9 @@ fn main() {
         }
         return;
     }
-    if model == "cnn" {
+    if model == "cnn" || model == "mobilenet" {
         train_cnn::run(
+            &model,
             &opt,
             moe,
             num_experts,

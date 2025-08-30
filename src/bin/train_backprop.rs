@@ -38,8 +38,9 @@ fn main() {
         vanillanoprop::fine_tune::run(&model_id, freeze_layers, |_, _| Ok(()))
             .expect("fine-tune load failed")
     });
-    if model == "cnn" {
+    if model == "cnn" || model == "mobilenet" {
         train_cnn::run(
+            &model,
             &opt,
             moe,
             num_experts,
