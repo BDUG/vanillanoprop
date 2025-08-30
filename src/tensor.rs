@@ -22,7 +22,7 @@ impl Tensor {
     /// Create a new tensor from raw parts.  The number of elements in `data`
     /// must match the product of the requested `shape`.
     pub fn new(data: Vec<f32>, shape: Vec<usize>) -> Self {
-        assert_eq!(data.len(), shape.iter().product());
+        assert_eq!(data.len(), shape.iter().product::<usize>());
         Tensor { data, shape }
     }
 
@@ -65,7 +65,7 @@ impl Tensor {
     /// Change the view of the underlying data without modifying order.
     /// The new shape must contain the same number of elements.
     pub fn reshape(&mut self, new_shape: Vec<usize>) {
-        assert_eq!(self.data.len(), new_shape.iter().product());
+        assert_eq!(self.data.len(), new_shape.iter().product::<usize>());
         self.shape = new_shape;
     }
 

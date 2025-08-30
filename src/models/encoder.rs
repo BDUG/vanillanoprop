@@ -114,7 +114,7 @@ impl EncoderT {
         // existing inference path
         let mut h = Tensor::from_matrix(x);
         h = self.embedding.forward(&h);
-        let pos = positional_encoding(h.data.rows, h.data.cols);
+        let pos = positional_encoding(h.shape[0], h.shape[1]);
         let p = Tensor::from_matrix(pos);
         h = Tensor::add(&h, &p);
         for l in &self.layers {

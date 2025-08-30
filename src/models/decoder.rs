@@ -41,7 +41,7 @@ impl DecoderLayerT {
 
     pub fn forward(&self, x: &Tensor, enc_out: &Tensor) -> Tensor {
         let h1 = self.self_attn.forward(x);
-        let ctx = if h1.data.rows == enc_out.data.rows && h1.data.cols == enc_out.data.cols {
+        let ctx = if h1.shape[0] == enc_out.shape[0] && h1.shape[1] == enc_out.shape[1] {
             Tensor::add(&h1, enc_out)
         } else {
             h1
