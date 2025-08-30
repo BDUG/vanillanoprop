@@ -157,17 +157,23 @@ epochs = 10
 batch_size = 8
 ```
 
-Run a training binary with a configuration file:
+Example configuration files for each training variant are included in the
+repository root. Run a training binary with one of them via `--config`:
 
 ```bash
-./run.sh train-noprop --config config.toml
+./run.sh train-backprop --config backprop_config.toml
+./run.sh train-elmo --config elmo_config.toml
+./run.sh train-noprop --config noprop_config.toml
 ./run.sh train-lcm --config lcm_config.toml
+./run.sh train-resnet --config resnet_config.toml
+./run.sh train-rnn --config rnn_config.toml
+./run.sh train-treepo --config treepo_config.toml
 ```
 
 Or override specific settings from the command line:
 
 ```bash
-./run.sh train-noprop --config config.toml --epochs 20 --batch-size 16
+./run.sh train-noprop --config noprop_config.toml --epochs 20 --batch-size 16
 ```
 
 ## Examples
