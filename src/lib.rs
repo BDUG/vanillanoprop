@@ -25,6 +25,6 @@ pub mod train_fusion;
 pub mod util;
 pub mod weights;
 
-pub use data::{Cifar10, Dataset, Mnist};
+pub use data::{Cifar10, Dataset, DatasetKind, Mnist};
 pub use huggingface::fetch_hf_files;
 pub use weights::load_transformer_from_hf;

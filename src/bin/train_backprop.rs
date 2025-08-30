@@ -1,6 +1,6 @@
 use indicatif::ProgressBar;
 use vanillanoprop::config::Config;
-use vanillanoprop::data::{DataLoader, Mnist};
+use vanillanoprop::data::{Cifar10, DataLoader, Dataset, DatasetKind, Mnist};
 use vanillanoprop::fine_tune::LayerKind;
 use vanillanoprop::layers::{Activation, LinearT};
 use vanillanoprop::logging::{Callback, Logger, MetricRecord};
@@ -56,6 +56,7 @@ fn main() {
         );
     } else {
         run(
+            DatasetKind::Mnist,
             &opt,
             moe,
             num_experts,
@@ -70,7 +71,7 @@ fn main() {
 
 // Tensor Backprop Training (simplified Adam hook)
 // now using Embedding => model_dim independent of vocab_size
-pub fn run(
+fn run_impl<D: Dataset<Item = (Vec<u8>, usize)>>( 
     opt: &str,
     moe: bool,
     num_experts: usize,
@@ -141,7 +142,7 @@ pub fn run(
     let pb = ProgressBar::new(epochs as u64);
     let mut best_f1 = f32::NEG_INFINITY;
     let mut step = 0usize;
-    let mut loader = DataLoader::<Mnist>::new(config.batch_size, false, None);
+    let mut loader = DataLoader::<D>::new(config.batch_size, false, None);
     for epoch in 0..epochs {
         loader.reset(true);
         let mut last_loss = 0.0;
@@ -255,5 +256,40 @@ pub fn run(
     let param_refs: Vec<&LinearT> = params.iter().map(|p| &**p).collect();
     if let Err(e) = trainer.save("model.bin", &param_refs) {
         log::error!("Failed to save model: {e}");
+    }
+}
+
+pub fn run(
+    dataset: DatasetKind,
+    opt: &str,
+    moe: bool,
+    num_experts: usize,
+    log_dir: Option<String>,
+    experiment: Option<String>,
+    config: &Config,
+    resume: Option<String>,
+    fine_tune: Option<vanillanoprop::fine_tune::FineTune>,
+) {
+    match dataset {
+        DatasetKind::Mnist => run_impl::<Mnist>(
+            opt,
+            moe,
+            num_experts,
+            log_dir,
+            experiment,
+            config,
+            resume,
+            fine_tune,
+        ),
+        DatasetKind::Cifar10 => run_impl::<Cifar10>(
+            opt,
+            moe,
+            num_experts,
+            log_dir,
+            experiment,
+            config,
+            resume,
+            fine_tune,
+        ),
     }
 }
