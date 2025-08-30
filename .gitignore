@@ -3,4 +3,6 @@ target/
 .DS_Store
 .idea/
 *.swp
+web-ui/dist/
+web-ui/target/
 
