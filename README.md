@@ -82,6 +82,23 @@ The `--moe` flag enables mixture-of-experts layers and `--num-experts` sets how 
 
 When predicting with `--moe`, a corresponding `moe.json` file is read to load the gating and expert weights.
 
+### Web UI
+
+A simple browser interface powered by [Yew](https://yew.rs/) lives under
+`web-ui/`. Build the front-end with
+[`trunk`](https://trunkrs.dev) and run the web server to serve the compiled
+assets:
+
+```bash
+cd web-ui
+trunk build --release
+cd ..
+cargo run --bin web_server
+```
+
+The helper script `scripts/serve_with_ui.sh` performs these steps and launches
+the server.
+
 ### Supported models
 
 The library includes multiple built-in models. Training support varies across binaries:

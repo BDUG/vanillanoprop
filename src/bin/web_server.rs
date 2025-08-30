@@ -1,3 +1,4 @@
+use actix_files::Files;
 use actix_web::{web, App, HttpResponse, HttpServer};
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -70,7 +71,9 @@ async fn train(
             }
         }
     });
-    HttpResponse::Ok().json(JobId { job_id: job_id_resp })
+    HttpResponse::Ok().json(JobId {
+        job_id: job_id_resp,
+    })
 }
 
 async fn infer(
@@ -110,37 +113,33 @@ async fn infer(
             }
         }
     });
-    HttpResponse::Ok().json(JobId { job_id: job_id_resp })
+    HttpResponse::Ok().json(JobId {
+        job_id: job_id_resp,
+    })
 }
 
-async fn job_status(
-    registry: web::Data<JobRegistry>,
-    id: web::Path<String>,
-) -> HttpResponse {
+async fn job_status(registry: web::Data<JobRegistry>, id: web::Path<String>) -> HttpResponse {
     match registry.get_info(&id) {
         Some(info) => HttpResponse::Ok().json(info),
         None => HttpResponse::NotFound().finish(),
     }
 }
 
-async fn job_result(
-    registry: web::Data<JobRegistry>,
-    id: web::Path<String>,
-) -> HttpResponse {
+async fn job_result(registry: web::Data<JobRegistry>, id: web::Path<String>) -> HttpResponse {
     match registry.get_result(&id) {
         Some(res) => HttpResponse::Ok().json(res),
         None => HttpResponse::NotFound().finish(),
     }
 }
 
-async fn job_events(
-    registry: web::Data<JobRegistry>,
-    id: web::Path<String>,
-) -> HttpResponse {
+async fn job_events(registry: web::Data<JobRegistry>, id: web::Path<String>) -> HttpResponse {
     if let Some(rx) = registry.subscribe(&id) {
         let stream = BroadcastStream::new(rx).filter_map(|msg| async move {
             match msg {
-                Ok(m) => Some(Ok::<_, actix_web::Error>(web::Bytes::from(format!("data: {}\n\n", m)))),
+                Ok(m) => Some(Ok::<_, actix_web::Error>(web::Bytes::from(format!(
+                    "data: {}\n\n",
+                    m
+                )))),
                 Err(_) => None,
             }
         });
@@ -164,6 +163,7 @@ async fn main() -> std::io::Result<()> {
             .route("/jobs/{id}/status", web::get().to(job_status))
             .route("/jobs/{id}/result", web::get().to(job_result))
             .route("/jobs/{id}/events", web::get().to(job_events))
+            .service(Files::new("/", "./web-ui/dist").index_file("index.html"))
     })
     .bind(("0.0.0.0", 8080))?
     .run()
