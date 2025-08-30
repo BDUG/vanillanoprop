@@ -29,6 +29,9 @@ pub struct Config {
     /// provided the [`automl`](crate::automl) module will explore them.
     #[serde(default = "default_learning_rates")]
     pub learning_rate: Vec<f32>,
+    /// Whether to enable quantized inference where supported.
+    #[serde(default)]
+    pub quantized: bool,
 }
 
 fn default_epochs() -> usize {
@@ -74,6 +77,7 @@ impl Default for Config {
             max_depth: default_max_depth(),
             rollout_steps: default_rollout_steps(),
             learning_rate: default_learning_rates(),
+            quantized: false,
         }
     }
 }

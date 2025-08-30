@@ -1,7 +1,7 @@
-use crate::tensor::Tensor;
-use crate::math::Matrix;
-use super::linear::LinearT;
 use super::layer::Layer;
+use super::linear::LinearT;
+use crate::math::Matrix;
+use crate::tensor::Tensor;
 
 /// Embedding layer: maps one-hot (vocab_size) into dense model_dim.
 pub struct EmbeddingT {
@@ -18,6 +18,11 @@ impl EmbeddingT {
     pub fn forward(&self, x: &Tensor) -> Tensor {
         // inference helper
         Tensor::matmul(x, &self.table.w)
+    }
+
+    /// Quantized inference helper performing int8 matrix multiplication.
+    pub fn quantized_matmul(&self, x: &Tensor) -> Tensor {
+        self.table.quantized_matmul(x)
     }
 
     pub fn forward_local(&mut self, x: &Matrix) -> Matrix {
@@ -41,8 +46,7 @@ impl EmbeddingT {
     }
 
     pub fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
-        self.table
-            .adam_step(lr, beta1, beta2, eps, weight_decay);
+        self.table.adam_step(lr, beta1, beta2, eps, weight_decay);
     }
 
     pub fn parameters(&mut self) -> Vec<&mut LinearT> {
@@ -71,14 +75,7 @@ impl Layer for EmbeddingT {
         EmbeddingT::fa_update(self, grad_out, lr)
     }
 
-    fn adam_step(
-        &mut self,
-        lr: f32,
-        beta1: f32,
-        beta2: f32,
-        eps: f32,
-        weight_decay: f32,
-    ) {
+    fn adam_step(&mut self, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) {
         EmbeddingT::adam_step(self, lr, beta1, beta2, eps, weight_decay);
     }
 
@@ -86,4 +83,3 @@ impl Layer for EmbeddingT {
         EmbeddingT::parameters(self)
     }
 }
-

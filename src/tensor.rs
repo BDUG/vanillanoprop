@@ -69,6 +69,31 @@ impl Tensor {
         self.shape = new_shape;
     }
 
+    /// Quantize the tensor to int8 values returning the packed data and
+    /// a scale factor.  The scale maps the original floating point range to
+    /// [-128, 127].
+    pub fn quantize(&self) -> (Vec<i8>, f32) {
+        let max = self.data.iter().fold(0f32, |m, &v| m.max(v.abs()));
+        let scale = if max == 0.0 { 1.0 } else { 127.0 / max };
+        let q = self
+            .data
+            .iter()
+            .map(|&v| {
+                let scaled = v * scale;
+                scaled.round().clamp(-128.0, 127.0) as i8
+            })
+            .collect();
+        (q, scale)
+    }
+
+    /// Dequantize int8 data produced by [`quantize`].  The caller must provide
+    /// the original shape which is not stored with the quantized values.
+    pub fn dequantize(data: &[i8], scale: f32, shape: Vec<usize>) -> Tensor {
+        let inv = if scale == 0.0 { 1.0 } else { 1.0 / scale };
+        let deq = data.iter().map(|&v| v as f32 * inv).collect();
+        Tensor { data: deq, shape }
+    }
+
     /// Broadcast the tensor to a larger shape following numpy semantics
     /// where dimensions of size 1 can be expanded.
     pub fn broadcast_to(&self, target: &[usize]) -> Tensor {

@@ -54,9 +54,11 @@ pub struct VaeJson {
 
 /// Convert a [`Tensor`] into a 2-D `Vec` for serialisation.
 pub fn tensor_to_vec2(t: &Tensor) -> Vec<Vec<f32>> {
-    let m = &t.data;
-    (0..m.rows)
-        .map(|r| (0..m.cols).map(|c| m.get(r, c)).collect())
+    assert!(t.shape.len() == 2, "tensor must be 2-D");
+    let rows = t.shape[0];
+    let cols = t.shape[1];
+    (0..rows)
+        .map(|r| (0..cols).map(|c| t.data[r * cols + c]).collect())
         .collect()
 }
 
@@ -74,6 +76,24 @@ pub fn vec2_to_matrix(rows: &[Vec<f32>]) -> Matrix {
         }
     }
     mat
+}
+
+/// Quantize a slice of f32 weights into int8 values returning the quantized
+/// bytes and scaling factor.
+pub fn quantize(weights: &[f32]) -> (Vec<i8>, f32) {
+    let max = weights.iter().fold(0f32, |m, &v| m.max(v.abs()));
+    let scale = if max == 0.0 { 1.0 } else { 127.0 / max };
+    let q = weights
+        .iter()
+        .map(|&v| (v * scale).round().clamp(-128.0, 127.0) as i8)
+        .collect();
+    (q, scale)
+}
+
+/// Reconstruct floating point weights from quantized int8 data and scale.
+pub fn dequantize(data: &[i8], scale: f32) -> Vec<f32> {
+    let inv = if scale == 0.0 { 1.0 } else { 1.0 / scale };
+    data.iter().map(|&v| v as f32 * inv).collect()
 }
 
 #[derive(Serialize, Deserialize)]
@@ -221,7 +241,10 @@ pub fn save_moe(path: &str, moe: &mut MixtureOfExpertsT) -> Result<(), io::Error
             experts_w.push(tensor_to_vec2(&p.w));
         }
     }
-    let json = MoeJson { gate, experts: experts_w };
+    let json = MoeJson {
+        gate,
+        experts: experts_w,
+    };
     let txt = serde_json::to_string(&json).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     fs::write(path, txt)?;
     println!("Saved MoE weights to {}", path);
@@ -235,8 +258,8 @@ pub fn load_moe(
     num_experts: usize,
 ) -> Result<MixtureOfExpertsT, io::Error> {
     let txt = fs::read_to_string(path)?;
-    let json: MoeJson = serde_json::from_str(&txt)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let json: MoeJson =
+        serde_json::from_str(&txt).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     let experts: Vec<Box<dyn Layer>> = (0..num_experts)
         .map(|_| Box::new(LinearT::new(input_dim, output_dim)) as Box<dyn Layer>)
         .collect();
@@ -621,10 +644,9 @@ mod tests {
     #[test]
     fn to_f32_vec_errors_on_non_f32() {
         let data = vec![0u8; 4];
-        let view = TensorView::new(Dtype::U8, vec![4], &data)
-            .expect("failed to create tensor view");
-        let err = to_f32_vec(&view)
-            .expect_err("expected error for non-f32 tensor");
+        let view =
+            TensorView::new(Dtype::U8, vec![4], &data).expect("failed to create tensor view");
+        let err = to_f32_vec(&view).expect_err("expected error for non-f32 tensor");
         assert!(err.to_string().contains("expected f32 tensor"));
     }
 }
