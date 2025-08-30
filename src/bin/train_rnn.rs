@@ -1,5 +1,3 @@
-use std::env;
-
 use indicatif::ProgressBar;
 use vanillanoprop::config::Config;
 use vanillanoprop::data::{DataLoader, Mnist};
@@ -15,7 +13,7 @@ use vanillanoprop::weights::save_rnn;
 mod common;
 
 fn main() {
-    env_logger::init();
+    let args = common::init_logging();
     let (
         _model,
         _opt,
@@ -33,7 +31,7 @@ fn main() {
         _auto_ml,
         config,
         _,
-    ) = common::parse_cli(env::args().skip(1));
+    ) = common::parse_cli(args.into_iter().skip(1));
 
     let ft = fine_tune.map(|model_id| {
         vanillanoprop::fine_tune::run(&model_id, freeze_layers, |_, _| Ok(()))
@@ -105,7 +103,6 @@ fn run(
                 let mut raw: Vec<&mut LinearT> = params.into_iter().map(|(_, p)| p).collect();
                 trainer.fit(&mut raw);
             }
-            println!("loss {batch_loss:.4} f1 {batch_f1:.4}");
             if let Some(l) = &mut logger {
                 l.log(&MetricRecord {
                     epoch,
@@ -119,6 +116,7 @@ fn run(
             step += 1;
         }
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4}"));
+        log::info!("epoch {epoch} loss {last_loss:.4}");
         if let Some(l) = &mut logger {
             l.log(&MetricRecord {
                 epoch,
@@ -134,6 +132,6 @@ fn run(
     pb.finish_with_message("training done");
 
     if let Err(e) = save_rnn("rnn.json", &mut rnn) {
-        eprintln!("Failed to save model: {e}");
+        log::error!("Failed to save model: {e}");
     }
 }

@@ -5,8 +5,10 @@ use vanillanoprop::models::VAE;
 use vanillanoprop::optim::{Adam, MseLoss};
 use vanillanoprop::weights::save_vae;
 
+mod common;
+
 fn main() {
-    env_logger::init();
+    let _ = common::init_logging();
     let pairs: Vec<(Vec<u8>, usize)> = DataLoader::<Mnist>::new(1, true, None)
         .take(10)
         .flat_map(|b| b.iter().cloned())
@@ -32,10 +34,10 @@ fn main() {
             trainer.fit(&mut params);
             total += recon_loss + kl_loss;
         }
-        println!("epoch {epoch} loss {:.4}", total / pairs.len() as f32);
+        log::info!("epoch {epoch} loss {:.4}", total / pairs.len() as f32);
     }
 
     if let Err(e) = save_vae("vae.json", &vae) {
-        eprintln!("failed to save model: {e}");
+        log::error!("failed to save model: {e}");
     }
 }
