@@ -10,6 +10,7 @@ use vanillanoprop::optim::lr_scheduler::{
     ConstantLr, CosineLr, LearningRateSchedule, LrScheduleConfig, StepLr,
 };
 use vanillanoprop::optim::{Hrm, MseLoss, SGD};
+use vanillanoprop::util::logging::log_total_ops;
 
 mod common;
 
@@ -139,7 +140,7 @@ fn run(
     }
 
     pb.finish_with_message("training done");
-    log::info!("Total matrix ops: {}", math::matrix_ops_count());
+    log_total_ops(math::matrix_ops_count());
     let peak = memory::peak_memory_bytes();
     log::info!(
         "Max memory usage: {:.2} MB",

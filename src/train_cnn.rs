@@ -13,6 +13,7 @@ use crate::optim::lr_scheduler::{
     ConstantLr, CosineLr, LearningRateSchedule, LrScheduleConfig, StepLr,
 };
 use crate::optim::Hrm;
+use crate::util::logging::{log_checkpoint_saved, log_total_ops};
 use crate::weights::{
     load_checkpoint, matrix_to_vec2, save_checkpoint, save_cnn, vec2_to_matrix, CnnJson,
 };
@@ -254,7 +255,7 @@ pub fn run(
 
         let mut should_save = false;
         if avg_f1 > best_f1 {
-            log::info!("Checkpoint saved at epoch {epoch}: avg F1 improved to {avg_f1:.4}");
+            log_checkpoint_saved(epoch, avg_f1);
             best_f1 = avg_f1;
             should_save = true;
         }
@@ -293,7 +294,7 @@ pub fn run(
 
     pb.finish_with_message("training done");
 
-    log::info!("Total matrix ops: {}", math::matrix_ops_count());
+    log_total_ops(math::matrix_ops_count());
     let peak = memory::peak_memory_bytes();
     log::info!(
         "Max memory usage: {:.2} MB",
