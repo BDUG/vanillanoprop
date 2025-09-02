@@ -1,0 +1,4 @@
+discount_factor = 0.99
+safety_thresholds = [-5.0]
+learning_rate = 0.1
+rollout_steps = 10

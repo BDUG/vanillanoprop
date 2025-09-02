@@ -76,6 +76,7 @@ standalone demos. Typical training commands:
 ./run.sh train-lcm
 ./run.sh predict lcm
 ./run.sh train-treepo
+./run.sh train-zero-shot-safe
 ```
 
 The `--moe` flag enables mixture-of-experts layers and `--num-experts` sets how many experts to use.
@@ -187,6 +188,23 @@ Episode 2 complete
 
 See [TreePO](docs/introduction.md#treepo) for more details. ([example](docs/examples/treepo.md))
 
+## Zero-shot safe agent
+
+`train-zero-shot-safe` showcases a safety-aware policy that skips updates when the environment reports a failure state. It loads `zero_shot_safe_config.toml` by default; pass `--config <FILE>` to override it:
+
+```bash
+./run.sh train-zero-shot-safe
+```
+
+The configuration exposes basic hyperparameters:
+
+```
+discount_factor = 0.99      # reward discount
+safety_thresholds = [-5.0]  # failure when position drops below threshold
+learning_rate = 0.1         # policy update rate
+rollout_steps = 10          # steps per episode
+```
+
 ## Configuration
 
 Training parameters such as the number of epochs and batch size can be set via a configuration file in TOML or JSON format. CLI flags override values from the file. Example `config.toml`:
@@ -207,6 +225,7 @@ repository root and are loaded automatically:
 ./run.sh train-resnet
 ./run.sh train-rnn
 ./run.sh train-treepo
+./run.sh train-zero-shot-safe
 ```
 
 Pass `--config <FILE>` to load a different file or override specific settings from the command line:
