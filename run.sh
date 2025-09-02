@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat >&2 <<'USAGE'
-Usage: $0 {download|predict|predict-rnn|train-backprop|train-elmo|train-noprop|train-lcm|train-resnet|train-rnn|train-treepo} [model] [opt] [--moe] [--num-experts N] [--resume FILE] [--export-onnx FILE] [--config FILE]
+Usage: $0 {download|predict|predict-rnn|train-backprop|train-elmo|train-noprop|train-lcm|train-resnet|train-rnn|train-treepo|train-zero-shot-safe} [model] [opt] [--moe] [--num-experts N] [--resume FILE] [--export-onnx FILE] [--config FILE]
 
 Each training command loads a default configuration file (e.g. backprop_config.toml).
 Use --config <FILE> to override it.
@@ -54,6 +54,10 @@ case "$1" in
   train-treepo)
     shift
     cargo run --bin main -- train-treepo --config treepo_config.toml "$@"
+    ;;
+  train-zero-shot-safe)
+    shift
+    cargo run --bin main -- train-zero-shot-safe --config zero_shot_safe_config.toml "$@"
     ;;
   *)
     usage

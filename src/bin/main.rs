@@ -8,7 +8,7 @@ fn main() {
     if args.len() < 2 {
         eprintln!("Usage: {} [--log-level <LEVEL>|--quiet] <mode>", args[0]);
         eprintln!(
-            "Modes: predict | predict-rnn | download | train-backprop | train-elmo | train-noprop | train-lcm | train-rnn | train-treepo | automl",
+            "Modes: predict | predict-rnn | download | train-backprop | train-elmo | train-noprop | train-lcm | train-rnn | train-treepo | train-zero-shot-safe | automl",
         );
         return;
     }
@@ -64,14 +64,20 @@ fn main() {
             println!("{}", res);
         }
         "download" => data::download_mnist(),
-        "train-backprop" | "train-elmo" | "train-noprop" | "train-lcm" | "train-rnn"
-        | "train-treepo" => {
+        "train-backprop"
+        | "train-elmo"
+        | "train-noprop"
+        | "train-lcm"
+        | "train-rnn"
+        | "train-treepo"
+        | "train-zero-shot-safe" => {
             let bin = match args[1].as_str() {
                 "train-backprop" => "train_backprop",
                 "train-elmo" => "train_elmo",
                 "train-lcm" => "train_lcm",
                 "train-rnn" => "train_rnn",
                 "train-treepo" => "train_treepo",
+                "train-zero-shot-safe" => "train_zero_shot_safe",
                 _ => "train_noprop",
             };
             let status = Command::new("cargo")
