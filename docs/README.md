@@ -19,4 +19,5 @@ Each walkthrough demonstrates a specific feature:
 - [ONNX export](examples/onnx_export.md)
 - [Text RNN](examples/text_rnn.md)
 - [Tree policy optimization](examples/treepo.md)
+- [Zero shot safe](examples/zero_shot_safe.md)
 
