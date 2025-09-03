@@ -88,6 +88,10 @@ path = "src/bin/sample_vae.rs"
 name = "web_server"
 path = "src/bin/web_server.rs"
 
+[[bin]]
+name = "train_self_adapt"
+path = "src/bin/train_self_adapt.rs"
+
 [dev-dependencies]
 criterion = "0.5"
 
