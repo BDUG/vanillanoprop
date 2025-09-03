@@ -2,6 +2,7 @@ use serde::Deserialize;
 use std::fs;
 use vanillanoprop::layers::Activation;
 use vanillanoprop::models::{DecoderT, TransformerEncoder};
+use vanillanoprop::reward::NGramReward;
 use vanillanoprop::rl::{LanguageEnv, SelfAdaptAgent};
 
 mod common;
@@ -99,7 +100,8 @@ fn main() {
         false,
         1,
     );
-    let mut agent = SelfAdaptAgent::new(env, encoder, decoder, cfg.lr, vocab_size);
+    let reward = NGramReward::new(1);
+    let mut agent = SelfAdaptAgent::new(env, encoder, decoder, cfg.lr, vocab_size, reward);
 
     for ep in 0..cfg.episodes {
         agent.reset();

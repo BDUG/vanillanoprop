@@ -1,6 +1,7 @@
 use super::{language_env::LanguageEnv, treepo::Env};
 use crate::math::{argmax, softmax_cross_entropy, Matrix};
 use crate::models::{DecoderT, TransformerEncoder};
+use crate::reward::RewardModel;
 
 /// Agent that adapts itself online by updating a Transformer
 /// encoder/decoder on the reward signal from a [`LanguageEnv`].
@@ -9,16 +10,17 @@ use crate::models::{DecoderT, TransformerEncoder};
 /// predicts the next token, the environment returns a reward and the
 /// true token. The agent then performs a backward pass and updates the
 /// model parameters using a simple Adam step.
-pub struct SelfAdaptAgent {
+pub struct SelfAdaptAgent<R: RewardModel> {
     pub env: LanguageEnv,
     pub encoder: TransformerEncoder,
     pub decoder: DecoderT,
     pub lr: f32,
     pub vocab_size: usize,
+    reward_model: R,
     state: Vec<u8>,
 }
 
-impl SelfAdaptAgent {
+impl<R: RewardModel> SelfAdaptAgent<R> {
     /// Construct a new agent with the given environment and models.
     pub fn new(
         mut env: LanguageEnv,
@@ -26,6 +28,7 @@ impl SelfAdaptAgent {
         decoder: DecoderT,
         lr: f32,
         vocab_size: usize,
+        reward_model: R,
     ) -> Self {
         let state = env.reset();
         Self {
@@ -34,6 +37,7 @@ impl SelfAdaptAgent {
             decoder,
             lr,
             vocab_size,
+            reward_model,
             state,
         }
     }
@@ -60,8 +64,10 @@ impl SelfAdaptAgent {
         let last_row = logits.rows - 1;
         let row_slice = &logits.data[last_row * logits.cols..(last_row + 1) * logits.cols];
         let action = argmax(row_slice) as u8;
-        let (next_state, reward) = self.env.step(action);
-        let target = *next_state.last().unwrap() as usize;
+        let (next_state, _env_reward) = self.env.step(action);
+        let expected = *next_state.last().unwrap();
+        let reward = self.reward_model.score(&[action], &[expected]);
+        let target = expected as usize;
         let (_loss, grad, _preds) = softmax_cross_entropy(&logits, &[target], last_row);
         let grad_enc = self.decoder.backward(&grad);
         self.encoder.backward(&grad_enc);
