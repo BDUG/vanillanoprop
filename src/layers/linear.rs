@@ -26,6 +26,10 @@ pub struct LinearT {
 impl LinearT {
     pub fn new(in_dim: usize, out_dim: usize) -> Self {
         let mut rng = rng_from_env();
+        Self::new_with_rng(in_dim, out_dim, &mut rng)
+    }
+
+    pub fn new_with_rng(in_dim: usize, out_dim: usize, rng: &mut impl Rng) -> Self {
         let data = Matrix::from_vec(
             in_dim,
             out_dim,
