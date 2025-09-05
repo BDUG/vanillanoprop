@@ -2,6 +2,7 @@ pub mod conv;
 pub mod dropout;
 pub mod embedding;
 pub mod feed_forward;
+pub mod gated_ffn;
 pub mod layer;
 pub mod leaky_relu;
 pub mod linear;
@@ -10,6 +11,7 @@ pub mod multi_head_attention;
 pub mod normalization;
 pub mod pooling;
 pub mod relu;
+pub mod rms_norm;
 pub mod rnn;
 pub mod sigmoid;
 pub mod softmax;
@@ -19,18 +21,14 @@ pub use conv::{Conv2d, ConvError};
 pub use dropout::Dropout;
 pub use embedding::EmbeddingT;
 pub use feed_forward::{Activation, FeedForwardT};
+pub use gated_ffn::GatedFFN;
 pub use layer::Layer;
 pub use linear::LinearT;
 pub use mixture_of_experts::MixtureOfExpertsT;
 pub use multi_head_attention::MultiHeadAttentionT;
 pub use normalization::{BatchNorm, LayerNorm};
-pub use pooling::{
-    avg_pool2d,
-    avg_pool2d_backward,
-    max_pool2d,
-    max_pool2d_backward,
-    MaxPool2d,
-};
-pub use rnn::{GRU, LSTM};
+pub use pooling::{avg_pool2d, avg_pool2d_backward, max_pool2d, max_pool2d_backward, MaxPool2d};
 pub use relu::ReLUT;
+pub use rms_norm::RmsNorm;
+pub use rnn::{GRU, LSTM};
 pub use softmax::SoftmaxT;
