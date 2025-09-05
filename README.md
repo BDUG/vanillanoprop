@@ -261,6 +261,8 @@ showcase core features of the framework.
   learns.
 - **Hugging Face Transformer** – `cargo run --example hf_transformer` ([walkthrough](docs/examples/hf_transformer.md))
   Downloads a tiny BERT model and runs a dummy inference to verify tensor shapes.
+- **Hugging Face VLM** – `cargo run --example hf_vlm` ([walkthrough](docs/examples/hf_vlm.md))
+  Fetches a tiny CLIP-like model and produces embeddings for an image and prompt.
 
 ## Hugging Face models
 
