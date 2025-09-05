@@ -56,4 +56,29 @@ impl SmolVLM {
         let fused_t = Tensor::new(fused, vec![1, vfeat.len() + text_feat.len()]);
         self.fusion.forward(&fused_t)
     }
+
+    /// Mutable accessors used by weight loading utilities.
+    pub fn vision_mut(&mut self) -> &mut ResNet {
+        &mut self.vision
+    }
+
+    /// Mutable access to the text encoder.
+    pub fn text_mut(&mut self) -> &mut TransformerEncoder {
+        &mut self.text
+    }
+
+    /// Mutable access to the fusion layer.
+    pub fn fusion_mut(&mut self) -> &mut LinearT {
+        &mut self.fusion
+    }
+
+    /// Dimension of the text representation.
+    pub fn text_dim(&self) -> usize {
+        self.text_dim
+    }
+
+    /// Size of the vocabulary used by the text encoder.
+    pub fn vocab_size(&self) -> usize {
+        self.vocab_size
+    }
 }

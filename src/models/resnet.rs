@@ -155,6 +155,16 @@ impl ResNet {
     pub fn parameters_mut(&mut self) -> (&mut Matrix, &mut Vec<f32>) {
         (&mut self.fc, &mut self.bias)
     }
+
+    /// Width of the hidden representation used by the network.
+    pub fn hidden_dim(&self) -> usize {
+        self.input.cols
+    }
+
+    /// Number of residual blocks stacked in the network.
+    pub fn num_blocks(&self) -> usize {
+        self.blocks.len()
+    }
 }
 
 /// Build a small ResNet-like architecture as a [`Model`] graph.
@@ -179,4 +189,3 @@ pub fn resnet_model(num_blocks: usize) -> Model {
     m.connect(prev, fc);
     m
 }
-

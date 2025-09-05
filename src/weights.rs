@@ -1,11 +1,11 @@
 use crate::export::onnx::export_to_onnx;
 use crate::layers::{Layer, LayerNorm, LinearT, MixtureOfExpertsT};
 use crate::math::Matrix;
-use crate::models::{
-    DecoderT, EncoderT, LargeConceptModel, LlamaModel, Sequential, SimpleCNN, TransformerEncoder,
-    RNN, VAE,
-};
 use crate::models::llama::RMSNorm;
+use crate::models::{
+    DecoderT, EncoderT, LargeConceptModel, LlamaModel, Sequential, SimpleCNN, SmolVLM,
+    TransformerEncoder, RNN, VAE,
+};
 use crate::tensor::Tensor;
 use safetensors::tensor::{Dtype, SafeTensors};
 use serde::{Deserialize, Serialize};
@@ -663,6 +663,175 @@ pub fn load_llama_from_hf(
             &tensors,
             &(prefix.clone() + "mlp.up_proj.weight"),
         )?;
+    }
+
+    Ok(())
+}
+
+/// Load a [`SmolVLM`] model from Hugging Face configuration and weights files.
+///
+/// The configuration is expected to contain `text_config` and `vision_config`
+/// objects describing the Transformer and ResNet submodules respectively. The
+/// weights follow a naming scheme similar to SmolVLM-Instruct where text tensors
+/// are stored under `language_model.encoder.layers.{i}` with keys like
+/// `self_attn.q_proj.weight` and `mlp.fc1.weight`. The fusion projection is
+/// loaded from `multi_modal_projector.linear.weight`.
+pub fn load_smolvlm_from_hf(
+    cfg_path: &Path,
+    weights_path: &Path,
+    model: &mut SmolVLM,
+) -> Result<(), Box<dyn std::error::Error>> {
+    #[derive(Deserialize)]
+    struct TextCfg {
+        num_hidden_layers: usize,
+        hidden_size: usize,
+        num_attention_heads: usize,
+        intermediate_size: usize,
+        vocab_size: usize,
+    }
+
+    #[derive(Deserialize)]
+    struct VisionCfg {
+        num_hidden_layers: usize,
+        hidden_size: usize,
+    }
+
+    #[derive(Deserialize)]
+    struct HfConfig {
+        text_config: TextCfg,
+        vision_config: VisionCfg,
+    }
+
+    let cfg_text = fs::read_to_string(cfg_path)?;
+    let cfg: HfConfig = serde_json::from_str(&cfg_text)?;
+
+    // Validate text encoder configuration.
+    let text_cfg = cfg.text_config;
+    {
+        let text = model.text_mut();
+        if text_cfg.num_hidden_layers != text.layers.len() {
+            return Err(format!(
+                "layer count mismatch: config {} vs model {}",
+                text_cfg.num_hidden_layers,
+                text.layers.len()
+            )
+            .into());
+        }
+        if text_cfg.hidden_size != text.embedding.table.w.shape[1] {
+            return Err(format!(
+                "hidden size mismatch: config {} vs model {}",
+                text_cfg.hidden_size, text.embedding.table.w.shape[1]
+            )
+            .into());
+        }
+        if text_cfg.vocab_size != text.embedding.table.w.shape[0] {
+            return Err(format!(
+                "vocab size mismatch: config {} vs model {}",
+                text_cfg.vocab_size, text.embedding.table.w.shape[0]
+            )
+            .into());
+        }
+        if text_cfg.num_attention_heads != text.layers[0].attn.num_heads {
+            return Err(format!(
+                "attention heads mismatch: config {} vs model {}",
+                text_cfg.num_attention_heads, text.layers[0].attn.num_heads
+            )
+            .into());
+        }
+        if text_cfg.intermediate_size != text.layers[0].ff.w1.w.shape[1] {
+            return Err(format!(
+                "feed-forward size mismatch: config {} vs model {}",
+                text_cfg.intermediate_size, text.layers[0].ff.w1.w.shape[1]
+            )
+            .into());
+        }
+    }
+
+    // Validate vision encoder configuration using helper accessors.
+    let vision_cfg = cfg.vision_config;
+    {
+        let vision = model.vision_mut();
+        if vision_cfg.num_hidden_layers != vision.num_blocks() {
+            return Err(format!(
+                "vision layer count mismatch: config {} vs model {}",
+                vision_cfg.num_hidden_layers,
+                vision.num_blocks()
+            )
+            .into());
+        }
+        if vision_cfg.hidden_size != vision.hidden_dim() {
+            return Err(format!(
+                "vision hidden size mismatch: config {} vs model {}",
+                vision_cfg.hidden_size,
+                vision.hidden_dim()
+            )
+            .into());
+        }
+    }
+
+    let weight_bytes = fs::read(weights_path)?;
+    let tensors = SafeTensors::deserialize(&weight_bytes)?;
+
+    // Text embedding and layers
+    {
+        let text = model.text_mut();
+        load_embedding(
+            &mut text.embedding.table,
+            &tensors,
+            "language_model.embed_tokens.weight",
+        )?;
+
+        for i in 0..text_cfg.num_hidden_layers {
+            let prefix = format!("language_model.encoder.layers.{}.", i);
+            load_linear(
+                &mut text.layers[i].attn.wq,
+                &tensors,
+                &(prefix.clone() + "self_attn.q_proj.weight"),
+            )?;
+            load_linear(
+                &mut text.layers[i].attn.wk,
+                &tensors,
+                &(prefix.clone() + "self_attn.k_proj.weight"),
+            )?;
+            load_linear(
+                &mut text.layers[i].attn.wv,
+                &tensors,
+                &(prefix.clone() + "self_attn.v_proj.weight"),
+            )?;
+            load_linear(
+                &mut text.layers[i].attn.wo,
+                &tensors,
+                &(prefix.clone() + "self_attn.out_proj.weight"),
+            )?;
+            load_layernorm(
+                &mut text.layers[i].norm1,
+                &tensors,
+                &(prefix.clone() + "input_layernorm.weight"),
+                &(prefix.clone() + "input_layernorm.bias"),
+            )?;
+            load_layernorm(
+                &mut text.layers[i].norm2,
+                &tensors,
+                &(prefix.clone() + "post_attention_layernorm.weight"),
+                &(prefix.clone() + "post_attention_layernorm.bias"),
+            )?;
+            load_linear(
+                &mut text.layers[i].ff.w1,
+                &tensors,
+                &(prefix.clone() + "mlp.fc1.weight"),
+            )?;
+            load_linear(
+                &mut text.layers[i].ff.w2,
+                &tensors,
+                &(prefix.clone() + "mlp.fc2.weight"),
+            )?;
+        }
+    }
+
+    // Fusion projector
+    {
+        let fusion = model.fusion_mut();
+        load_linear(fusion, &tensors, "multi_modal_projector.linear.weight")?;
     }
 
     Ok(())
