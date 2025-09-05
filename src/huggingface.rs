@@ -7,6 +7,8 @@ pub struct HfFiles {
     pub config: PathBuf,
     pub weights: PathBuf,
     pub tokenizer: Option<PathBuf>,
+    pub tokenizer_json: Option<PathBuf>,
+    pub processor: Option<PathBuf>,
 }
 
 /// Download `config.json` and weights for `model_id` from the Hugging Face Hub.
@@ -26,13 +28,17 @@ pub fn fetch_hf_files(model_id: &str, cache_dir: Option<&Path>) -> Result<HfFile
         Ok(p) => p,
         Err(_) => repo.get("pytorch_model.bin")?,
     };
-    let tokenizer = match repo.get("tokenizer.model") {
-        Ok(p) => Some(p),
-        Err(_) => None,
-    };
+    let tokenizer = repo.get("tokenizer.model").ok();
+    let tokenizer_json = repo.get("tokenizer.json").ok();
+    let processor = repo
+        .get("preprocessor_config.json")
+        .or_else(|_| repo.get("image_processor.json"))
+        .ok();
     Ok(HfFiles {
         config,
         weights,
         tokenizer,
+        tokenizer_json,
+        processor,
     })
 }
