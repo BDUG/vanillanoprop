@@ -10,6 +10,8 @@ kai = []
 matrixmultiply = ["dep:matrixmultiply"]
 cuda = ["dep:cust", "dep:nvrtc"]
 rayon = []
+llama = ["dep:tokenizers"]
+vlm = ["dep:image", "dep:tokenizers"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -43,6 +45,8 @@ uuid = { version = "1", features = ["v4"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 futures-util = "0.3"
 actix-files = "0.6"
+tokenizers = { version = "0.15", optional = true }
+image = { version = "0.24", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_System_ProcessStatus", "Win32_System_Threading"] }
