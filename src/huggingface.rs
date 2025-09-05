@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 pub struct HfFiles {
     pub config: PathBuf,
     pub weights: PathBuf,
+    pub tokenizer: Option<PathBuf>,
 }
 
 /// Download `config.json` and weights for `model_id` from the Hugging Face Hub.
@@ -25,5 +26,13 @@ pub fn fetch_hf_files(model_id: &str, cache_dir: Option<&Path>) -> Result<HfFile
         Ok(p) => p,
         Err(_) => repo.get("pytorch_model.bin")?,
     };
-    Ok(HfFiles { config, weights })
+    let tokenizer = match repo.get("tokenizer.model") {
+        Ok(p) => Some(p),
+        Err(_) => None,
+    };
+    Ok(HfFiles {
+        config,
+        weights,
+        tokenizer,
+    })
 }
