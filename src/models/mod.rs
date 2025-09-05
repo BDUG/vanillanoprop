@@ -13,6 +13,7 @@ pub mod sequential;
 pub mod transformer;
 pub mod vae;
 pub mod vgg;
+pub mod smolvlm;
 
 pub use cnn::{simple_cnn_model, SimpleCNN};
 pub use decoder::{decoder_model, DecoderLayerT, DecoderT};
@@ -29,3 +30,4 @@ pub use sequential::Sequential;
 pub use transformer::{TransformerEncoder, TransformerEncoderLayer};
 pub use vae::{vae_model, VAE};
 pub use vgg::{vgg_model, VGG};
+pub use smolvlm::SmolVLM;
