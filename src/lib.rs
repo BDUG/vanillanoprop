@@ -31,4 +31,4 @@ pub use data::{Cifar10, Dataset, DatasetKind, Mnist};
 pub use huggingface::fetch_hf_files;
 pub use models::{LlamaConfig, LlamaModel};
 pub use reward::{NGramReward, RewardModel};
-pub use weights::load_transformer_from_hf;
+pub use weights::{load_llama_from_hf, load_transformer_from_hf};

@@ -2,8 +2,10 @@ use crate::export::onnx::export_to_onnx;
 use crate::layers::{Layer, LayerNorm, LinearT, MixtureOfExpertsT};
 use crate::math::Matrix;
 use crate::models::{
-    DecoderT, EncoderT, LargeConceptModel, Sequential, SimpleCNN, TransformerEncoder, RNN, VAE,
+    DecoderT, EncoderT, LargeConceptModel, LlamaModel, Sequential, SimpleCNN, TransformerEncoder,
+    RNN, VAE,
 };
+use crate::models::llama::RMSNorm;
 use crate::tensor::Tensor;
 use safetensors::tensor::{Dtype, SafeTensors};
 use serde::{Deserialize, Serialize};
@@ -545,6 +547,127 @@ pub fn load_transformer_from_hf(
     Ok(())
 }
 
+/// Load a LLaMA model from Hugging Face configuration and weights files.
+///
+/// `cfg_path` should point to a `config.json` file and `weights_path` to a
+/// `model.safetensors` file. Only models following the LLaMA naming
+/// convention are supported.
+pub fn load_llama_from_hf(
+    cfg_path: &Path,
+    weights_path: &Path,
+    model: &mut LlamaModel,
+) -> Result<(), Box<dyn std::error::Error>> {
+    #[derive(Deserialize)]
+    struct HfConfig {
+        num_hidden_layers: usize,
+        hidden_size: usize,
+        num_attention_heads: usize,
+        intermediate_size: usize,
+        vocab_size: usize,
+    }
+
+    let cfg_text = fs::read_to_string(cfg_path)?;
+    let cfg: HfConfig = serde_json::from_str(&cfg_text)?;
+
+    if cfg.num_hidden_layers != model.layers.len() {
+        return Err(format!(
+            "layer count mismatch: config {} vs model {}",
+            cfg.num_hidden_layers,
+            model.layers.len()
+        )
+        .into());
+    }
+    if cfg.hidden_size != model.embedding.table.w.shape[1] {
+        return Err(format!(
+            "hidden size mismatch: config {} vs model {}",
+            cfg.hidden_size, model.embedding.table.w.shape[1]
+        )
+        .into());
+    }
+    if cfg.vocab_size != model.embedding.table.w.shape[0] {
+        return Err(format!(
+            "vocab size mismatch: config {} vs model {}",
+            cfg.vocab_size, model.embedding.table.w.shape[0]
+        )
+        .into());
+    }
+    if cfg.num_attention_heads != model.layers[0].attn.num_heads {
+        return Err(format!(
+            "attention heads mismatch: config {} vs model {}",
+            cfg.num_attention_heads, model.layers[0].attn.num_heads
+        )
+        .into());
+    }
+    if cfg.intermediate_size != model.layers[0].ffn.w1.w.shape[1] {
+        return Err(format!(
+            "feed-forward size mismatch: config {} vs model {}",
+            cfg.intermediate_size, model.layers[0].ffn.w1.w.shape[1]
+        )
+        .into());
+    }
+
+    let weight_bytes = fs::read(weights_path)?;
+    let tensors = SafeTensors::deserialize(&weight_bytes)?;
+
+    // Embedding
+    load_embedding(
+        &mut model.embedding.table,
+        &tensors,
+        "model.embed_tokens.weight",
+    )?;
+
+    for i in 0..cfg.num_hidden_layers {
+        let prefix = format!("model.layers.{}.", i);
+        load_linear(
+            &mut model.layers[i].attn.wq,
+            &tensors,
+            &(prefix.clone() + "self_attn.q_proj.weight"),
+        )?;
+        load_linear(
+            &mut model.layers[i].attn.wk,
+            &tensors,
+            &(prefix.clone() + "self_attn.k_proj.weight"),
+        )?;
+        load_linear(
+            &mut model.layers[i].attn.wv,
+            &tensors,
+            &(prefix.clone() + "self_attn.v_proj.weight"),
+        )?;
+        load_linear(
+            &mut model.layers[i].attn.wo,
+            &tensors,
+            &(prefix.clone() + "self_attn.o_proj.weight"),
+        )?;
+        load_rmsnorm(
+            &mut model.layers[i].norm1,
+            &tensors,
+            &(prefix.clone() + "input_layernorm.weight"),
+        )?;
+        load_rmsnorm(
+            &mut model.layers[i].norm2,
+            &tensors,
+            &(prefix.clone() + "post_attention_layernorm.weight"),
+        )?;
+        load_linear(
+            &mut model.layers[i].ffn.w1,
+            &tensors,
+            &(prefix.clone() + "mlp.gate_proj.weight"),
+        )?;
+        load_linear(
+            &mut model.layers[i].ffn.w2,
+            &tensors,
+            &(prefix.clone() + "mlp.down_proj.weight"),
+        )?;
+        load_linear(
+            &mut model.layers[i].ffn.w3,
+            &tensors,
+            &(prefix.clone() + "mlp.up_proj.weight"),
+        )?;
+    }
+
+    Ok(())
+}
+
 fn to_f32_vec(t: &safetensors::tensor::TensorView) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
     if t.dtype() != Dtype::F32 {
         return Err("expected f32 tensor".into());
@@ -633,6 +756,22 @@ fn load_layernorm(
     }
     norm.gamma.w.copy_from_slice(&w);
     norm.beta.w.copy_from_slice(&b);
+    Ok(())
+}
+
+fn load_rmsnorm(
+    norm: &mut RMSNorm,
+    tensors: &SafeTensors,
+    name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let view = tensors
+        .tensor(name)
+        .map_err(|_| format!("missing tensor {name}"))?;
+    let w = to_f32_vec(&view)?;
+    if norm.weight.len() != w.len() {
+        return Err(format!("RMSNorm shape mismatch for {name}").into());
+    }
+    norm.weight.copy_from_slice(&w);
     Ok(())
 }
 
