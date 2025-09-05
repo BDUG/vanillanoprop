@@ -263,11 +263,14 @@ impl LlamaBlock {
     }
 
     pub fn backward(&mut self, grad_out: &Matrix) -> Matrix {
-        let mut g = self.ffn.backward(grad_out);
-        g = Matrix::add(&g, grad_out);
-        g = self.norm2.backward(&g);
-        let g_attn = self.attn.backward(&g);
-        let mut g_x = Matrix::add(&g, &g_attn);
+        // res2 = ff_out + res1
+        let g_ff = self.ffn.backward(grad_out);
+        // gradient flowing through norm2 and residual connection
+        let g_res1_norm = self.norm2.backward(&g_ff);
+        let g_res1 = Matrix::add(&g_res1_norm, grad_out);
+        // res1 = attn_out + x
+        let g_attn = self.attn.backward(&g_res1);
+        let g_x = Matrix::add(&g_res1, &g_attn);
         self.norm1.backward(&g_x)
     }
 
