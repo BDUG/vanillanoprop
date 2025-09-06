@@ -100,7 +100,7 @@ combinations.
 ```rust
 // src/bin/train_noprop.rs
 let _ft = fine_tune.map(|model_id| {
-    vanillanoprop::fine_tune::run(&model_id, freeze_layers, |_, _| Ok(()))
+    vanillanoprop::fine_tune::run(&model_id, config.hf_token.as_deref(), freeze_layers, |_, _| Ok(()))
         .expect("fine-tune load failed")
 });
 ```

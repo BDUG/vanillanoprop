@@ -32,7 +32,7 @@ pub struct Config {
     /// Whether to enable quantized inference where supported.
     #[serde(default)]
     pub quantized: bool,
-    /// Optional token for authenticated access to HuggingFace models.
+    /// Optional Hugging Face access token used for authenticated downloads.
     #[serde(default)]
     pub hf_token: Option<String>,
 }

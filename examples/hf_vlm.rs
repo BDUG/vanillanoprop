@@ -8,7 +8,7 @@ use vanillanoprop::weights;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Download configuration and weights for a tiny CLIP-like model.
-    let files = huggingface::fetch_hf_files("hf-internal-testing/tiny-random-clip", None)?;
+    let files = huggingface::fetch_hf_files("hf-internal-testing/tiny-random-clip", None, None)?;
 
     // Read the top-level configuration file and extract nested text and vision configs.
     let cfg_text = fs::read_to_string(&files.config)?;

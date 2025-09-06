@@ -1,4 +1,4 @@
-use hf_hub::api::sync::ApiBuilder;
+use hf_hub::api::sync::{ApiBuilder, ApiError};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
@@ -15,18 +15,40 @@ pub struct HfFiles {
 ///
 /// If `cache_dir` is provided, the files will be cached under this directory,
 /// otherwise the default cache location of `hf-hub` is used.
-pub fn fetch_hf_files(model_id: &str, cache_dir: Option<&Path>) -> Result<HfFiles, Box<dyn Error>> {
-    let builder = if let Some(dir) = cache_dir {
+pub fn fetch_hf_files(
+    model_id: &str,
+    cache_dir: Option<&Path>,
+    token: Option<&str>,
+) -> Result<HfFiles, Box<dyn Error>> {
+    let mut builder = if let Some(dir) = cache_dir {
         ApiBuilder::new().with_cache_dir(dir.to_path_buf())
     } else {
         ApiBuilder::new()
     };
+    if let Some(t) = token {
+        builder = builder.with_token(Some(t.to_string()));
+    }
     let api = builder.build()?;
     let repo = api.model(model_id.to_string());
-    let config = repo.get("config.json")?;
+    let map_err = |e: ApiError| -> Box<dyn Error> {
+        if let ApiError::RequestError(err) = &e {
+            if let ureq::Error::Status(401, _) = **err {
+                return "Invalid or expired Hugging Face token".into();
+            }
+        }
+        e.into()
+    };
+    let config = repo.get("config.json").map_err(map_err)?;
     let weights = match repo.get("model.safetensors") {
         Ok(p) => p,
-        Err(_) => repo.get("pytorch_model.bin")?,
+        Err(e) => {
+            if let ApiError::RequestError(err) = &e {
+                if let ureq::Error::Status(401, _) = **err {
+                    return Err("Invalid or expired Hugging Face token".into());
+                }
+            }
+            repo.get("pytorch_model.bin").map_err(map_err)?
+        }
     };
     let tokenizer = repo.get("tokenizer.model").ok();
     let tokenizer_json = repo.get("tokenizer.json").ok();

@@ -7,7 +7,7 @@ use vanillanoprop::weights;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Download configuration and weights for a tiny SmolVLM model.
-    let files = huggingface::fetch_hf_files("hf-internal-testing/tiny-random-smolvlm", None)?;
+    let files = huggingface::fetch_hf_files("hf-internal-testing/tiny-random-smolvlm", None, None)?;
 
     // Parse the configuration to determine model dimensions.
     let cfg_text = fs::read_to_string(&files.config)?;
