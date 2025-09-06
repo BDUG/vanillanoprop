@@ -3,3 +3,4 @@ epochs = 15
 batch_size = 64
 dataset = "mnist"
 learning_rate = [0.01]
+hf_token = ""
