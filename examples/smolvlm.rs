@@ -56,7 +56,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let prompt = [0usize, 1, 2];
 
     let fused = model.forward(&image, &prompt);
-    println!("Fused embedding shape: {:?}", fused.shape);
+    // Display the full fused embedding tensor rather than just its shape.
+    println!("Fused embedding: {:?}", fused);
 
     Ok(())
 }
