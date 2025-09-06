@@ -22,8 +22,7 @@ return `0` elsewhere.
 
 Examples that train on datasets like MNIST download them on first use and
 require an active internet connection. Training binaries read configuration
-files such as `noprop_config.toml` or `treepo_config.toml` from the repository
-root.
+files such as `configs/noprop_config.toml` or `configs/treepo_config.toml` from the repository's `configs` directory.
 
 ## Installation
 
@@ -164,13 +163,13 @@ See [ONNX export](docs/introduction.md#onnx-export) for details on the flag. ([e
 
 TreePO combines tree-based planning with policy optimisation to update actions using advantages estimated from a search tree. See the [Tree Policy Optimization paper](https://arxiv.org/abs/2506.03736) for details.
 
-Run a training session with the `train-treepo` command. It loads `treepo_config.toml` by default; pass `--config <FILE>` to use a different configuration:
+Run a training session with the `train-treepo` command. It loads `configs/treepo_config.toml` by default; pass `--config <FILE>` to use a different configuration:
 
 ```bash
 ./run.sh train-treepo
 ```
 
-`treepo_config.toml` introduces several hyperparameters:
+`configs/treepo_config.toml` introduces several hyperparameters:
 
 ```
 gamma = 0.99        # discount factor
@@ -192,7 +191,7 @@ See [TreePO](docs/introduction.md#treepo) for more details. ([example](docs/exam
 
 ## Zero-shot safe agent
 
-`train-zero-shot-safe` showcases a safety-aware policy that skips updates when the environment reports a failure state. It loads `zero_shot_safe_config.toml` by default; pass `--config <FILE>` to override it:
+`train-zero-shot-safe` showcases a safety-aware policy that skips updates when the environment reports a failure state. It loads `configs/zero_shot_safe_config.toml` by default; pass `--config <FILE>` to override it:
 
 ```bash
 ./run.sh train-zero-shot-safe
@@ -217,7 +216,7 @@ batch_size = 8
 ```
 
 Example configuration files for each training variant are included in the
-repository root and are loaded automatically:
+`configs` directory and are loaded automatically:
 
 ```bash
 ./run.sh train-backprop
@@ -247,7 +246,7 @@ showcase core features of the framework.
   Builds a tiny mixture‑of‑experts network and prints gating probabilities.
 
 - **Loading configuration** – `cargo run --example load_config` ([walkthrough](docs/examples/load_config.md))
-  Loads training parameters from `lcm_config.toml` and falls back to defaults if the file is not found.
+  Loads training parameters from `configs/lcm_config.toml` and falls back to defaults if the file is not found.
 
 - **MNIST CNN** – `cargo run --example mnist_cnn` ([walkthrough](docs/examples/mnist_cnn.md))
   Trains a simple convolutional network on the MNIST digits.
@@ -272,7 +271,7 @@ Pretrained Transformers can be loaded directly from the Hugging Face Hub.
 Place your access token in a configuration file under the `hf_token` key:
 
 ```toml
-# backprop_config.toml
+# configs/backprop_config.toml
 hf_token = "hf_XXXXXXXXXXXXXXXX"
 ```
 
@@ -282,7 +281,7 @@ checkpoints:
 ```rust
 use vanillanoprop::{config::Config, fetch_hf_files, weights, models::TransformerEncoder};
 
-let cfg = Config::from_path("backprop_config.toml").unwrap_or_default();
+let cfg = Config::from_path("configs/backprop_config.toml").unwrap_or_default();
 let files = fetch_hf_files("bert-base-uncased", None, cfg.hf_token.as_deref())?;
 let mut enc = TransformerEncoder::new(/* ... */);
 weights::load_transformer_from_hf(&files.config, &files.weights, &mut enc)?;

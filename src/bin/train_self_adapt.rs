@@ -29,7 +29,7 @@ impl SelfAdaptConfig {
 
 fn main() {
     let args = common::init_logging();
-    let mut config_path = "self_adapt_config.toml".to_string();
+    let mut config_path = "configs/self_adapt_config.toml".to_string();
     let mut lr_arg = None;
     let mut episodes_arg = None;
     let mut reference_arg = None;

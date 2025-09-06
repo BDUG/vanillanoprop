@@ -11,7 +11,7 @@ authenticated HuggingFace access.
 This example reads training parameters from a `TOML` file and falls back
 to defaults when the file is missing.
 
-**Prerequisites:** `lcm_config.toml` in the repository root.
+**Prerequisites:** `configs/lcm_config.toml` in the repository.
 
 **Demo command:** (use `cargo run --example`; training binaries run with
 `./run.sh`)
@@ -22,7 +22,7 @@ cargo run --example load_config
 
 ## Explanation
 
-The program prints which values were loaded from `lcm_config.toml`,
+The program prints which values were loaded from `configs/lcm_config.toml`,
 illustrating how configuration drives the training setup.
 
 ## Next Steps

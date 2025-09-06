@@ -51,7 +51,7 @@ impl SafeEnv for SafeLineWorld {
 
 fn main() {
     let args = common::init_logging();
-    let mut cfg_path = "zero_shot_safe_config.toml".to_string();
+    let mut cfg_path = "configs/zero_shot_safe_config.toml".to_string();
     let mut i = 1;
     while i < args.len() {
         if args[i] == "--config" && i + 1 < args.len() {
