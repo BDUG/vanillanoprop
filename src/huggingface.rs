@@ -2,6 +2,8 @@ use hf_hub::api::sync::{ApiBuilder, ApiError};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
+use crate::config::Config;
+
 /// Local paths to important files fetched from the Hugging Face Hub.
 pub struct HfFiles {
     pub config: PathBuf,
@@ -63,4 +65,14 @@ pub fn fetch_hf_files(
         tokenizer_json,
         processor,
     })
+}
+
+/// Convenience wrapper to fetch files using a [`Config`] for authentication.
+///
+/// Uses the `hf_token` field from the provided configuration if present.
+pub fn fetch_hf_files_with_cfg(
+    model_id: &str,
+    cfg: &Config,
+) -> Result<HfFiles, Box<dyn Error>> {
+    fetch_hf_files(model_id, None, cfg.hf_token.as_deref())
 }

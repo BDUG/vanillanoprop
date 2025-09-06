@@ -74,6 +74,9 @@ impl FineTune {
 /// fetched using [`fetch_hf_files`] and then loaded into the model by the
 /// caller-provided `load_fn`.
 ///
+/// `token` optionally supplies a Hugging Face access token for authenticated
+/// downloads.
+///
 /// `freeze_layers` specifies indices of parameters that should remain frozen
 /// during optimisation.
 ///
