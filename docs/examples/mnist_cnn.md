@@ -2,7 +2,9 @@
 
 ## Overview
 
-Train a small convolutional network on the MNIST digits dataset.
+Train a small convolutional network on the MNIST digits dataset. Hyperparameters
+such as `batch_size`, `epochs`, and `learning_rate` are loaded from
+`configs/mnist_cnn.toml`.
 
 ## Running the Example
 =======

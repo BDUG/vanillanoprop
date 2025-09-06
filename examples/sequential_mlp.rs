@@ -1,9 +1,13 @@
+use vanillanoprop::config::Config;
 use vanillanoprop::layers::{Activation, FeedForwardT, LinearT, SoftmaxT};
 use vanillanoprop::math::Matrix;
 use vanillanoprop::models::Sequential;
 use vanillanoprop::tensor::Tensor;
 
 fn main() {
+    // Load configuration and fall back to defaults when missing.
+    let cfg = Config::from_path("configs/sequential_mlp.toml").unwrap_or_default();
+
     // Build a small multilayer perceptron using the Sequential container
     let mut mlp = Sequential::new();
     mlp.add_layer(Box::new(LinearT::new(4, 16)));
@@ -29,7 +33,7 @@ fn main() {
     mlp.zero_grad();
     mlp.backward(&grad);
     for layer in mlp.layers.iter_mut() {
-        layer.adam_step(0.01, 0.9, 0.999, 1e-8, 0.0);
+        layer.adam_step(cfg.learning_rate[0], 0.9, 0.999, 1e-8, 0.0);
     }
 
     // Inference with Tensor input

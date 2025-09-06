@@ -3,7 +3,8 @@
 ## Overview
 
 Build a tiny mixture-of-experts layer and inspect the routing probabilities for
-each input.
+each input. The example reads a minimal config from
+`configs/mixture_of_experts.toml`.
 
 ## Running the Example
 =======

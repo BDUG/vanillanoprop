@@ -2,16 +2,16 @@
 
 ## Overview
 
-Read training parameters from a `TOML` file and fall back to defaults when the
-file is missing. Config files may also include an optional `hf_token` value for
-authenticated HuggingFace access.
+Read training parameters from a `TOML` file (`configs/load_config.toml`) and
+fall back to defaults when the file is missing. Config files may also include
+an optional `hf_token` value for authenticated HuggingFace access.
 
 ## Running the Example
 =======
 This example reads training parameters from a `TOML` file and falls back
 to defaults when the file is missing.
 
-**Prerequisites:** `configs/lcm_config.toml` in the repository.
+**Prerequisites:** `configs/load_config.toml` in the repository.
 
 **Demo command:** (use `cargo run --example`; training binaries run with
 `./run.sh`)
@@ -22,7 +22,7 @@ cargo run --example load_config
 
 ## Explanation
 
-The program prints which values were loaded from `configs/lcm_config.toml`,
+The program prints which values were loaded from `configs/load_config.toml`,
 illustrating how configuration drives the training setup.
 
 ## Next Steps

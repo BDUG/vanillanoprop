@@ -2,14 +2,14 @@ use std::error::Error;
 use std::fs;
 
 use vanillanoprop::config::Config;
+use vanillanoprop::fetch_hf_files_with_cfg;
 use vanillanoprop::math::Matrix;
 use vanillanoprop::models::{ResNet, TransformerEncoder};
 use vanillanoprop::weights;
-use vanillanoprop::fetch_hf_files_with_cfg;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Download configuration and weights for a tiny CLIP-like model.
-    let cfg = Config::from_path("configs/backprop_config.toml").unwrap_or_default();
+    let cfg = Config::from_path("configs/hf_vlm.toml").unwrap_or_default();
     let files = fetch_hf_files_with_cfg("hf-internal-testing/tiny-random-clip", &cfg)?;
 
     // Read the top-level configuration file and extract nested text and vision configs.

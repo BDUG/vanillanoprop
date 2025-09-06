@@ -1,0 +1,4 @@
+epochs = 5
+batch_size = 32
+dataset = "mnist"
+learning_rate = [0.01]

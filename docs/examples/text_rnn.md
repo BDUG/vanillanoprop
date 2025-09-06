@@ -2,7 +2,8 @@
 
 ## Overview
 
-Build a simple LSTM for toy text classification.
+Build a simple LSTM for toy text classification. The learning rate is loaded
+from `configs/text_rnn.toml`.
 
 ## Running the Example
 =======

@@ -9,13 +9,13 @@ Tree Policy Optimisation (TreePO) combines planning with policy optimisation.
 Tree Policy Optimisation (TreePO) combines planning with policy
 optimisation.
 
-**Prerequisites:** `configs/treepo_config.toml` in the repository.
+**Prerequisites:** `configs/treepo.toml` in the repository.
 
 **Training command:** (use `./run.sh`; demos run with `cargo run --example`)
 
 
 ```bash
-./run.sh train-treepo --config configs/treepo_config.toml
+cargo run --example treepo
 ```
 
 ## Explanation
