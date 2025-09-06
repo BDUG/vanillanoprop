@@ -2,13 +2,14 @@
 
 ## Overview
 
-Download a tiny vision-language model from the Hugging Face Hub and run a dummy image + text forward pass.
+Download a tiny vision-language model from the Hugging Face Hub and run a dummy image + text forward pass. The example reads
+settings such as the optional Hugging Face token from `configs/hf_vlm.toml`.
 
 ## Running the Example
 Fetches a small CLIP-like checkpoint and produces embeddings for an image and a prompt.
 
 **Prerequisites:** internet access to download the model. Add an `hf_token`
-to `configs/backprop_config.toml` when authentication is needed and avoid committing
+to `configs/hf_vlm.toml` when authentication is needed and avoid committing
 files containing the token.
 
 **Demo command:** (use `cargo run --example`; training binaries use `./run.sh`)

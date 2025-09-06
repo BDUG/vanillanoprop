@@ -3,7 +3,8 @@
 ## Overview
 
 Demonstrates a tiny variational autoencoder that reconstructs MNIST
-images.
+images. Configuration such as batch size and epochs is read from
+`configs/autoencoder.toml`.
 
 **Prerequisites:** downloads the MNIST dataset on first run.
 

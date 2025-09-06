@@ -3,6 +3,7 @@
 ## Overview
 
 Demonstrates guarding policy updates with a safety check in a toy line world.
+Parameters such as `gamma` are loaded from `configs/zero_shot_safe.toml`.
 
 ## Running the Example
 =======

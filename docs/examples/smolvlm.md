@@ -2,7 +2,8 @@
 
 ## Overview
 
-Run a minimal vision-language model that mirrors SmolVLM-Instruct using the new loader.
+Run a minimal vision-language model that mirrors SmolVLM-Instruct using the new loader. Configuration, including an optional
+`hf_token`, is read from `configs/smolvlm.toml`.
 
 ## Running the Example
 

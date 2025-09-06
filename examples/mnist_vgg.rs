@@ -1,19 +1,25 @@
+use vanillanoprop::config::Config;
 use vanillanoprop::data::{DataLoader, Mnist};
 use vanillanoprop::math::{self, Matrix};
 use vanillanoprop::models::VGG;
 
 fn main() {
+    // Load configuration and fall back to defaults when missing.
+    let cfg = Config::from_path("configs/mnist_vgg.toml").unwrap_or_default();
+
     // Use a small VGG-style network with three blocks of [1,1,2] conv layers.
     let mut vgg = VGG::new(&[1, 1, 2], 10);
-    let lr = 0.01f32;
+    let lr = cfg.learning_rate[0];
 
-    for (i, batch) in DataLoader::<Mnist>::new(32, true, None).take(5).enumerate() {
+    for (i, batch) in DataLoader::<Mnist>::new(cfg.batch_size, true, None)
+        .take(cfg.epochs)
+        .enumerate()
+    {
         let mut loss_sum = 0.0f32;
         for (img, label) in batch {
             let (feat, logits) = vgg.forward(img);
             let logits_m = Matrix::from_vec(1, logits.len(), logits);
-            let (loss, grad, _) =
-                math::softmax_cross_entropy(&logits_m, &[*label as usize], 0);
+            let (loss, grad, _) = math::softmax_cross_entropy(&logits_m, &[*label as usize], 0);
             loss_sum += loss;
 
             // SGD update for the classification head

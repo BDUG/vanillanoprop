@@ -1,3 +1,4 @@
+use vanillanoprop::config::Config;
 use vanillanoprop::data::{DataLoader, Mnist};
 use vanillanoprop::layers::{Layer, LinearT, MixtureOfExpertsT};
 use vanillanoprop::math::{self, Matrix};
@@ -5,15 +6,21 @@ use vanillanoprop::models::SimpleCNN;
 use vanillanoprop::weights::save_moe;
 
 fn main() {
+    // Load configuration and fall back to defaults when missing.
+    let cfg = Config::from_path("configs/mnist_cnn.toml").unwrap_or_default();
+
     // Load MNIST and group into mini-batches using the DataLoader.
     let cnn = SimpleCNN::new(10);
-    let lr = 0.01f32;
+    let lr = cfg.learning_rate[0];
     let experts: Vec<Box<dyn Layer>> = (0..3)
         .map(|_| Box::new(LinearT::new(28 * 28, 10)) as Box<dyn Layer>)
         .collect();
     let mut moe = MixtureOfExpertsT::new(28 * 28, experts, 1);
 
-    for (i, batch) in DataLoader::<Mnist>::new(32, true, None).take(5).enumerate() {
+    for (i, batch) in DataLoader::<Mnist>::new(cfg.batch_size, true, None)
+        .take(cfg.epochs)
+        .enumerate()
+    {
         let mut loss_sum = 0.0f32;
         for (img, label) in batch {
             let (feat, _logits) = cnn.forward(img);

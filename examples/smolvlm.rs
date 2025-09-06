@@ -2,13 +2,13 @@ use std::error::Error;
 use std::fs;
 
 use vanillanoprop::config::Config;
+use vanillanoprop::fetch_hf_files_with_cfg;
 use vanillanoprop::models::SmolVLM;
 use vanillanoprop::weights;
-use vanillanoprop::fetch_hf_files_with_cfg;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Download configuration and weights for a tiny SmolVLM model.
-    let cfg = Config::from_path("configs/backprop_config.toml").unwrap_or_default();
+    let cfg = Config::from_path("configs/smolvlm.toml").unwrap_or_default();
     let files = fetch_hf_files_with_cfg("hf-internal-testing/tiny-random-smolvlm", &cfg)?;
 
     // Parse the configuration to determine model dimensions.

@@ -1,5 +1,6 @@
 use rand::Rng;
 use std::collections::HashMap;
+use vanillanoprop::config::Config;
 use vanillanoprop::rl::treepo::TreeNode;
 use vanillanoprop::rl::{Env, TreePoAgent};
 
@@ -41,23 +42,29 @@ impl Env for LineWorld {
 }
 
 fn main() {
-    // Create the environment and the TreePo agent.
-    // Hyperparameters:
-    // - gamma: discount factor for future rewards (0.9).
-    // - lam: GAE smoothing factor (0.95).
-    // - max_depth: maximum depth of the search tree (10).
-    // - rollout_steps: number of steps to simulate during rollouts (10).
-    // Try tweaking these values to see how learning changes.
+    // Load configuration and fall back to defaults when missing.
+    let cfg = Config::from_path("configs/treepo.toml").unwrap_or_default();
+
+    // Create the environment and the TreePo agent using hyperparameters
+    // from the configuration. Try tweaking these values to see how learning
+    // changes.
     let env = LineWorld {
         position: 0,
         goal: 5,
     };
-    let mut agent = TreePoAgent::new(env, 0.9, 0.95, 10, 10, 0.1);
+    let mut agent = TreePoAgent::new(
+        env,
+        cfg.gamma,
+        cfg.lam,
+        cfg.max_depth,
+        cfg.rollout_steps,
+        0.1,
+    );
 
     // Actions available to the agent: move left or right
     let actions = [-1, 1];
     let mut rng = rand::thread_rng();
-    let episodes = 5; // Increase for longer training
+    let episodes = cfg.epochs; // Increase for longer training
 
     for episode in 0..episodes {
         // Reset environment and root node at the start of each episode

@@ -2,14 +2,14 @@ use std::error::Error;
 use std::fs;
 
 use vanillanoprop::config::Config;
+use vanillanoprop::fetch_hf_files_with_cfg;
 use vanillanoprop::math::Matrix;
 use vanillanoprop::models::TransformerEncoder;
 use vanillanoprop::weights;
-use vanillanoprop::fetch_hf_files_with_cfg;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Download configuration and weights for a tiny BERT model.
-    let cfg = Config::from_path("configs/backprop_config.toml").unwrap_or_default();
+    let cfg = Config::from_path("configs/hf_transformer.toml").unwrap_or_default();
     let files = fetch_hf_files_with_cfg("hf-internal-testing/tiny-random-bert", &cfg)?;
 
     // Read dimensions from the Hugging Face configuration file.

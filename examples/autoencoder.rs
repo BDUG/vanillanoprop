@@ -1,12 +1,19 @@
+use vanillanoprop::config::Config;
 use vanillanoprop::data::{DataLoader, Mnist};
 use vanillanoprop::math::Matrix;
 use vanillanoprop::models::VAE;
 
 fn main() {
+    // Load configuration if available, falling back to defaults.
+    let cfg = Config::from_path("configs/autoencoder.toml").unwrap_or_default();
+
     // Use dataset utilities to load MNIST in mini-batches
     let mut vae = VAE::new(28 * 28, 128, 32);
 
-    for (i, batch) in DataLoader::<Mnist>::new(16, true, None).take(3).enumerate() {
+    for (i, batch) in DataLoader::<Mnist>::new(cfg.batch_size, true, None)
+        .take(cfg.epochs)
+        .enumerate()
+    {
         let mut loss_sum = 0.0f32;
         for (img, _) in batch {
             let input: Vec<f32> = img.iter().map(|&p| p as f32 / 255.0).collect();

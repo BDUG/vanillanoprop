@@ -1,8 +1,13 @@
-use vanillanoprop::layers::{MixtureOfExpertsT, FeedForwardT, Activation, Layer};
+use vanillanoprop::config::Config;
+use vanillanoprop::layers::{Activation, FeedForwardT, Layer, MixtureOfExpertsT};
 use vanillanoprop::math::Matrix;
 use vanillanoprop::tensor::Tensor;
 
 fn main() {
+    // Load configuration and fall back to defaults when missing.
+    let cfg = Config::from_path("configs/mixture_of_experts.toml").unwrap_or_default();
+    println!("batch_size {}", cfg.batch_size);
+
     // Build three feed-forward expert networks
     let experts: Vec<Box<dyn Layer>> = (0..3)
         .map(|_| Box::new(FeedForwardT::new(4, 8, Activation::ReLU)) as Box<dyn Layer>)
@@ -12,8 +17,7 @@ fn main() {
     let mut moe = MixtureOfExpertsT::new(4, experts, 1);
 
     // Two sample inputs
-    let input = Matrix::from_vec(2, 4, vec![1.0, 2.0, 3.0, 4.0,
-                                           4.0, 3.0, 2.0, 1.0]);
+    let input = Matrix::from_vec(2, 4, vec![1.0, 2.0, 3.0, 4.0, 4.0, 3.0, 2.0, 1.0]);
 
     // Forward pass through the mixture
     let output = moe.forward_local(&input);

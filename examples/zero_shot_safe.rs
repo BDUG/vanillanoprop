@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use vanillanoprop::config::Config;
 use vanillanoprop::rl::zero_shot_safe::{SafeEnv, ZeroShotSafeAgent};
 use vanillanoprop::rl::Env;
 
@@ -37,6 +38,10 @@ impl SafeEnv for SafeLineWorld {
 }
 
 fn main() {
+    // Load configuration and fall back to defaults if missing.
+    let cfg = Config::from_path("configs/zero_shot_safe.toml").unwrap_or_default();
+    println!("using gamma {}", cfg.gamma);
+
     // Create environment and agent guarding policy updates with a safety check.
     let env = SafeLineWorld {
         position: 0,

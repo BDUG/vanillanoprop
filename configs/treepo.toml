@@ -1,0 +1,5 @@
+gamma = 0.9
+lam = 0.95
+max_depth = 10
+rollout_steps = 10
+epochs = 5
