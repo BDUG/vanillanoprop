@@ -9,7 +9,9 @@ Fetch pretrained weights from the Hugging Face Hub and run a dummy inference.
 Shows how to fetch pretrained weights from the Hugging Face Hub and run a
 dummy inference.
 
-**Prerequisites:** internet access to download the model.
+**Prerequisites:** internet access to download the model. Include an
+`hf_token` in `backprop_config.toml` if the model requires authentication.
+Keep this token out of version control.
 
 **Demo command:** (use `cargo run --example`; training binaries use `./run.sh`)
 

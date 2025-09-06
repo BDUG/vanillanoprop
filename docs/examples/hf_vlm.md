@@ -7,7 +7,9 @@ Download a tiny vision-language model from the Hugging Face Hub and run a dummy 
 ## Running the Example
 Fetches a small CLIP-like checkpoint and produces embeddings for an image and a prompt.
 
-**Prerequisites:** internet access to download the model.
+**Prerequisites:** internet access to download the model. Add an `hf_token`
+to `backprop_config.toml` when authentication is needed and avoid committing
+files containing the token.
 
 **Demo command:** (use `cargo run --example`; training binaries use `./run.sh`)
 
