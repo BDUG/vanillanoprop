@@ -137,5 +137,5 @@ pub fn update_policy(&mut self) {
 `TreePoAgent::new` expects an additional `lr` parameter controlling the step
 size of the policy update.
 
-Launch a TreePO run with `./run.sh train-treepo --config treepo_config.toml`.
+Launch a TreePO run with `./run.sh train-treepo --config configs/treepo_config.toml`.
 See the [TreePO example](examples/treepo.md) for configuration details.

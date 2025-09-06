@@ -2,7 +2,7 @@ use vanillanoprop::{config::Config, fetch_hf_files};
 
 #[test]
 fn fetches_all_optional_files() {
-    let cfg = Config::from_path("backprop_config.toml").unwrap_or_default();
+    let cfg = Config::from_path("configs/backprop_config.toml").unwrap_or_default();
     let token = cfg
         .hf_token
         .filter(|t| !t.is_empty())
