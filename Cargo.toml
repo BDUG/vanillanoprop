@@ -96,6 +96,11 @@ path = "src/bin/web_server.rs"
 name = "train_self_adapt"
 path = "src/bin/train_self_adapt.rs"
 
+[[example]]
+name = "smolvlm"
+path = "examples/smolvlm.rs"
+required-features = ["vlm"]
+
 [dev-dependencies]
 criterion = "0.5"
 
