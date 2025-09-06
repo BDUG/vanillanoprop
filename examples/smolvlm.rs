@@ -9,7 +9,7 @@ use vanillanoprop::weights;
 fn main() -> Result<(), Box<dyn Error>> {
     // Download configuration and weights for a tiny SmolVLM model.
     let cfg = Config::from_path("configs/smolvlm.toml").unwrap_or_default();
-    let files = fetch_hf_files_with_cfg("hf-internal-testing/tiny-random-smolvlm", &cfg)?;
+    let files = fetch_hf_files_with_cfg("katuni4ka/tiny-random-smolvlm2", &cfg)?;
 
     // Parse the configuration to determine model dimensions.
     let cfg_text = fs::read_to_string(&files.config)?;
