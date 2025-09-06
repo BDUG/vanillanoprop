@@ -35,8 +35,13 @@ fn main() {
         _,
     ) = common::parse_cli(args.into_iter().skip(1));
     let _ft = fine_tune.map(|model_id| {
-        vanillanoprop::fine_tune::run(&model_id, freeze_layers, |_, _| Ok(()))
-            .expect("fine-tune load failed")
+        vanillanoprop::fine_tune::run(
+            &model_id,
+            config.hf_token.as_deref(),
+            freeze_layers,
+            |_, _| Ok(()),
+        )
+        .expect("fine-tune load failed")
     });
     if model == "cnn" || model == "mobilenet" {
         train_cnn::run(

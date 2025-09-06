@@ -8,7 +8,7 @@ use vanillanoprop::weights;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Download configuration and weights for a tiny BERT model.
-    let files = huggingface::fetch_hf_files("hf-internal-testing/tiny-random-bert", None)?;
+    let files = huggingface::fetch_hf_files("hf-internal-testing/tiny-random-bert", None, None)?;
 
     // Read dimensions from the Hugging Face configuration file.
     #[derive(serde::Deserialize)]

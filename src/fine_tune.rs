@@ -81,13 +81,14 @@ impl FineTune {
 /// to optimisation steps.
 pub fn run<F>(
     model_id: &str,
+    token: Option<&str>,
     freeze_layers: Vec<FreezeSpec>,
     mut load_fn: F,
 ) -> Result<FineTune, Box<dyn Error>>
 where
     F: FnMut(&Path, &Path) -> Result<(), Box<dyn Error>>,
 {
-    let files = fetch_hf_files(model_id, None)?;
+    let files = fetch_hf_files(model_id, None, token)?;
     load_fn(&files.config, &files.weights)?;
     Ok(FineTune::new(freeze_layers))
 }
