@@ -1,16 +1,26 @@
 // Compile with `--features vlm` to enable the `image` crate.
+#[cfg(feature = "vlm")]
 use std::env;
+#[cfg(feature = "vlm")]
 use std::error::Error;
+#[cfg(feature = "vlm")]
 use std::fs;
+#[cfg(feature = "vlm")]
 use std::process;
 
+#[cfg(feature = "vlm")]
 use image::imageops::FilterType;
 
+#[cfg(feature = "vlm")]
 use vanillanoprop::config::Config;
+#[cfg(feature = "vlm")]
 use vanillanoprop::fetch_hf_files_with_cfg;
+#[cfg(feature = "vlm")]
 use vanillanoprop::models::SmolVLM;
+#[cfg(feature = "vlm")]
 use vanillanoprop::weights;
 
+#[cfg(feature = "vlm")]
 fn main() -> Result<(), Box<dyn Error>> {
     // Expect an image path as the first argument.
     let path = env::args().nth(1).unwrap_or_else(|| {
@@ -49,4 +59,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Fused embedding shape: {:?}", fused.shape);
 
     Ok(())
+}
+
+#[cfg(not(feature = "vlm"))]
+fn main() {
+    eprintln!(
+        "This example requires the `vlm` feature. Run with `cargo run --example smolvlm --features vlm`."
+    );
 }
