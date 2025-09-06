@@ -32,6 +32,9 @@ pub struct Config {
     /// Whether to enable quantized inference where supported.
     #[serde(default)]
     pub quantized: bool,
+    /// Optional token for authenticated access to HuggingFace models.
+    #[serde(default)]
+    pub hf_token: Option<String>,
 }
 
 fn default_epochs() -> usize {
@@ -78,6 +81,7 @@ impl Default for Config {
             rollout_steps: default_rollout_steps(),
             learning_rate: default_learning_rates(),
             quantized: false,
+            hf_token: None,
         }
     }
 }
