@@ -7,14 +7,17 @@ Run a minimal vision-language model that mirrors SmolVLM-Instruct using the new 
 
 ## Running the Example
 
-Downloads a small checkpoint and performs a dummy image + prompt forward pass.
+Downloads a small checkpoint and performs an image + prompt forward pass.
 
-**Prerequisites:** internet access to fetch model weights.
+**Prerequisites:**
 
-**Demo command:** (use `cargo run --example`; training binaries use `./run.sh`)
+- Internet access to fetch model weights.
+- Compile with `--features vlm` to pull in the `image` dependency.
+
+**Demo command:**
 
 ```bash
-cargo run --example smolvlm
+cargo run --example smolvlm --features vlm path/to/image.png
 ```
 
 ## Explanation

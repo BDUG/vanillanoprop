@@ -110,8 +110,10 @@ The library includes multiple built-in models. Training support varies across bi
 - **Recurrent neural network (RNN)** – trained with `train-rnn` only; it is unsupported in backprop, elmo, noprop, lcm, resnet and treepo binaries.
 - **ELMo encoder** – available through `train-elmo`. It cannot be trained with backprop, noprop, lcm, resnet, rnn or treepo commands.
 - **Tree Policy Optimization agent** – used by `train-treepo` and does not accept CNN, transformer, LCM, ResNet, RNN or ELMo models.
-- **SmolVLM** – `cargo run --example smolvlm` ([walkthrough](docs/examples/smolvlm.md)).
-  Downloads a tiny vision‑language model and runs a dummy image + prompt forward pass. Requires internet access.
+- **SmolVLM** – `cargo run --example smolvlm --features vlm path/to/image.png`
+  ([walkthrough](docs/examples/smolvlm.md)). Downloads a tiny vision‑language
+  model, loads an image and runs an image + prompt forward pass. Requires
+  internet access.
 
 ### Logging
 
