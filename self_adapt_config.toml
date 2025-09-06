@@ -2,3 +2,4 @@ reference = "hello world"
 episodes = 5
 lr = 0.001
 model_dim = 32
+hf_token = ""

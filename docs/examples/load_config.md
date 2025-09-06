@@ -3,7 +3,8 @@
 ## Overview
 
 Read training parameters from a `TOML` file and fall back to defaults when the
-file is missing.
+file is missing. Config files may also include an optional `hf_token` value for
+authenticated HuggingFace access.
 
 ## Running the Example
 =======

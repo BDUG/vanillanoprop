@@ -5,3 +5,4 @@ rollout_steps = 10
 learning_rate = 0.1
 episodes = 10
 quantized = false
+hf_token = ""
