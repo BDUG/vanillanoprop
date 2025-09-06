@@ -271,9 +271,10 @@ showcase core features of the framework.
 Pretrained Transformers can be loaded directly from the Hugging Face Hub:
 
 ```rust
-use vanillanoprop::{huggingface, weights, models::TransformerEncoder};
+use vanillanoprop::{config::Config, fetch_hf_files_with_cfg, weights, models::TransformerEncoder};
 
-let files = huggingface::fetch_hf_files("bert-base-uncased", None, None)?;
+let cfg = Config::from_path("backprop_config.toml").unwrap_or_default();
+let files = fetch_hf_files_with_cfg("bert-base-uncased", &cfg)?;
 let mut enc = TransformerEncoder::new(/* ... */);
 weights::load_transformer_from_hf(&files.config, &files.weights, &mut enc)?;
 ```
