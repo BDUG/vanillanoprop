@@ -12,17 +12,17 @@ use std::process;
 use image::imageops::FilterType;
 
 #[cfg(feature = "vlm")]
+use tokenizers::Tokenizer;
+#[cfg(feature = "vlm")]
 use vanillanoprop::config::Config;
 #[cfg(feature = "vlm")]
 use vanillanoprop::fetch_hf_files_with_cfg;
 #[cfg(feature = "vlm")]
+use vanillanoprop::math::Matrix;
+#[cfg(feature = "vlm")]
 use vanillanoprop::models::SmolVLM;
 #[cfg(feature = "vlm")]
 use vanillanoprop::weights;
-#[cfg(feature = "vlm")]
-use vanillanoprop::math::Matrix;
-#[cfg(feature = "vlm")]
-use tokenizers::Tokenizer;
 
 #[cfg(feature = "vlm")]
 fn matrix_to_ids(m: &Matrix) -> Vec<u32> {
@@ -60,7 +60,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .as_ref()
         .or(files.tokenizer.as_ref())
         .ok_or("Tokenizer not found")?;
-    let tokenizer = Tokenizer::from_file(tokenizer_path).map_err(|e| e.into())?;
+    let tokenizer = Tokenizer::from_file(tokenizer_path).map_err(|e| -> Box<dyn Error> { e })?;
 
     // Parse the configuration to determine model dimensions.
     let cfg_text = fs::read_to_string(&files.config)?;
@@ -95,7 +95,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         data: fused.data.clone(),
     };
     let ids = matrix_to_ids(&fused_m);
-    let text = tokenizer.decode(ids.clone(), true).unwrap_or_default();
+    let text = tokenizer.decode(&ids, true).unwrap_or_default();
     println!("Token IDs: {:?}", ids);
     println!("Decoded text: {}", text);
 
