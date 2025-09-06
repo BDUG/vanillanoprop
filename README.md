@@ -268,16 +268,28 @@ showcase core features of the framework.
 
 ## Hugging Face models
 
-Pretrained Transformers can be loaded directly from the Hugging Face Hub:
+Pretrained Transformers can be loaded directly from the Hugging Face Hub.
+Place your access token in a configuration file under the `hf_token` key:
+
+```toml
+# backprop_config.toml
+hf_token = "hf_XXXXXXXXXXXXXXXX"
+```
+
+Load the config and pass the token to `fetch_hf_files` when downloading
+checkpoints:
 
 ```rust
-use vanillanoprop::{config::Config, fetch_hf_files_with_cfg, weights, models::TransformerEncoder};
+use vanillanoprop::{config::Config, fetch_hf_files, weights, models::TransformerEncoder};
 
 let cfg = Config::from_path("backprop_config.toml").unwrap_or_default();
-let files = fetch_hf_files_with_cfg("bert-base-uncased", &cfg)?;
+let files = fetch_hf_files("bert-base-uncased", None, cfg.hf_token.as_deref())?;
 let mut enc = TransformerEncoder::new(/* ... */);
 weights::load_transformer_from_hf(&files.config, &files.weights, &mut enc)?;
 ```
+
+**Security note:** configuration files containing secrets should not be
+committed to version control.
 
 ## License
 
