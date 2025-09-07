@@ -26,6 +26,7 @@ pub mod train_cnn;
 pub mod train_fusion;
 pub mod util;
 pub mod weights;
+pub mod tokenizer;
 
 pub use data::{Cifar10, Dataset, DatasetKind, Mnist};
 pub use huggingface::{fetch_hf_files, fetch_hf_files_with_cfg};
