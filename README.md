@@ -112,8 +112,8 @@ The library includes multiple built-in models. Training support varies across bi
 - **Tree Policy Optimization agent** – used by `train-treepo` and does not accept CNN, transformer, LCM, ResNet, RNN or ELMo models.
 - **SmolVLM** – `cargo run --example smolvlm --features vlm path/to/image.png`
   ([walkthrough](docs/examples/smolvlm.md)). Downloads a tiny vision‑language
-  model, loads an image and runs an image + prompt forward pass. Requires
-  internet access.
+  model, loads `tokenizer.json` with the internal tokenizer, loads an image and
+  runs an image + prompt forward pass. Requires internet access.
 
 ### Logging
 

@@ -1,4 +1,4 @@
-// Compile with `--features vlm` to enable the `image` crate.
+// Compile with `--features vlm` to enable the `image` crate and internal tokenizer.
 #[cfg(feature = "vlm")]
 use std::env;
 #[cfg(feature = "vlm")]
@@ -10,11 +10,6 @@ use std::process;
 
 #[cfg(feature = "vlm")]
 use image::imageops::FilterType;
-
-#[cfg(feature = "vlm")]
-use sentencepiece::SentencePieceProcessor;
-#[cfg(feature = "vlm")]
-use tokenizers::Tokenizer;
 #[cfg(feature = "vlm")]
 use vanillanoprop::config::Config;
 #[cfg(feature = "vlm")]
@@ -23,6 +18,8 @@ use vanillanoprop::fetch_hf_files_with_cfg;
 use vanillanoprop::math::Matrix;
 #[cfg(feature = "vlm")]
 use vanillanoprop::models::SmolVLM;
+#[cfg(feature = "vlm")]
+use vanillanoprop::tokenizer::Tokenizer;
 #[cfg(feature = "vlm")]
 use vanillanoprop::weights;
 
@@ -44,38 +41,6 @@ fn matrix_to_ids(m: &Matrix) -> Vec<u32> {
     ids
 }
 
-#[cfg(feature = "vlm")]
-enum Decoder {
-    Tokenizers(Tokenizer),
-    SentencePiece(SentencePieceProcessor),
-}
-
-#[cfg(feature = "vlm")]
-impl Decoder {
-    fn decode(&self, ids: &[u32]) -> Result<String, Box<dyn Error>> {
-        match self {
-            Decoder::Tokenizers(t) => t.decode(ids, true).map_err(|e| -> Box<dyn Error> { e }),
-            Decoder::SentencePiece(sp) => sp
-                .decode_piece_ids(ids)
-                .map_err(|e| -> Box<dyn Error> { e.into() }),
-        }
-    }
-
-    fn encode(&self, text: &str) -> Result<Vec<usize>, Box<dyn Error>> {
-        match self {
-            Decoder::Tokenizers(t) => {
-                let enc = t.encode(text, true).map_err(|e| -> Box<dyn Error> { e })?;
-                Ok(enc.get_ids().iter().map(|&id| id as usize).collect())
-            }
-            Decoder::SentencePiece(sp) => {
-                let ids = sp
-                    .encode(text)
-                    .map_err(|e| -> Box<dyn Error> { e.into() })?;
-                Ok(ids.iter().map(|p| p.id as usize).collect())
-            }
-        }
-    }
-}
 
 #[cfg(feature = "vlm")]
 fn main() -> Result<(), Box<dyn Error>> {
@@ -89,16 +54,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let cfg = Config::from_path("configs/smolvlm.toml").unwrap_or_default();
     let files = fetch_hf_files_with_cfg("katuni4ka/tiny-random-smolvlm2", &cfg)?;
 
-    // Load tokenizer for mapping ids back to text.
-    let tokenizer = if let Some(path) = &files.tokenizer_json {
-        let tok = Tokenizer::from_file(path).map_err(|e| -> Box<dyn Error> { e })?;
-        Decoder::Tokenizers(tok)
-    } else if let Some(path) = &files.tokenizer {
-        let spp = SentencePieceProcessor::open(path)?;
-        Decoder::SentencePiece(spp)
-    } else {
-        return Err("Tokenizer not found".into());
-    };
+    // Load tokenizer for mapping ids back to text using the internal implementation.
+    let tok_path = files
+        .tokenizer_json
+        .ok_or("tokenizer.json not found")?;
+    let tokenizer = Tokenizer::from_json(&tok_path)?;
 
     // Parse the configuration to determine model dimensions.
     let cfg_text = fs::read_to_string(&files.config)?;
@@ -122,7 +82,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         .to_luma8()
         .into_raw();
     let prompt_text = "Describe the image";
-    let prompt = tokenizer.encode(prompt_text)?;
+    let prompt: Vec<usize> = tokenizer
+        .encode(prompt_text)
+        .into_iter()
+        .map(|id| id as usize)
+        .collect();
 
     let fused = model.forward(&image, &prompt);
     // Display the full fused embedding tensor rather than just its shape.
@@ -134,7 +98,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         data: fused.data.clone(),
     };
     let ids = matrix_to_ids(&fused_m);
-    let text = tokenizer.decode(&ids).unwrap_or_default();
+    let text = tokenizer.decode(&ids);
     println!("Token IDs: {:?}", ids);
     println!("Decoded text: {}", text);
 
