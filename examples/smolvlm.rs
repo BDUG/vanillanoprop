@@ -12,9 +12,9 @@ use std::process;
 use image::imageops::FilterType;
 
 #[cfg(feature = "vlm")]
-use tokenizers::Tokenizer;
-#[cfg(feature = "vlm")]
 use sentencepiece::SentencePieceProcessor;
+#[cfg(feature = "vlm")]
+use tokenizers::Tokenizer;
 #[cfg(feature = "vlm")]
 use vanillanoprop::config::Config;
 #[cfg(feature = "vlm")]
@@ -55,7 +55,24 @@ impl Decoder {
     fn decode(&self, ids: &[u32]) -> Result<String, Box<dyn Error>> {
         match self {
             Decoder::Tokenizers(t) => t.decode(ids, true).map_err(|e| -> Box<dyn Error> { e }),
-            Decoder::SentencePiece(sp) => sp.decode_piece_ids(ids).map_err(|e| -> Box<dyn Error> { e.into() }),
+            Decoder::SentencePiece(sp) => sp
+                .decode_piece_ids(ids)
+                .map_err(|e| -> Box<dyn Error> { e.into() }),
+        }
+    }
+
+    fn encode(&self, text: &str) -> Result<Vec<usize>, Box<dyn Error>> {
+        match self {
+            Decoder::Tokenizers(t) => {
+                let enc = t.encode(text, true).map_err(|e| -> Box<dyn Error> { e })?;
+                Ok(enc.get_ids().iter().map(|&id| id as usize).collect())
+            }
+            Decoder::SentencePiece(sp) => {
+                let ids = sp
+                    .encode(text)
+                    .map_err(|e| -> Box<dyn Error> { e.into() })?;
+                Ok(ids.iter().map(|p| p.id as usize).collect())
+            }
         }
     }
 }
@@ -104,7 +121,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         .resize_exact(28, 28, FilterType::Triangle)
         .to_luma8()
         .into_raw();
-    let prompt = [0usize, 1, 2];
+    let prompt_text = "Describe the image";
+    let prompt = tokenizer.encode(prompt_text)?;
 
     let fused = model.forward(&image, &prompt);
     // Display the full fused embedding tensor rather than just its shape.
