@@ -14,6 +14,8 @@ use image::imageops::FilterType;
 #[cfg(feature = "vlm")]
 use tokenizers::Tokenizer;
 #[cfg(feature = "vlm")]
+use sentencepiece::SentencePieceProcessor;
+#[cfg(feature = "vlm")]
 use vanillanoprop::config::Config;
 #[cfg(feature = "vlm")]
 use vanillanoprop::fetch_hf_files_with_cfg;
@@ -43,6 +45,22 @@ fn matrix_to_ids(m: &Matrix) -> Vec<u32> {
 }
 
 #[cfg(feature = "vlm")]
+enum Decoder {
+    Tokenizers(Tokenizer),
+    SentencePiece(SentencePieceProcessor),
+}
+
+#[cfg(feature = "vlm")]
+impl Decoder {
+    fn decode(&self, ids: &[u32]) -> Result<String, Box<dyn Error>> {
+        match self {
+            Decoder::Tokenizers(t) => t.decode(ids, true).map_err(|e| -> Box<dyn Error> { e }),
+            Decoder::SentencePiece(sp) => sp.decode_piece_ids(ids).map_err(|e| -> Box<dyn Error> { e.into() }),
+        }
+    }
+}
+
+#[cfg(feature = "vlm")]
 fn main() -> Result<(), Box<dyn Error>> {
     // Expect an image path as the first argument.
     let path = env::args().nth(1).unwrap_or_else(|| {
@@ -55,12 +73,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     let files = fetch_hf_files_with_cfg("katuni4ka/tiny-random-smolvlm2", &cfg)?;
 
     // Load tokenizer for mapping ids back to text.
-    let tokenizer_path = files
-        .tokenizer_json
-        .as_ref()
-        .or(files.tokenizer.as_ref())
-        .ok_or("Tokenizer not found")?;
-    let tokenizer = Tokenizer::from_file(tokenizer_path).map_err(|e| -> Box<dyn Error> { e })?;
+    let tokenizer = if let Some(path) = &files.tokenizer_json {
+        let tok = Tokenizer::from_file(path).map_err(|e| -> Box<dyn Error> { e })?;
+        Decoder::Tokenizers(tok)
+    } else if let Some(path) = &files.tokenizer {
+        let spp = SentencePieceProcessor::open(path)?;
+        Decoder::SentencePiece(spp)
+    } else {
+        return Err("Tokenizer not found".into());
+    };
 
     // Parse the configuration to determine model dimensions.
     let cfg_text = fs::read_to_string(&files.config)?;
@@ -95,7 +116,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         data: fused.data.clone(),
     };
     let ids = matrix_to_ids(&fused_m);
-    let text = tokenizer.decode(&ids, true).unwrap_or_default();
+    let text = tokenizer.decode(&ids).unwrap_or_default();
     println!("Token IDs: {:?}", ids);
     println!("Decoded text: {}", text);
 
