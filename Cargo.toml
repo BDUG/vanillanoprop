@@ -10,7 +10,7 @@ kai = []
 matrixmultiply = ["dep:matrixmultiply"]
 cuda = ["dep:cust", "dep:nvrtc"]
 rayon = []
-llama = ["dep:tokenizers"]
+llama = []
 vlm = ["dep:image"]
 
 [dependencies]
@@ -45,7 +45,6 @@ uuid = { version = "1", features = ["v4"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 futures-util = "0.3"
 actix-files = "0.6"
-tokenizers = { version = "0.15", optional = true }
 image = { version = "0.24", optional = true }
 
 [target.'cfg(windows)'.dependencies]
