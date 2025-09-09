@@ -29,8 +29,11 @@ enum ModelType {
 impl Tokenizer {
     /// Build a tokenizer from a HuggingFace `tokenizer.json` file.
     pub fn from_json(path: &Path) -> Result<Self, Box<dyn Error>> {
-        let data = fs::read_to_string(path)?;
-        let json: TokenizerConfig = serde_json::from_str(&data)?;
+        let mut data = fs::read(path)?;
+        if data.starts_with(&[0xEF, 0xBB, 0xBF]) {
+            data.drain(..3);
+        }
+        let json: TokenizerConfig = serde_json::from_slice(&data)?;
 
         let mut vocab = json.model.vocab;
         if let Some(extra) = &json.added_tokens {
