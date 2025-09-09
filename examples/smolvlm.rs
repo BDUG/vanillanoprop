@@ -44,11 +44,17 @@ fn matrix_to_ids(m: &Matrix) -> Vec<u32> {
 
 #[cfg(feature = "vlm")]
 fn main() -> Result<(), Box<dyn Error>> {
-    // Expect an image path as the first argument.
-    let path = env::args().nth(1).unwrap_or_else(|| {
-        eprintln!("Usage: cargo run --example smolvlm --features vlm <IMAGE_PATH>");
+    // Expect an image path as the first argument and an optional question.
+    let mut args = env::args().skip(1);
+    let path = args.next().unwrap_or_else(|| {
+        eprintln!(
+            "Usage: cargo run --example smolvlm --features vlm <IMAGE_PATH> <QUESTION>"
+        );
         process::exit(1);
     });
+    let question = args
+        .next()
+        .unwrap_or_else(|| "Describe the image".to_string());
 
     // Download configuration and weights for a tiny SmolVLM model.
     let cfg = Config::from_path("configs/smolvlm.toml").unwrap_or_default();
@@ -81,9 +87,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         .resize_exact(28, 28, FilterType::Triangle)
         .to_luma8()
         .into_raw();
-    let prompt_text = "Describe the image";
     let prompt: Vec<usize> = tokenizer
-        .encode(prompt_text)
+        .encode(&question)
         .into_iter()
         .map(|id| id as usize)
         .collect();
@@ -108,6 +113,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 #[cfg(not(feature = "vlm"))]
 fn main() {
     eprintln!(
-        "This example requires the `vlm` feature. Run with `cargo run --example smolvlm --features vlm`."
+        "This example requires the `vlm` feature. Run with `cargo run --example smolvlm --features vlm <IMAGE_PATH> <QUESTION>`."
     );
 }
