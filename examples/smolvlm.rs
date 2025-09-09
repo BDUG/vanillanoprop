@@ -1,4 +1,5 @@
 // Compile with `--features vlm` to enable the `image` crate and internal tokenizer.
+// The program prints the model's textual answer to the supplied question.
 #[cfg(feature = "vlm")]
 use std::env;
 #[cfg(feature = "vlm")]
@@ -41,15 +42,12 @@ fn matrix_to_ids(m: &Matrix) -> Vec<u32> {
     ids
 }
 
-
 #[cfg(feature = "vlm")]
 fn main() -> Result<(), Box<dyn Error>> {
     // Expect an image path as the first argument and an optional question.
     let mut args = env::args().skip(1);
     let path = args.next().unwrap_or_else(|| {
-        eprintln!(
-            "Usage: cargo run --example smolvlm --features vlm <IMAGE_PATH> <QUESTION>"
-        );
+        eprintln!("Usage: cargo run --example smolvlm --features vlm <IMAGE_PATH> <QUESTION>");
         process::exit(1);
     });
     let question = args
@@ -61,9 +59,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let files = fetch_hf_files_with_cfg("katuni4ka/tiny-random-smolvlm2", &cfg)?;
 
     // Load tokenizer for mapping ids back to text using the internal implementation.
-    let tok_path = files
-        .tokenizer_json
-        .ok_or("tokenizer.json not found")?;
+    let tok_path = files.tokenizer_json.ok_or("tokenizer.json not found")?;
     let tokenizer = Tokenizer::from_json(&tok_path)?;
 
     // Parse the configuration to determine model dimensions.
@@ -94,8 +90,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         .collect();
 
     let fused = model.forward(&image, &prompt);
-    // Display the full fused embedding tensor rather than just its shape.
-    println!("Fused embedding: {:?}", fused);
+    #[cfg(debug_assertions)]
+    {
+        // Display the full fused embedding tensor for debugging.
+        println!("Fused embedding: {:?}", fused);
+    }
 
     let fused_m = Matrix {
         rows: fused.shape[0],
@@ -103,9 +102,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         data: fused.data.clone(),
     };
     let ids = matrix_to_ids(&fused_m);
+    #[cfg(debug_assertions)]
+    {
+        println!("Token IDs: {:?}", ids);
+    }
     let text = tokenizer.decode(&ids);
-    println!("Token IDs: {:?}", ids);
-    println!("Decoded text: {}", text);
+    println!("Answer: {}", text);
 
     Ok(())
 }
