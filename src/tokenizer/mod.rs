@@ -3,7 +3,8 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
-use serde::Deserialize;
+use serde::{de, Deserialize, Deserializer};
+use serde_json::Value;
 
 /// Simple tokenizer capable of loading a HuggingFace `tokenizer.json` file
 /// and performing basic encode/decode operations for BPE and WordPiece
@@ -258,7 +259,40 @@ struct Model {
     #[serde(rename = "type")]
     model_type: String,
     vocab: HashMap<String, u32>,
+    #[serde(default, deserialize_with = "deserialize_merges")]
     merges: Option<Vec<String>>,
+}
+
+fn deserialize_merges<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt = Option::<Vec<Value>>::deserialize(deserializer)?;
+    let Some(values) = opt else {
+        return Ok(None);
+    };
+
+    let mut merges = Vec::with_capacity(values.len());
+    for value in values {
+        match value {
+            Value::String(s) => merges.push(s),
+            Value::Array(arr) => {
+                if arr.len() != 2 {
+                    return Err(de::Error::custom("merge arrays must have two elements"));
+                }
+                let a = arr[0]
+                    .as_str()
+                    .ok_or_else(|| de::Error::custom("merge elements must be strings"))?;
+                let b = arr[1]
+                    .as_str()
+                    .ok_or_else(|| de::Error::custom("merge elements must be strings"))?;
+                merges.push(format!("{a} {b}"));
+            }
+            _ => return Err(de::Error::custom("merge must be string or array")),
+        }
+    }
+
+    Ok(Some(merges))
 }
 
 #[cfg(test)]
@@ -283,12 +317,39 @@ mod tests {
             .unwrap()
             .as_nanos();
         path.push(format!("tok_{unique}.json"));
-        File::create(&path).unwrap().write_all(json.as_bytes()).unwrap();
+        File::create(&path)
+            .unwrap()
+            .write_all(json.as_bytes())
+            .unwrap();
         let tok = Tokenizer::from_json(&path).unwrap();
         let ids = tok.encode("Hello world!");
         assert_eq!(ids, vec![1, 2, 3]);
         let dec = tok.decode(&ids);
         assert_eq!(dec, "hello world!");
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn loads_array_merges() {
+        let json = r###"{
+            "model": {
+                "type": "BPE",
+                "vocab": {"a":0,"b":1,"ab":2},
+                "merges": [["a","b"]]
+            }
+        }"###;
+        let mut path = std::env::temp_dir();
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        path.push(format!("tok_{unique}.json"));
+        File::create(&path)
+            .unwrap()
+            .write_all(json.as_bytes())
+            .unwrap();
+        let tok = Tokenizer::from_json(&path).unwrap();
+        assert_eq!(tok.encode("ab"), vec![2]);
         let _ = fs::remove_file(path);
     }
 }

@@ -9,6 +9,8 @@ Vanillanoprop is a vanilla machine learning library implementation started with 
 - Minimal dependencies; builds with stable Rust.
 - Configuration via TOML or JSON files with command‑line overrides.
 - Collection of examples demonstrating core components.
+- Tokenizer understands HuggingFace `tokenizer.json` files and supports merge
+  rules specified as either strings (`"a b"`) or arrays (`["a","b"]`).
 
 A more thorough introduction with additional examples can be found in the [documentation index](docs/README.md).
 
