@@ -321,21 +321,24 @@ impl Node {
                 Op::Transpose => vec![Tensor::transpose(&grad_out)],
                 Op::Softmax => {
                     let s = &n.value;
-                    let mut grad_in = Tensor::zeros_like(s);
-                    let last_dim = *s.shape.last().unwrap();
-                    let rows = s.data.len() / last_dim;
-                    for r in 0..rows {
-                        let offset = r * last_dim;
-                        let mut dot = 0.0;
-                        for i in 0..last_dim {
-                            dot += grad_out.data[offset + i] * s.data[offset + i];
+                    if let Some(&last_dim) = s.shape.last() {
+                        let mut grad_in = Tensor::zeros_like(s);
+                        let rows = s.data.len() / last_dim;
+                        for r in 0..rows {
+                            let offset = r * last_dim;
+                            let mut dot = 0.0;
+                            for i in 0..last_dim {
+                                dot += grad_out.data[offset + i] * s.data[offset + i];
+                            }
+                            for i in 0..last_dim {
+                                grad_in.data[offset + i] =
+                                    (grad_out.data[offset + i] - dot) * s.data[offset + i];
+                            }
                         }
-                        for i in 0..last_dim {
-                            grad_in.data[offset + i] =
-                                (grad_out.data[offset + i] - dot) * s.data[offset + i];
-                        }
+                        vec![grad_in]
+                    } else {
+                        vec![]
                     }
-                    vec![grad_in]
                 }
             }
         };

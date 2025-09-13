@@ -884,23 +884,27 @@ pub fn tensor_transpose(t: &Tensor) -> Tensor {
 
 /// Softmax along the last dimension of the tensor operating in-place on `t`.
 pub fn tensor_softmax_inplace(t: &mut Tensor) {
-    let cols = *t.shape.last().unwrap();
-    let rows = t.data.len() / cols;
-    for r in 0..rows {
-        let start = r * cols;
-        let row = &mut t.data[start..start + cols];
-        let mut max = f32::NEG_INFINITY;
-        for &v in row.iter() {
-            max = f32::max(max, v);
+    if let Some(&cols) = t.shape.last() {
+        let rows = t.data.len() / cols;
+        for r in 0..rows {
+            let start = r * cols;
+            let row = &mut t.data[start..start + cols];
+            let mut max = f32::NEG_INFINITY;
+            for &v in row.iter() {
+                max = f32::max(max, v);
+            }
+            let mut sum = 0.0;
+            for v in row.iter_mut() {
+                *v = (*v - max).exp();
+                sum += *v;
+            }
+            for v in row.iter_mut() {
+                *v /= sum;
+            }
         }
-        let mut sum = 0.0;
-        for v in row.iter_mut() {
-            *v = (*v - max).exp();
-            sum += *v;
-        }
-        for v in row.iter_mut() {
-            *v /= sum;
-        }
+    } else if !t.data.is_empty() {
+        // Scalar input: softmax is 1
+        t.data[0] = 1.0;
     }
 }
 
