@@ -3,12 +3,12 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use csv::Writer;
 use serde::Serialize;
+use serde_json::Value;
 
 pub struct Logger {
     json: File,
-    csv: Writer<File>,
+    csv: File,
 }
 
 #[derive(Serialize)]
@@ -39,13 +39,10 @@ impl Logger {
             .create(true)
             .append(true)
             .open(json_path)?;
-        let csv_file = OpenOptions::new()
+        let csv = OpenOptions::new()
             .create(true)
             .append(true)
             .open(csv_path)?;
-        let csv = csv::WriterBuilder::new()
-            .has_headers(false)
-            .from_writer(csv_file);
         Ok(Logger { json, csv })
     }
 
@@ -53,7 +50,17 @@ impl Logger {
         if let Ok(line) = serde_json::to_string(metrics) {
             let _ = writeln!(self.json, "{}", line);
         }
-        let _ = self.csv.serialize(metrics);
+        if let Ok(Value::Object(map)) = serde_json::to_value(metrics) {
+            let mut values = Vec::new();
+            for value in map.values() {
+                values.push(match value {
+                    Value::Number(n) => n.to_string(),
+                    Value::String(s) => s.clone(),
+                    _ => value.to_string(),
+                });
+            }
+            let _ = writeln!(self.csv, "{}", values.join(","));
+        }
     }
 }
 
