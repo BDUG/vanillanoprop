@@ -34,10 +34,10 @@ fn main() {
             trainer.fit(&mut params);
             total += recon_loss + kl_loss;
         }
-        log::info!("epoch {epoch} loss {:.4}", total / pairs.len() as f32);
+        vanillanoprop::info!("epoch {epoch} loss {:.4}", total / pairs.len() as f32);
     }
 
     if let Err(e) = save_vae("vae.json", &vae) {
-        log::error!("failed to save model: {e}");
+        vanillanoprop::error!("failed to save model: {e}");
     }
 }

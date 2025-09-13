@@ -238,7 +238,7 @@ pub fn run(
             last_loss = batch_loss;
             f1_sum += batch_f1;
             sample_cnt += 1.0;
-            log::info!("loss {batch_loss:.4} f1 {batch_f1:.4}");
+            crate::info!("loss {batch_loss:.4} f1 {batch_f1:.4}");
             let record = MetricRecord {
                 epoch,
                 step,
@@ -317,7 +317,7 @@ pub fn run(
             };
             let path = format!("{}/epoch_{}.json", ckpt_dir, epoch);
             if let Err(e) = save_checkpoint(&path, &cp) {
-                log::error!("Failed to save checkpoint: {e}");
+                crate::error!("Failed to save checkpoint: {e}");
             }
         }
     }
@@ -330,14 +330,14 @@ pub fn run(
 
     log_total_ops(math::matrix_ops_count());
     let peak = memory::peak_memory_bytes();
-    log::info!(
+    crate::info!(
         "Max memory usage: {:.2} MB",
         peak as f64 / (1024.0 * 1024.0)
     );
     if model == "cnn" {
         if let Some(sc) = cnn.as_any().downcast_ref::<SimpleCNN>() {
             if let Err(e) = save_cnn(&format!("{}/cnn.json", ckpt_dir), sc) {
-                log::error!("Failed to save model: {e}");
+                crate::error!("Failed to save model: {e}");
             }
         }
     }

@@ -1,4 +1,4 @@
-use log::info;
+use crate::info;
 
 /// Format a message reporting the total number of matrix operations.
 pub fn format_total_ops(count: usize) -> String {

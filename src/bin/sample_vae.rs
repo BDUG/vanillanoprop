@@ -19,5 +19,5 @@ fn main() {
         z.set(0, i, e);
     }
     let sample = vae.decode(&z);
-    log::info!("sample first values: {:?}", &sample.data[..10.min(sample.data.len())]);
+    vanillanoprop::info!("sample first values: {:?}", &sample.data[..10.min(sample.data.len())]);
 }

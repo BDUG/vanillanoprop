@@ -35,6 +35,6 @@ pub fn run() {
         let transformer_t = transformer.forward(audio_input, None);
 
         let fused = Fusion::concat(&cnn_t, &rnn_t, &transformer_t);
-        log::info!("fused representation has shape {:?}", fused.shape);
+        crate::info!("fused representation has shape {:?}", fused.shape);
     }
 }

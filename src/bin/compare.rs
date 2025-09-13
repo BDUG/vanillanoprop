@@ -64,7 +64,7 @@ fn train_backprop(epochs: usize) -> (f32, usize, usize, u64) {
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
         pb.inc(1);
-        log::info!(
+        vanillanoprop::info!(
             "backprop epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"
         );
         if avg_f1 > best_f1 {
@@ -152,7 +152,7 @@ fn train_noprop(epochs: usize) -> (f32, usize, usize, u64) {
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
         pb.inc(1);
-        log::info!("noprop epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}");
+        vanillanoprop::info!("noprop epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}");
         if avg_f1 > best_f1 {
             best_f1 = avg_f1;
         }
@@ -168,16 +168,16 @@ fn main() {
     let _ = common::init_logging();
     download_mnist();
     let epochs = 5;
-    log::info!("Running backpropagation for {epochs} epochs...");
+    vanillanoprop::info!("Running backpropagation for {epochs} epochs...");
     let (bp_f1, bp_add, bp_mul, bp_mem) = train_backprop(epochs);
-    log::info!("Running noprop for {epochs} epochs...");
+    vanillanoprop::info!("Running noprop for {epochs} epochs...");
     let (np_f1, np_add, np_mul, np_mem) = train_noprop(epochs);
-    log::info!("\nComparison after {epochs} epochs:");
-    log::info!(
+    vanillanoprop::info!("\nComparison after {epochs} epochs:");
+    vanillanoprop::info!(
         "Backprop -> Best F1: {bp_f1:.4}, Adds: {bp_add}, Muls: {bp_mul}, Peak Mem: {:.2} MB",
         bp_mem as f64 / (1024.0 * 1024.0)
     );
-    log::info!(
+    vanillanoprop::info!(
         "Noprop   -> Best F1: {np_f1:.4}, Adds: {np_add}, Muls: {np_mul}, Peak Mem: {:.2} MB",
         np_mem as f64 / (1024.0 * 1024.0)
     );

@@ -123,7 +123,7 @@ fn run(
             step += 1;
         }
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4}"));
-        log::info!("epoch {epoch} loss {last_loss:.4}");
+        vanillanoprop::info!("epoch {epoch} loss {last_loss:.4}");
         if let Some(l) = &mut logger {
             l.log(&MetricRecord {
                 epoch,
@@ -139,6 +139,6 @@ fn run(
     pb.finish_with_message("training done");
 
     if let Err(e) = save_rnn("rnn.json", &mut rnn) {
-        log::error!("Failed to save model: {e}");
+        vanillanoprop::error!("Failed to save model: {e}");
     }
 }
