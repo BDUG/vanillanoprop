@@ -54,7 +54,7 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
             );
 
             if let Err(e) = load_model("model.json", &mut encoder, &mut decoder) {
-                log::error!("Failed to load model weights: {e}");
+                crate::error!("Failed to load model weights: {e}");
             }
 
             math::reset_matrix_ops();
@@ -85,7 +85,7 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
                 }
             }
 
-            log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+            crate::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
             log_total_ops(math::matrix_ops_count());
             best_tok
         }
@@ -93,7 +93,7 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
             let model = match load_lcm("lcm.json", 28 * 28, 128, 64, 10) {
                 Ok(m) => m,
                 Err(e) => {
-                    log::warn!("Using random LCM weights; failed to load lcm.json: {e}");
+                    crate::warn!("Using random LCM weights; failed to load lcm.json: {e}");
                     LargeConceptModel::new(28 * 28, 128, 64, 10)
                 }
             };
@@ -102,7 +102,7 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
                 let moe_layer = match load_moe("moe.json", 64, 10, n) {
                     Ok(m) => m,
                     Err(e) => {
-                        log::warn!("Using random MoE weights; failed to load moe.json: {e}");
+                        crate::warn!("Using random MoE weights; failed to load moe.json: {e}");
                         let experts: Vec<Box<dyn Layer>> = (0..n)
                             .map(|_| Box::new(LinearT::new(64, 10)) as Box<dyn Layer>)
                             .collect();
@@ -122,11 +122,11 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
                         best_tok = t;
                     }
                 }
-                log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+                crate::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
                 best_tok
             } else {
                 let pred = model.predict(src);
-                log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
+                crate::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
                 pred
             }
         }
@@ -137,7 +137,7 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
             let model = match load_rnn("rnn.json", vocab_size, hidden_dim, num_classes) {
                 Ok(m) => m,
                 Err(e) => {
-                    log::warn!("Using random RNN weights; failed to load rnn.json: {e}");
+                    crate::warn!("Using random RNN weights; failed to load rnn.json: {e}");
                     RNN::new_gru(vocab_size, hidden_dim, num_classes)
                 }
             };
@@ -147,7 +147,7 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
                 let moe_layer = match load_moe("moe.json", hidden_dim, num_classes, n) {
                     Ok(m) => m,
                     Err(e) => {
-                        log::warn!("Using random MoE weights; failed to load moe.json: {e}");
+                        crate::warn!("Using random MoE weights; failed to load moe.json: {e}");
                         let experts: Vec<Box<dyn Layer>> = (0..n)
                             .map(|_| {
                                 Box::new(LinearT::new(hidden_dim, num_classes)) as Box<dyn Layer>
@@ -178,7 +178,7 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
                         best_tok = t;
                     }
                 }
-                log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+                crate::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
                 best_tok
             } else {
                 let logits = model.forward(&Tensor::from_matrix(enc_x));
@@ -192,7 +192,7 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
                         best_tok = t;
                     }
                 }
-                log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+                crate::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
                 best_tok
             }
         }
@@ -201,7 +201,7 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
             let cnn = match load_cnn("cnn.json", 10) {
                 Ok(cnn) => cnn,
                 Err(e) => {
-                    log::warn!("Using random CNN weights; failed to load cnn.json: {e}");
+                    crate::warn!("Using random CNN weights; failed to load cnn.json: {e}");
                     SimpleCNN::new(10)
                 }
             };
@@ -210,7 +210,7 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
                 let moe_layer = match load_moe("moe.json", 28 * 28, 10, n) {
                     Ok(m) => m,
                     Err(e) => {
-                        log::warn!("Using random MoE weights; failed to load moe.json: {e}");
+                        crate::warn!("Using random MoE weights; failed to load moe.json: {e}");
                         let experts: Vec<Box<dyn Layer>> = (0..n)
                             .map(|_| Box::new(LinearT::new(28 * 28, 10)) as Box<dyn Layer>)
                             .collect();
@@ -230,11 +230,11 @@ pub fn run(dataset: DatasetKind, model: Option<&str>, moe: bool, num_experts: us
                         best_tok = t;
                     }
                 }
-                log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
+                crate::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, best_tok);
                 best_tok
             } else {
                 let pred = cnn.predict(src);
-                log::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
+                crate::info!("{{\"actual\":{}, \"prediction\":{}}}", tgt, pred);
                 pred
             }
         }

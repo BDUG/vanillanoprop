@@ -63,7 +63,7 @@ fn main() {
     }
     let cfg_str = std::fs::read_to_string(&cfg_path).expect("read config");
     let cfg: Config = toml::from_str(&cfg_str).expect("parse config");
-    log::info!(
+    vanillanoprop::info!(
         "discount {} lr {} rollout {}",
         cfg.discount_factor,
         cfg.learning_rate,
@@ -90,7 +90,7 @@ fn main() {
                 break;
             }
         }
-        log::info!(
+        vanillanoprop::info!(
             "Episode {} complete, violations {}",
             ep + 1,
             agent.violations

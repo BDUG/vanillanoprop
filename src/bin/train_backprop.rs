@@ -116,11 +116,11 @@ fn run_impl<D: Dataset<Item = (Vec<u8>, usize)>>(
         }
         match Model::load(path, &mut params) {
             Ok(m) => {
-                log::info!("Resumed model from {path}");
+                vanillanoprop::info!("Resumed model from {path}");
                 m
             }
             Err(e) => {
-                log::error!("Failed to load model {path}: {e}");
+                vanillanoprop::error!("Failed to load model {path}: {e}");
                 Model::new()
             }
         }
@@ -211,7 +211,7 @@ fn run_impl<D: Dataset<Item = (Vec<u8>, usize)>>(
         }
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
-        log::info!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}");
+        vanillanoprop::info!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}");
         if let Some(l) = &mut logger {
             l.log(&MetricRecord {
                 epoch,
@@ -234,7 +234,7 @@ fn run_impl<D: Dataset<Item = (Vec<u8>, usize)>>(
             }
             let param_refs: Vec<&LinearT> = params.iter().map(|p| &**p).collect();
             if let Err(e) = trainer.save("checkpoint.bin", &param_refs) {
-                log::error!("Failed to save checkpoint: {e}");
+                vanillanoprop::error!("Failed to save checkpoint: {e}");
             }
         }
     }
@@ -242,7 +242,7 @@ fn run_impl<D: Dataset<Item = (Vec<u8>, usize)>>(
 
     log_total_ops(math::matrix_ops_count());
     let peak = memory::peak_memory_bytes();
-    log::info!(
+    vanillanoprop::info!(
         "Max memory usage: {:.2} MB",
         peak as f64 / (1024.0 * 1024.0)
     );
@@ -255,7 +255,7 @@ fn run_impl<D: Dataset<Item = (Vec<u8>, usize)>>(
     }
     let param_refs: Vec<&LinearT> = params.iter().map(|p| &**p).collect();
     if let Err(e) = trainer.save("model.bin", &param_refs) {
-        log::error!("Failed to save model: {e}");
+        vanillanoprop::error!("Failed to save model: {e}");
     }
 }
 

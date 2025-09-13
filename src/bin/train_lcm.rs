@@ -68,12 +68,12 @@ fn run(config: &Config) {
         }
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
-        log::info!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}");
+        vanillanoprop::info!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}");
         pb.inc(1);
     }
     pb.finish_with_message("training done");
 
     if let Err(e) = save_lcm("lcm.json", &model) {
-        log::error!("Failed to save model: {e}");
+        vanillanoprop::error!("Failed to save model: {e}");
     }
 }

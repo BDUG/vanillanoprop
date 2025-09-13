@@ -109,6 +109,6 @@ fn main() {
         while let Some(r) = agent.step() {
             total += r;
         }
-        log::info!("episode {} reward {total:.2}", ep + 1);
+        vanillanoprop::info!("episode {} reward {total:.2}", ep + 1);
     }
 }

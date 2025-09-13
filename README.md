@@ -119,17 +119,14 @@ The library includes multiple built-in models. Training support varies across bi
 
 ### Logging
 
-All binaries use the [`log`](https://crates.io/crates/log) facade with
-`env_logger` for output. Set the desired verbosity with the new
-`--log-level` flag or silence logs with `--quiet`:
+All binaries use a lightweight built-in logger that prints messages with
+timestamps. Control verbosity with the `--log-level` flag or silence logs
+with `--quiet`:
 
 ```bash
-./run.sh train-noprop --log-level debug
+./run.sh train-noprop --log-level warn
 ./run.sh train-noprop --quiet
 ```
-
-The `RUST_LOG` environment variable is still honoured when the flag is
-omitted.
 
 ### AutoML
 

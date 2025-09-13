@@ -1,8 +1,8 @@
 use std::env;
-use std::str::FromStr;
 use vanillanoprop::config::Config;
 use vanillanoprop::fine_tune::FreezeSpec;
 use vanillanoprop::optim::lr_scheduler::LrScheduleConfig;
+use vanillanoprop::util::simple_logger::{set_log_level, LogLevel};
 
 /// Parse `--log-level`/`--quiet` flags and initialise logging.
 ///
@@ -10,7 +10,7 @@ use vanillanoprop::optim::lr_scheduler::LrScheduleConfig;
 /// options can be parsed by the caller.
 pub fn init_logging() -> Vec<String> {
     let mut args: Vec<String> = env::args().collect();
-    let mut level = log::LevelFilter::Info;
+    let mut level = LogLevel::Info;
 
     // Manually scan for logging flags so we can ignore any other arguments
     // (e.g. subcommands or training options) without erroring out.
@@ -18,14 +18,16 @@ pub fn init_logging() -> Vec<String> {
     while i < args.len() {
         match args[i].as_str() {
             "--quiet" => {
-                level = log::LevelFilter::Error;
+                level = LogLevel::Error;
                 args.remove(i);
             }
             "--log-level" => {
                 if i + 1 < args.len() {
-                    if let Ok(lvl) = log::LevelFilter::from_str(&args[i + 1]) {
-                        level = lvl;
-                    }
+                    level = match args[i + 1].to_lowercase().as_str() {
+                        "error" => LogLevel::Error,
+                        "warn" | "warning" => LogLevel::Warn,
+                        _ => LogLevel::Info,
+                    };
                     args.drain(i..=i + 1);
                 } else {
                     args.remove(i);
@@ -35,9 +37,7 @@ pub fn init_logging() -> Vec<String> {
         }
     }
 
-    env_logger::Builder::from_env(env_logger::Env::default())
-        .filter_level(level)
-        .init();
+    set_log_level(level);
 
     args
 }

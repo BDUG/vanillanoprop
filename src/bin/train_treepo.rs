@@ -69,6 +69,6 @@ fn main() {
                 break;
             }
         }
-        log::info!("Episode {} complete", episode + 1);
+        vanillanoprop::info!("Episode {} complete", episode + 1);
     }
 }

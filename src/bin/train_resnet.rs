@@ -128,7 +128,7 @@ fn run(
         }
         let avg_f1 = f1_sum / if sample_cnt > 0.0 { sample_cnt } else { 1.0 };
         pb.set_message(format!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}"));
-        log::info!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}");
+        vanillanoprop::info!("epoch {epoch} loss {last_loss:.4} f1 {avg_f1:.4}");
         if let Some(l) = &mut logger {
             l.log(&MetricRecord {
                 epoch,
@@ -145,7 +145,7 @@ fn run(
     pb.finish_with_message("training done");
     log_total_ops(math::matrix_ops_count());
     let peak = memory::peak_memory_bytes();
-    log::info!(
+    vanillanoprop::info!(
         "Max memory usage: {:.2} MB",
         peak as f64 / (1024.0 * 1024.0)
     );
