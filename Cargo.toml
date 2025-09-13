@@ -24,7 +24,6 @@ cifar_10_loader = "0.2"
 libc = "0.2"
 rayon = { version = "1.8", optional = true }
 toml = "0.8"
-csv = "1"
 nalgebra = { version = "0.34" }
 onnx-pb = "0.1"
 prost = "0.6"
