@@ -1,28 +1,28 @@
 use std::fs;
-use std::path::Path;
-use hf_hub::api::sync::ApiBuilder;
 
 use vanillanoprop::models::TransformerEncoder;
 use vanillanoprop::weights::load_transformer_from_hf;
 use vanillanoprop::math::Matrix;
+use vanillanoprop::fetch_hf_files;
 
 #[test]
 fn hf_loading() {
-    // Use local config and download weights from the Hugging Face Hub
-    let cfg = Path::new("tests/data/tiny_bert/config.json");
-    let api = ApiBuilder::new()
-        .build()
-        .expect("failed to build HF API");
-    let repo = api.model("hf-internal-testing/tiny-random-bert".to_string());
-    let weights = repo
-        .get("model.safetensors")
-        .expect("failed to fetch model weights");
+    // Download config and weights from the Hugging Face Hub
+    let files = match fetch_hf_files("hf-internal-testing/tiny-random-bert", None, None) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("Skipping test: {e}");
+            return;
+        }
+    };
+    let cfg = files.config;
+    let weights = files.weights;
 
     // Build model matching the config
     let mut enc = TransformerEncoder::new(2, 1000, 32, 4, 64, 0.0);
 
     // Load weights from safetensors
-    load_transformer_from_hf(cfg, &weights, &mut enc)
+    load_transformer_from_hf(&cfg, &weights, &mut enc)
         .expect("failed to load transformer weights");
 
     // Check embedding dimensions
