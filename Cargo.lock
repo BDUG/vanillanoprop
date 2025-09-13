@@ -3776,7 +3776,6 @@ dependencies = [
  "glob",
  "hf-hub",
  "image 0.24.9",
- "indicatif",
  "libc",
  "log",
  "matrixmultiply",

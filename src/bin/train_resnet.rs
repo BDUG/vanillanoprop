@@ -1,4 +1,4 @@
-use indicatif::ProgressBar;
+use vanillanoprop::util::progress::ProgressBar;
 use vanillanoprop::config::Config;
 use vanillanoprop::data::{DataLoader, Mnist};
 use vanillanoprop::logging::{Logger, MetricRecord};
@@ -74,7 +74,7 @@ fn run(
     let epochs = config.epochs;
     let mut step = 0usize;
     let mut logger = Logger::new(log_dir, experiment_name).ok();
-    let pb = ProgressBar::new(epochs as u64);
+    let mut pb = ProgressBar::new(epochs as u64);
     let mut last_lr = base_lr;
 
     math::reset_matrix_ops();

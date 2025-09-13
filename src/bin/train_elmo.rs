@@ -1,4 +1,4 @@
-use indicatif::ProgressBar;
+use vanillanoprop::util::progress::ProgressBar;
 use vanillanoprop::config::Config;
 use vanillanoprop::data::{DataLoader, Mnist};
 use vanillanoprop::layers::Activation;
@@ -97,7 +97,7 @@ fn run(
     let mut logger = Logger::new(log_dir, experiment).ok();
     math::reset_matrix_ops();
     let epochs = config.epochs;
-    let pb = ProgressBar::new(epochs as u64);
+    let mut pb = ProgressBar::new(epochs as u64);
     let mut best_f1 = f32::NEG_INFINITY;
     let mut step = 0usize;
     let mut loader = DataLoader::<Mnist>::new(config.batch_size, false, None);
