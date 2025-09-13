@@ -1,10 +1,13 @@
 use crate::device::{Cpu, Device};
 use crate::tensor::Tensor;
 use nalgebra::DMatrix;
+#[cfg(feature = "rayon")]
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use ndarray::{ArrayViewD, ArrayViewMutD, IxDyn, Zip};
+#[cfg(feature = "rayon")]
 use std::convert::TryInto;
+#[cfg(feature = "rayon")]
 use wide::f32x8;
 
 #[cfg(feature = "cuda")]
@@ -180,8 +183,8 @@ pub(crate) fn matmul_cpu(a: MatrixView<'_>, b: MatrixView<'_>) -> Matrix {
     {
         const PAR_THRESHOLD: usize = 128 * 128; // Use rayon when matrix is reasonably large
 
+        #[cfg(feature = "rayon")]
         if m * n > PAR_THRESHOLD {
-            use rayon::prelude::*;
             out.par_chunks_mut(n).enumerate().for_each(|(i, out_row)| {
                 for k_idx in 0..k_dim {
                     let a_val = a.get(i, k_idx);
@@ -191,6 +194,19 @@ pub(crate) fn matmul_cpu(a: MatrixView<'_>, b: MatrixView<'_>) -> Matrix {
                 }
             });
         } else {
+            for i in 0..m {
+                let out_row = &mut out[i * n..(i + 1) * n];
+                for k_idx in 0..k_dim {
+                    let a_val = a.get(i, k_idx);
+                    for j in 0..n {
+                        out_row[j] += a_val * b.get(k_idx, j);
+                    }
+                }
+            }
+        }
+
+        #[cfg(not(feature = "rayon"))]
+        {
             for i in 0..m {
                 let out_row = &mut out[i * n..(i + 1) * n];
                 for k_idx in 0..k_dim {
@@ -425,41 +441,60 @@ impl Matrix {
                 }
             }
         } else {
-            // Parallelised path using Rayon and SIMD via `wide`.
-            v.par_chunks_mut(cols)
-                .zip(self.data.par_chunks(cols))
-                .for_each(|(out_row, row_slice)| {
+            #[cfg(feature = "rayon")]
+            {
+                // Parallelised path using Rayon and SIMD via `wide`.
+                v.par_chunks_mut(cols)
+                    .zip(self.data.par_chunks(cols))
+                    .for_each(|(out_row, row_slice)| {
+                        let max = row_slice.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                        let max_v = f32x8::splat(max);
+                        let mut sum_v = f32x8::splat(0.0);
+                        let mut i = 0;
+                        while i + 8 <= cols {
+                            let chunk: [f32; 8] = row_slice[i..i + 8].try_into().unwrap();
+                            let e = (f32x8::new(chunk) - max_v).exp();
+                            out_row[i..i + 8].copy_from_slice(&e.to_array());
+                            sum_v += e;
+                            i += 8;
+                        }
+                        let mut sum = sum_v.reduce_add();
+                        for (out, &x) in out_row[i..].iter_mut().zip(row_slice[i..].iter()) {
+                            let e = (x - max).exp();
+                            *out = e;
+                            sum += e;
+                        }
+                        let inv_sum = 1.0 / sum;
+                        let inv_sum_v = f32x8::splat(inv_sum);
+                        let mut j = 0;
+                        while j + 8 <= cols {
+                            let chunk: [f32; 8] = out_row[j..j + 8].try_into().unwrap();
+                            let mut x = f32x8::new(chunk);
+                            x *= inv_sum_v;
+                            out_row[j..j + 8].copy_from_slice(&x.to_array());
+                            j += 8;
+                        }
+                        for out in &mut out_row[j..] {
+                            *out *= inv_sum;
+                        }
+                    });
+            }
+
+            #[cfg(not(feature = "rayon"))]
+            {
+                for (out_row, row_slice) in v.chunks_mut(cols).zip(self.data.chunks(cols)) {
                     let max = row_slice.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-                    let max_v = f32x8::splat(max);
-                    let mut sum_v = f32x8::splat(0.0);
-                    let mut i = 0;
-                    while i + 8 <= cols {
-                        let chunk: [f32; 8] = row_slice[i..i + 8].try_into().unwrap();
-                        let e = (f32x8::new(chunk) - max_v).exp();
-                        out_row[i..i + 8].copy_from_slice(&e.to_array());
-                        sum_v += e;
-                        i += 8;
-                    }
-                    let mut sum = sum_v.reduce_add();
-                    for (out, &x) in out_row[i..].iter_mut().zip(row_slice[i..].iter()) {
+                    let mut sum = 0.0f32;
+                    for (out, &x) in out_row.iter_mut().zip(row_slice.iter()) {
                         let e = (x - max).exp();
                         *out = e;
                         sum += e;
                     }
-                    let inv_sum = 1.0 / sum;
-                    let inv_sum_v = f32x8::splat(inv_sum);
-                    let mut j = 0;
-                    while j + 8 <= cols {
-                        let chunk: [f32; 8] = out_row[j..j + 8].try_into().unwrap();
-                        let mut x = f32x8::new(chunk);
-                        x *= inv_sum_v;
-                        out_row[j..j + 8].copy_from_slice(&x.to_array());
-                        j += 8;
+                    for out in out_row.iter_mut() {
+                        *out /= sum;
                     }
-                    for out in &mut out_row[j..] {
-                        *out *= inv_sum;
-                    }
-                });
+                }
+            }
         }
 
         Matrix::from_vec(rows, cols, v)
@@ -539,10 +574,54 @@ pub fn softmax_cross_entropy(
     let logits_slice = &logits.data[row_offset * cols..row_offset * cols + rows_to_process * cols];
     let grad_slice = &mut grad.data[row_offset * cols..row_offset * cols + rows_to_process * cols];
 
-    // Process each row in parallel, computing per-row loss and prediction.
+    // Process each row computing per-row loss and prediction.
+    #[cfg(feature = "rayon")]
     let results: Vec<(f32, usize)> = grad_slice
         .par_chunks_mut(cols)
         .zip(logits_slice.par_chunks(cols))
+        .enumerate()
+        .map(|(i, (grad_row, row_slice))| {
+            let tok = targets[i];
+
+            // First pass: determine maximum logit for numerical stability and
+            // simultaneously compute the argmax for predictions.
+            let mut max_val = f32::NEG_INFINITY;
+            let mut best_tok = 0usize;
+            for (t, &v) in row_slice.iter().enumerate() {
+                if v > max_val {
+                    max_val = v;
+                    best_tok = t;
+                }
+            }
+
+            // Second pass: compute exponentials and their sum while storing
+            // them directly into the gradient buffer.
+            let mut sum = 0.0f32;
+            for (g, &v) in grad_row.iter_mut().zip(row_slice.iter()) {
+                let e = (v - max_val).exp();
+                *g = e;
+                sum += e;
+            }
+
+            // Normalize to obtain probabilities, accumulate loss and finalize
+            // gradient in-place.
+            let mut target_prob = 0.0f32;
+            for (t, g) in grad_row.iter_mut().enumerate() {
+                *g /= sum;
+                if t == tok {
+                    target_prob = *g;
+                    *g -= 1.0;
+                }
+            }
+
+            (-(target_prob + 1e-9).ln(), best_tok)
+        })
+        .collect();
+
+    #[cfg(not(feature = "rayon"))]
+    let results: Vec<(f32, usize)> = grad_slice
+        .chunks_mut(cols)
+        .zip(logits_slice.chunks(cols))
         .enumerate()
         .map(|(i, (grad_row, row_slice))| {
             let tok = targets[i];
@@ -588,7 +667,10 @@ pub fn softmax_cross_entropy(
 
     if cnt > 0.0 {
         loss /= cnt;
+        #[cfg(feature = "rayon")]
         grad.data.par_iter_mut().for_each(|v| *v /= cnt);
+        #[cfg(not(feature = "rayon"))]
+        grad.data.iter_mut().for_each(|v| *v /= cnt);
     }
 
     (loss, grad, preds)
@@ -689,10 +771,20 @@ pub fn tensor_add(a: &Tensor, b: &Tensor) -> Tensor {
         ArrayViewMutD::from_shape(IxDyn(&shape), &mut out).expect("shape mismatch");
 
     if len > TENSOR_ADD_PAR_THRESHOLD.load(Ordering::Relaxed) {
-        Zip::from(&mut out_view)
-            .and_broadcast(a_view)
-            .and_broadcast(b_view)
-            .par_for_each(|o, &av, &bv| *o = av + bv);
+        #[cfg(feature = "rayon")]
+        {
+            Zip::from(&mut out_view)
+                .and_broadcast(a_view)
+                .and_broadcast(b_view)
+                .par_for_each(|o, &av, &bv| *o = av + bv);
+        }
+        #[cfg(not(feature = "rayon"))]
+        {
+            Zip::from(&mut out_view)
+                .and_broadcast(a_view)
+                .and_broadcast(b_view)
+                .for_each(|o, &av, &bv| *o = av + bv);
+        }
     } else {
         Zip::from(&mut out_view)
             .and_broadcast(a_view)
@@ -730,6 +822,7 @@ pub fn tensor_matmul(a: &Tensor, b: &Tensor) -> Tensor {
         const PAR_THRESHOLD: usize = 128 * 128;
         let mut out = vec![0.0; m * n];
 
+        #[cfg(feature = "rayon")]
         if m * n > PAR_THRESHOLD {
             out.par_chunks_mut(n).enumerate().for_each(|(i, row)| {
                 for j in 0..n {
@@ -741,6 +834,19 @@ pub fn tensor_matmul(a: &Tensor, b: &Tensor) -> Tensor {
                 }
             });
         } else {
+            for i in 0..m {
+                for j in 0..n {
+                    let mut sum = 0.0;
+                    for p in 0..k {
+                        sum += a.data[i * k + p] * b.data[p * n + j];
+                    }
+                    out[i * n + j] = sum;
+                }
+            }
+        }
+
+        #[cfg(not(feature = "rayon"))]
+        {
             for i in 0..m {
                 for j in 0..n {
                     let mut sum = 0.0;
