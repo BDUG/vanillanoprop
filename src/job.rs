@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{self, Sender, Receiver};
 
-use serde::{Serialize};
+use serde::Serialize;
 use serde_json::Value;
-use tokio::sync::broadcast;
 use uuid::Uuid;
 
 #[derive(Clone, Serialize)]
@@ -24,7 +24,7 @@ pub struct JobInfo {
 
 struct InternalJob {
     info: JobInfo,
-    tx: broadcast::Sender<String>,
+    subscribers: Vec<Sender<String>>,
 }
 
 #[derive(Clone)]
@@ -39,14 +39,13 @@ impl JobRegistry {
 
     pub fn create_job(&self) -> String {
         let id = Uuid::new_v4().to_string();
-        let (tx, _rx) = broadcast::channel(100);
         let job = InternalJob {
             info: JobInfo {
                 status: JobStatus::Queued,
                 progress: 0.0,
                 result: None,
             },
-            tx,
+            subscribers: Vec::new(),
         };
         self.inner.lock().unwrap().insert(id.clone(), job);
         id
@@ -56,7 +55,8 @@ impl JobRegistry {
         let mut inner = self.inner.lock().unwrap();
         if let Some(job) = inner.get_mut(id) {
             job.info.status = status.clone();
-            let _ = job.tx.send(serde_json::json!({"status": status}).to_string());
+            let message = serde_json::json!({"status": status}).to_string();
+            job.subscribers.retain(|tx| tx.send(message.clone()).is_ok());
         }
     }
 
@@ -64,7 +64,8 @@ impl JobRegistry {
         let mut inner = self.inner.lock().unwrap();
         if let Some(job) = inner.get_mut(id) {
             job.info.progress = progress;
-            let _ = job.tx.send(serde_json::json!({"progress": progress}).to_string());
+            let message = serde_json::json!({"progress": progress}).to_string();
+            job.subscribers.retain(|tx| tx.send(message.clone()).is_ok());
         }
     }
 
@@ -72,7 +73,8 @@ impl JobRegistry {
         let mut inner = self.inner.lock().unwrap();
         if let Some(job) = inner.get_mut(id) {
             job.info.result = Some(result.clone());
-            let _ = job.tx.send(serde_json::json!({"result": result}).to_string());
+            let message = serde_json::json!({"result": result}).to_string();
+            job.subscribers.retain(|tx| tx.send(message.clone()).is_ok());
         }
     }
 
@@ -84,7 +86,14 @@ impl JobRegistry {
         self.inner.lock().unwrap().get(id).and_then(|j| j.info.result.clone())
     }
 
-    pub fn subscribe(&self, id: &str) -> Option<broadcast::Receiver<String>> {
-        self.inner.lock().unwrap().get(id).map(|j| j.tx.subscribe())
+    pub fn subscribe(&self, id: &str) -> Option<Receiver<String>> {
+        let (tx, rx) = mpsc::channel();
+        let mut inner = self.inner.lock().unwrap();
+        if let Some(job) = inner.get_mut(id) {
+            job.subscribers.push(tx);
+            Some(rx)
+        } else {
+            None
+        }
     }
 }
