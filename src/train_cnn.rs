@@ -1,4 +1,4 @@
-use indicatif::ProgressBar;
+use crate::util::progress::ProgressBar;
 
 use crate::config::Config;
 use crate::data::{DataLoader, Mnist};
@@ -153,7 +153,7 @@ pub fn run(
     let mut last_lr = base_lr;
 
     math::reset_matrix_ops();
-    let pb = ProgressBar::new(epochs as u64);
+    let mut pb = ProgressBar::new(epochs as u64);
     pb.set_position(start_epoch as u64);
 
     let mut loader = DataLoader::<Mnist>::new(config.batch_size, false, None);

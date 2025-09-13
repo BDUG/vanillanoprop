@@ -1,4 +1,4 @@
-use indicatif::ProgressBar;
+use vanillanoprop::util::progress::ProgressBar;
 use vanillanoprop::config::Config;
 use vanillanoprop::data::{DataLoader, Mnist};
 use vanillanoprop::model::Model;
@@ -45,7 +45,7 @@ fn run(config: &Config) {
     let l2 = 1e-4f32;
     let evaluator = Model::new();
 
-    let pb = ProgressBar::new(config.epochs as u64);
+    let mut pb = ProgressBar::new(config.epochs as u64);
     let mut loader = DataLoader::<Mnist>::new(config.batch_size, false, None);
     for epoch in 0..config.epochs {
         loader.reset(true);

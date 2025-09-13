@@ -1,4 +1,4 @@
-use indicatif::ProgressBar;
+use vanillanoprop::util::progress::ProgressBar;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -173,7 +173,7 @@ fn run(
     let evaluator = Model::new();
 
     math::reset_matrix_ops();
-    let pb = ProgressBar::new(config.epochs as u64);
+    let mut pb = ProgressBar::new(config.epochs as u64);
     pb.set_position(start_epoch as u64);
     let mut loader = DataLoader::<Mnist>::new(config.batch_size, false, None);
     for epoch in start_epoch..config.epochs {

@@ -1,4 +1,4 @@
-use indicatif::ProgressBar;
+use vanillanoprop::util::progress::ProgressBar;
 use rand::Rng;
 use vanillanoprop::rng::rng_from_env;
 
@@ -18,7 +18,7 @@ fn train_backprop(epochs: usize) -> (f32, usize, usize, u64) {
 
     math::reset_matrix_ops();
     let start_mem = memory::peak_memory_bytes();
-    let pb = ProgressBar::new(epochs as u64);
+    let mut pb = ProgressBar::new(epochs as u64);
     let mut best_f1 = f32::NEG_INFINITY;
 
     let mut loader = DataLoader::<Mnist>::new(4, false, None);
@@ -87,7 +87,7 @@ fn train_noprop(epochs: usize) -> (f32, usize, usize, u64) {
 
     math::reset_matrix_ops();
     let start_mem = memory::peak_memory_bytes();
-    let pb = ProgressBar::new(epochs as u64);
+    let mut pb = ProgressBar::new(epochs as u64);
     let mut best_f1 = f32::NEG_INFINITY;
 
     let mut loader = DataLoader::<Mnist>::new(4, false, None);
