@@ -25,6 +25,7 @@ where
     /// Integrate the system from `t0` to `t1` starting at state `x0` using an
     /// explicit Euler method with `steps` iterations.
     pub fn integrate(&self, x0: &[f32], t0: f32, t1: f32, steps: usize) -> Vec<Vec<f32>> {
+        assert!(steps > 0, "steps must be > 0");
         let dt = (t1 - t0) / steps as f32;
         let mut x = x0.to_vec();
         let mut t = t0;
@@ -43,14 +44,8 @@ where
     /// Compute a simple time dependent mean squared error between the state at
     /// `t1` and a target state.  The dynamics are obtained by integrating the
     /// flow from `x0`.
-    pub fn time_loss(
-        &self,
-        x0: &[f32],
-        target: &[f32],
-        t0: f32,
-        t1: f32,
-        steps: usize,
-    ) -> f32 {
+    pub fn time_loss(&self, x0: &[f32], target: &[f32], t0: f32, t1: f32, steps: usize) -> f32 {
+        assert!(steps > 0, "steps must be > 0");
         let traj = self.integrate(x0, t0, t1, steps);
         let xt = traj.last().unwrap();
         xt.iter()
@@ -85,5 +80,11 @@ mod tests {
         let loss = flow.time_loss(&[1.0], &[E], 0.0, 1.0, 1000);
         assert!(loss < 1e-2);
     }
-}
 
+    #[test]
+    #[should_panic(expected = "steps must be > 0")]
+    fn rejects_zero_steps() {
+        let flow = FlowModel::new(|_t, _x| vec![0.0]);
+        flow.integrate(&[0.0], 0.0, 1.0, 0);
+    }
+}
