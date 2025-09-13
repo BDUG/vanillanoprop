@@ -1,17 +1,17 @@
-use super::{language_env::LanguageEnv, treepo::Env};
+use super::treepo::Env;
 use crate::math::{argmax, softmax_cross_entropy, Matrix};
 use crate::models::{DecoderT, TransformerEncoder};
 use crate::reward::RewardModel;
 
 /// Agent that adapts itself online by updating a Transformer
-/// encoder/decoder on the reward signal from a [`LanguageEnv`].
+/// encoder/decoder on the reward signal from an environment.
 ///
 /// At each step the current environment state is encoded, the decoder
 /// predicts the next token, the environment returns a reward and the
 /// true token. The agent then performs a backward pass and updates the
 /// model parameters using a simple Adam step.
-pub struct SelfAdaptAgent<R: RewardModel> {
-    pub env: LanguageEnv,
+pub struct SelfAdaptAgent<R: RewardModel, E: Env<State = Vec<u8>, Action = u8>> {
+    pub env: E,
     pub encoder: TransformerEncoder,
     pub decoder: DecoderT,
     pub lr: f32,
@@ -20,10 +20,10 @@ pub struct SelfAdaptAgent<R: RewardModel> {
     state: Vec<u8>,
 }
 
-impl<R: RewardModel> SelfAdaptAgent<R> {
+impl<R: RewardModel, E: Env<State = Vec<u8>, Action = u8>> SelfAdaptAgent<R, E> {
     /// Construct a new agent with the given environment and models.
     pub fn new(
-        mut env: LanguageEnv,
+        mut env: E,
         encoder: TransformerEncoder,
         decoder: DecoderT,
         lr: f32,
@@ -52,6 +52,9 @@ impl<R: RewardModel> SelfAdaptAgent<R> {
     }
 
     /// Perform a single environment step, update the models and return the reward.
+    ///
+    /// Returns `None` if the environment has terminated. If the environment
+    /// yields an empty state, the expected token defaults to `0`.
     pub fn step(&mut self) -> Option<f32> {
         if self.env.is_terminal() {
             return None;
@@ -65,7 +68,7 @@ impl<R: RewardModel> SelfAdaptAgent<R> {
         let row_slice = &logits.data[last_row * logits.cols..(last_row + 1) * logits.cols];
         let action = argmax(row_slice) as u8;
         let (next_state, _env_reward) = self.env.step(action);
-        let expected = *next_state.last().unwrap();
+        let expected = next_state.last().copied().unwrap_or_default();
         let reward = self.reward_model.score(&[action], &[expected]);
         let target = expected as usize;
         let (_loss, grad, _preds) = softmax_cross_entropy(&logits, &[target], last_row);
