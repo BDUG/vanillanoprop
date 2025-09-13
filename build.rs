@@ -1,5 +1,5 @@
 use std::env;
-use glob::glob;
+use std::fs;
 
 fn main() {
     if env::var("CARGO_FEATURE_KAI").is_err() {
@@ -7,8 +7,11 @@ fn main() {
     }
 
     let mut build = cc::Build::new();
-    for entry in glob("c_src/*.c").expect("failed to read glob pattern") {
-        build.file(entry.expect("invalid path"));
+    for entry in fs::read_dir("c_src").expect("failed to read c_src directory") {
+        let path = entry.expect("invalid path").path();
+        if path.extension().and_then(|ext| ext.to_str()) == Some("c") {
+            build.file(path);
+        }
     }
 
     let target = env::var("TARGET").unwrap_or_default();

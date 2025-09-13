@@ -1960,7 +1960,6 @@ dependencies = [
  "cifar_10_loader",
  "criterion",
  "cust",
- "glob",
  "image 0.24.9",
  "libc",
  "matrixmultiply",
