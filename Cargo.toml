@@ -30,8 +30,7 @@ csv = "1"
 nalgebra = { version = "0.34" }
 onnx-pb = "0.1"
 prost = "0.6"
-hf-hub = "0.4"
-ureq = "2"
+native-tls = "0.2"
 safetensors = "0.6"
 ndarray = { version = "0.15" }
 matrixmultiply = { version = "0.3", optional = true }

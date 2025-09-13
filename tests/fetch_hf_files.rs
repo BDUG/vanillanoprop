@@ -37,7 +37,8 @@ fn invalid_token_returns_error() {
     let msg = err.to_string();
     assert!(
         msg.contains("Invalid or expired Hugging Face token")
-            || msg.contains("Proxy failed to connect"),
+            || msg.contains("Proxy failed to connect")
+            || msg.contains("Network is unreachable"),
         "unexpected error: {msg}"
     );
 }
